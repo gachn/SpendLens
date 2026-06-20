@@ -1,0 +1,582 @@
+package com.spendlens.app.ui.viewmodel
+
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.spendlens.app.data.db.CategoryEntity
+import com.spendlens.app.data.db.RawSmsEntity
+import com.spendlens.app.data.db.RawStatus
+import com.spendlens.app.data.db.SmsPatternEntity
+import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.data.prefs.AppearancePrefs
+import com.spendlens.app.data.prefs.ThemeMode
+import com.spendlens.app.di.AppContainer
+import com.spendlens.app.ui.util.Dates
+import androidx.work.WorkManager
+import com.spendlens.app.data.backup.NeonBackupRepository
+import com.spendlens.app.work.SmsSyncWorker
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
+
+// ---------- UI state models ----------
+
+data class CategorySlice(val name: String, val color: Color, val amountMinor: Long)
+
+data class DashboardUiState(
+    val spendMinor: Long = 0,
+    val incomeMinor: Long = 0,
+    val currency: String = "INR",
+    val monthLabel: String = Dates.monthLabel(),
+    val recent: List<TransactionEntity> = emptyList(),
+    val slices: List<CategorySlice> = emptyList(),
+    val categories: Map<Long, CategoryEntity> = emptyMap(),
+    val selectedMonth: YearMonth = YearMonth.now(),
+    val monthOptions: List<YearMonth> = emptyList(),
+)
+
+enum class TxnFilter(val label: String) {
+    ALL("All"),
+    DEBIT("Debit"),
+    CREDIT("Credit"),
+}
+
+data class TransactionsUiState(
+    val items: List<TransactionEntity> = emptyList(),
+    val categories: Map<Long, CategoryEntity> = emptyMap(),
+    val query: String = "",
+    val filter: TxnFilter = TxnFilter.ALL,
+)
+
+data class MonthlyBar(val label: String, val debitMinor: Long, val creditMinor: Long)
+
+data class AnalyticsUiState(
+    val months: List<MonthlyBar> = emptyList(),
+    val slices: List<CategorySlice> = emptyList(),
+    val topMerchants: List<CategorySlice> = emptyList(),
+    val currency: String = "INR",
+    val selectedMonth: YearMonth = YearMonth.now(),
+    val monthOptions: List<YearMonth> = emptyList(),
+)
+
+data class ReviewUiState(
+    val unparsed: List<RawSmsEntity> = emptyList(),
+    val duplicates: List<TransactionEntity> = emptyList(),
+    val categories: Map<Long, CategoryEntity> = emptyMap(),
+)
+
+data class CategorySpend(val category: CategoryEntity, val amountMinor: Long)
+
+data class CategoriesUiState(
+    val items: List<CategorySpend> = emptyList(),
+    val totalMinor: Long = 0,
+    val currency: String = "INR",
+    val monthLabel: String = Dates.monthLabel(),
+    val selectedMonth: YearMonth = YearMonth.now(),
+    val monthOptions: List<YearMonth> = emptyList(),
+)
+
+data class BudgetRow(
+    val category: CategoryEntity,
+    val limitMinor: Long,   // 0 = no budget set
+    val spentMinor: Long,
+)
+
+data class BudgetsUiState(
+    val rows: List<BudgetRow> = emptyList(),
+    val currency: String = "INR",
+    val monthLabel: String = Dates.monthLabel(),
+)
+
+data class BillItem(
+    val bill: com.spendlens.app.data.db.BillEntity,
+    val category: CategoryEntity?,
+    val dueLabel: String,
+    val daysUntil: Long,
+)
+
+data class BillsUiState(
+    val items: List<BillItem> = emptyList(),
+    val currency: String = "INR",
+)
+
+// ---------- ViewModels ----------
+
+class DashboardViewModel(container: AppContainer) : ViewModel() {
+    private val repo = container.transactionRepository
+    private val monthOptions = Dates.recentMonths(12)
+    private val selectedMonth = MutableStateFlow(monthOptions.first())
+
+    fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+
+    /** Latest known balance per account, for the Accounts card. */
+    val accounts: StateFlow<List<com.spendlens.app.data.db.AccountBalance>> =
+        repo.observeAccountBalances()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<DashboardUiState> = selectedMonth.flatMapLatest { month ->
+        val (from, to) = Dates.monthRange(month)
+        combine(
+            repo.observeTotal("DEBIT", from, to - 1),
+            repo.observeTotal("CREDIT", from, to - 1),
+            repo.observeBetween(from, to - 1),
+            repo.observeCategoryTotals(from, to - 1),
+            container.categoryRepository.observeCategories(),
+        ) { spend, income, monthTxns, cats, categories ->
+            val map = categories.associateBy { it.id }
+            val slices = cats.mapNotNull { ct ->
+                if (ct.categoryId == null) {
+                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), ct.total)
+                } else {
+                    map[ct.categoryId]?.let { CategorySlice(it.name, Color(it.color), ct.total) }
+                }
+            }
+            DashboardUiState(
+                spendMinor = spend,
+                incomeMinor = income,
+                currency = "INR",
+                monthLabel = Dates.label(month),
+                recent = monthTxns.take(15),
+                slices = slices,
+                categories = map,
+                selectedMonth = month,
+                monthOptions = monthOptions,
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState(monthOptions = monthOptions))
+}
+
+class TransactionsViewModel(container: AppContainer) : ViewModel() {
+    private val repo = container.transactionRepository
+    private val query = MutableStateFlow("")
+    private val filter = MutableStateFlow(TxnFilter.ALL)
+
+    fun setQuery(q: String) { query.value = q }
+    fun setFilter(f: TxnFilter) { filter.value = f }
+
+    val state: StateFlow<TransactionsUiState> = combine(
+        repo.observeAll(),
+        container.categoryRepository.observeCategories(),
+        query,
+        filter,
+    ) { all, categories, q, f ->
+        val filtered = all
+            .filter { txn ->
+                when (f) {
+                    TxnFilter.ALL -> true
+                    TxnFilter.DEBIT -> txn.direction == "DEBIT"
+                    TxnFilter.CREDIT -> txn.direction == "CREDIT"
+                }
+            }
+            .filter { txn ->
+                q.isBlank() ||
+                    txn.counterparty.contains(q, ignoreCase = true) ||
+                    txn.accountKey.contains(q, ignoreCase = true)
+            }
+        TransactionsUiState(filtered, categories.associateBy { it.id }, q, f)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState())
+}
+
+/** One bank account or card, aggregated from its transactions. */
+data class AccountSummary(
+    val accountKey: String,
+    val channel: String,
+    val isCard: Boolean,
+    /** Latest balance reported by an SMS for this account, if any. */
+    val balanceMinor: Long?,
+    val totalDebitMinor: Long,
+    val totalCreditMinor: Long,
+    val txnCount: Int,
+    val lastActivityAt: Long,
+    val transactions: List<TransactionEntity>,
+    /** Latest credit-card statement, if this is a card and a bill SMS was parsed. */
+    val billTotalDueMinor: Long? = null,
+    val billMinDueMinor: Long? = null,
+    val billDueDate: Long? = null,
+) {
+    /** Active in the selected month, or a card carrying an outstanding bill. */
+    val hasActivity: Boolean get() = txnCount > 0 || billTotalDueMinor != null
+}
+
+data class AccountsUiState(
+    val bankAccounts: List<AccountSummary> = emptyList(),
+    val cards: List<AccountSummary> = emptyList(),
+    val categories: Map<Long, CategoryEntity> = emptyMap(),
+    val selectedMonth: YearMonth = YearMonth.now(),
+    val months: List<YearMonth> = emptyList(),
+)
+
+class AccountsViewModel(container: AppContainer) : ViewModel() {
+    private val repo = container.transactionRepository
+    private val monthOptions = Dates.recentMonths(12)
+    private val selectedMonth = MutableStateFlow(monthOptions.first())
+
+    fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+
+    val state: StateFlow<AccountsUiState> = combine(
+        repo.observeAll(),
+        repo.observeAccountBalances(),
+        container.categoryRepository.observeCategories(),
+        container.cardBillDao.observeAll(),
+        selectedMonth,
+    ) { txns, balances, cats, bills, month ->
+        val (start, end) = Dates.monthRange(month)
+        val balanceByKey = balances.associate { it.accountKey to it.balanceMinor }
+        val billByCard = bills.associateBy { it.cardKey }
+        // Group across all history so every account stays visible; scope totals to the month.
+        val summaries = txns
+            .filter { !it.isDuplicate }
+            .groupBy { it.accountKey }
+            .map { (key, all) ->
+                // Representative channel = the one most transactions used.
+                val topChannel = all.groupingBy { it.channel }.eachCount()
+                    .maxByOrNull { it.value }?.key.orEmpty()
+                val monthTxns = all
+                    .filter { it.occurredAt in start until end }
+                    .sortedByDescending { it.occurredAt }
+                val bill = billByCard[key]
+                AccountSummary(
+                    accountKey = key,
+                    channel = topChannel,
+                    isCard = topChannel.equals("CARD", ignoreCase = true),
+                    balanceMinor = balanceByKey[key],
+                    totalDebitMinor = monthTxns.filter { it.direction == "DEBIT" }.sumOf { it.amountBaseMinor },
+                    totalCreditMinor = monthTxns.filter { it.direction == "CREDIT" }.sumOf { it.amountBaseMinor },
+                    txnCount = monthTxns.size,
+                    lastActivityAt = all.maxOf { it.occurredAt },
+                    transactions = monthTxns,
+                    billTotalDueMinor = bill?.totalDueMinor,
+                    billMinDueMinor = bill?.minDueMinor,
+                    billDueDate = bill?.dueDate,
+                )
+            }
+            .sortedByDescending { it.lastActivityAt }
+        AccountsUiState(
+            bankAccounts = summaries.filter { !it.isCard },
+            cards = summaries.filter { it.isCard },
+            categories = cats.associateBy { it.id },
+            selectedMonth = month,
+            months = monthOptions,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
+}
+
+class AnalyticsViewModel(container: AppContainer) : ViewModel() {
+    private val repo = container.transactionRepository
+    private val zone: ZoneId = ZoneId.systemDefault()
+    private val monthOptions = Dates.recentMonths(12)
+    private val selectedMonth = MutableStateFlow(monthOptions.first())
+
+    fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+
+    val state: StateFlow<AnalyticsUiState> = combine(
+        repo.observeAll(),
+        container.categoryRepository.observeCategories(),
+        selectedMonth,
+    ) { txns, categories, breakdownMonth ->
+        val map = categories.associateBy { it.id }
+        val currency = "INR" // base currency for all totals
+
+        // Last 6 months, oldest → newest.
+        val now = YearMonth.now(zone)
+        val spendable = txns.filter { !it.excludedFromExpense }
+        val months = (5 downTo 0).map { back ->
+            val ym = now.minusMonths(back.toLong())
+            val inMonth = spendable.filter { YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == ym }
+            MonthlyBar(
+                label = ym.month.name.take(3),
+                debitMinor = inMonth.filter { it.direction == "DEBIT" }.sumOf { it.amountBaseMinor },
+                creditMinor = inMonth.filter { it.direction == "CREDIT" }.sumOf { it.amountBaseMinor },
+            )
+        }
+
+        // Selected-month category + merchant breakdown.
+        val inMonth = spendable.filter {
+            YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == breakdownMonth && it.direction == "DEBIT"
+        }
+        val slices = inMonth.groupBy { it.categoryId }
+            .mapNotNull { (catId, list) ->
+                val total = list.sumOf { t -> t.amountBaseMinor }
+                if (catId == null) {
+                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total)
+                } else {
+                    map[catId]?.let { CategorySlice(it.name, Color(it.color), total) }
+                }
+            }.sortedByDescending { it.amountMinor }
+        val palette = listOf(0xFF0E7C66, 0xFF42A5F5, 0xFFEC407A, 0xFFFFB300, 0xFFAB47BC)
+        val merchants = inMonth.groupBy { it.counterparty }
+            .map { (name, list) -> name to list.sumOf { it.amountBaseMinor } }
+            .sortedByDescending { it.second }.take(5)
+            .mapIndexed { i, (name, total) -> CategorySlice(name, Color(palette[i % palette.size]), total) }
+
+        AnalyticsUiState(months, slices, merchants, currency, breakdownMonth, monthOptions)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState(monthOptions = monthOptions))
+}
+
+class ReviewViewModel(private val container: AppContainer) : ViewModel() {
+    private val repo = container.transactionRepository
+
+    val state: StateFlow<ReviewUiState> = combine(
+        container.rawSmsDao.observeByStatus(RawStatus.UNPARSED),
+        repo.observeFlaggedDuplicates(),
+        container.categoryRepository.observeCategories(),
+    ) { unparsed, dups, categories ->
+        ReviewUiState(unparsed, dups, categories.associateBy { it.id })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReviewUiState())
+
+    /** Confirm a flagged row really is a duplicate: hide it and mark the group resolved. */
+    fun confirmDuplicate(txn: TransactionEntity) = viewModelScope.launch {
+        repo.update(txn.copy(isDuplicate = true, userVerified = true))
+    }
+
+    /** Keep a flagged row as a genuine separate transaction. */
+    fun keepAsUnique(txn: TransactionEntity) = viewModelScope.launch {
+        repo.update(txn.copy(dupGroupId = null, isDuplicate = false, userVerified = true))
+    }
+
+    fun ignoreSms(raw: RawSmsEntity) = viewModelScope.launch {
+        container.rawSmsDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+    }
+}
+
+class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+    val patterns: StateFlow<List<SmsPatternEntity>> =
+        container.patternRepository.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ----- Appearance -----
+
+    val appearance: StateFlow<AppearancePrefs> = container.settingsStore.appearance
+
+    fun setThemeMode(mode: ThemeMode) = container.settingsStore.setThemeMode(mode)
+
+    fun setDynamicColor(enabled: Boolean) = container.settingsStore.setDynamicColor(enabled)
+
+    fun setPatternEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
+        container.patternRepository.setEnabled(id, enabled)
+    }
+
+    fun deletePattern(id: Long) = viewModelScope.launch { container.patternRepository.delete(id) }
+
+    fun clearAllPatterns() = viewModelScope.launch { container.patternRepository.clearAll() }
+
+    fun reimport(context: android.content.Context) = SmsSyncWorker.enqueueImport(context)
+
+    /** Clears parsed transactions, raw SMS and derived bills, leaving learned patterns/categories. */
+    fun clearTransactions() = viewModelScope.launch {
+        container.database.transactionDao().clear()
+        container.rawSmsDao.clear()
+        container.billRepository.clear()
+        container.cardBillDao.clear()
+    }
+
+    /** Wipes all transactions + raw SMS + derived bills then triggers a fresh full rescan. */
+    fun clearAllDataAndRescan(context: android.content.Context) = viewModelScope.launch {
+        WorkManager.getInstance(context).cancelUniqueWork(SmsSyncWorker.IMPORT_WORK)
+        container.database.transactionDao().clear()
+        container.rawSmsDao.clear()
+        container.billRepository.clear()
+        container.cardBillDao.clear()
+        SmsSyncWorker.enqueueImport(context)
+    }
+
+    // ----- Neon cloud backup -----
+
+    sealed class BackupState {
+        data object Idle : BackupState()
+        data object InProgress : BackupState()
+        data class Success(val rowsUpserted: Int, val at: Long) : BackupState()
+        data class Failed(val message: String) : BackupState()
+    }
+
+    private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
+    val backupState: StateFlow<BackupState> = _backupState
+
+    val neonConfigured: Boolean get() = NeonBackupRepository.isConfigured
+
+    fun backupNow() = viewModelScope.launch {
+        if (_backupState.value is BackupState.InProgress) return@launch
+        _backupState.value = BackupState.InProgress
+        val categories = container.categoryRepository.all().associateBy { it.id }
+        val transactions = container.transactionRepository.allTransactions()
+        _backupState.value = runCatching {
+            container.neonBackupRepository.backup(transactions, categories)
+        }.fold(
+            onSuccess = { BackupState.Success(it.rowsUpserted, it.backedUpAt) },
+            onFailure = {
+                android.util.Log.e("NeonBackup", "Backup failed: ${it::class.java.name}: ${it.message}", it)
+                BackupState.Failed(it.message ?: "Unknown error")
+            },
+        )
+    }
+}
+
+class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
+    private val monthOptions = Dates.recentMonths(12)
+    private val selectedMonth = MutableStateFlow(monthOptions.first())
+
+    fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<CategoriesUiState> = selectedMonth.flatMapLatest { month ->
+        val (from, to) = Dates.monthRange(month)
+        combine(
+            container.transactionRepository.observeCategoryTotals(from, to - 1),
+            container.categoryRepository.observeCategories(),
+        ) { totals, categories ->
+            val totalByCat = totals.associate { it.categoryId to it.total }
+            val uncategorizedTotal = totalByCat[null] ?: 0L
+            val items = buildList {
+                addAll(categories.map { CategorySpend(it, totalByCat[it.id] ?: 0L) })
+                if (uncategorizedTotal > 0L) add(
+                    CategorySpend(CategoryEntity(-1L, "Uncategorized", "❓", 0xFF9E9E9EL), uncategorizedTotal)
+                )
+            }.sortedByDescending { it.amountMinor }
+            CategoriesUiState(
+                items = items,
+                totalMinor = totals.sumOf { it.total },
+                currency = "INR", // base currency
+                monthLabel = Dates.label(month),
+                selectedMonth = month,
+                monthOptions = monthOptions,
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CategoriesUiState(monthOptions = monthOptions))
+
+    fun createCategory(name: String, icon: String, color: Long) = viewModelScope.launch {
+        container.categoryRepository.createCategory(name, icon, color)
+    }
+}
+
+class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
+    private val range = Dates.currentMonth()
+
+    val state: StateFlow<BudgetsUiState> = combine(
+        container.budgetRepository.observeAll(),
+        container.categoryRepository.observeCategories(),
+        container.transactionRepository.observeCategoryTotals(range.first, range.second),
+    ) { budgets, categories, totals ->
+        val spentByCat = totals.associate { it.categoryId to it.total }
+        val limitByCat = budgets.associate { it.categoryId to it.monthlyLimitMinor }
+        val rows = categories
+            .map { cat -> BudgetRow(cat, limitByCat[cat.id] ?: 0L, spentByCat[cat.id] ?: 0L) }
+            // Budgeted categories first, then by spend.
+            .sortedWith(compareByDescending<BudgetRow> { it.limitMinor > 0 }.thenByDescending { it.spentMinor })
+        BudgetsUiState(rows = rows, currency = "INR")
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetsUiState())
+
+    fun setBudget(categoryId: Long, limitMinor: Long) = viewModelScope.launch {
+        container.budgetRepository.setBudget(categoryId, limitMinor)
+    }
+}
+
+class BillsViewModel(private val container: AppContainer) : ViewModel() {
+    private val zone = ZoneId.systemDefault()
+    private val dueFmt = java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.getDefault())
+
+    val state: StateFlow<BillsUiState> = combine(
+        container.billRepository.observeAll(),
+        container.categoryRepository.observeCategories(),
+    ) { bills, categories ->
+        val map = categories.associateBy { it.id }
+        val now = System.currentTimeMillis()
+        val items = bills.map { b ->
+            val due = com.spendlens.app.parser.BillReminders.nextDueDate(b.dayOfMonth, now, zone)
+            BillItem(
+                bill = b,
+                category = b.categoryId?.let { map[it] },
+                dueLabel = due.format(dueFmt),
+                daysUntil = com.spendlens.app.parser.BillReminders.daysUntilDue(b.dayOfMonth, now, zone),
+            )
+        }.sortedBy { it.daysUntil }
+        BillsUiState(items, "INR")
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BillsUiState())
+
+    fun setReminder(id: Long, enabled: Boolean) = viewModelScope.launch {
+        container.billRepository.setReminderEnabled(id, enabled)
+    }
+
+    fun delete(id: Long) = viewModelScope.launch { container.billRepository.delete(id) }
+
+    /** Re-run recurring-bill detection over the full debit history. */
+    fun rescan() = viewModelScope.launch {
+        val debits = container.transactionRepository.allDebits()
+        val detected = com.spendlens.app.parser.BillDetector.detect(debits)
+        container.billRepository.syncDetected(detected)
+    }
+}
+
+/** Backs the transaction detail sheet: edit category, toggle expense, view source SMS. */
+class TransactionDetailViewModel(private val container: AppContainer) : ViewModel() {
+    val categories: StateFlow<List<CategoryEntity>> =
+        container.categoryRepository.observeCategories()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun update(txn: TransactionEntity) = viewModelScope.launch {
+        container.transactionRepository.update(txn)
+    }
+
+    fun createCategory(name: String, icon: String, color: Long, onCreated: (Long) -> Unit) =
+        viewModelScope.launch {
+            val id = container.categoryRepository.createCategory(name, icon, color)
+            onCreated(id)
+        }
+
+    /** Rename a merchant: remember it as metadata and apply to all of its transactions. */
+    fun renameMerchant(txn: TransactionEntity, newName: String) = viewModelScope.launch {
+        container.merchantRepository.setUserName(txn.counterparty, newName)
+        container.transactionRepository.renameCounterparty(txn.counterparty, newName.trim())
+    }
+
+    suspend fun smsBody(rawSmsId: Long): String? = container.rawSmsDao.getById(rawSmsId)?.body
+
+    /** Copy a picked image into encrypted storage and link it to the transaction. */
+    fun attachReceipt(txn: TransactionEntity, uri: android.net.Uri, onDone: (TransactionEntity) -> Unit) =
+        viewModelScope.launch {
+            val path = container.receiptStore.save(txn.id, uri)
+            val updated = txn.copy(receiptUri = path)
+            container.transactionRepository.update(updated)
+            onDone(updated)
+        }
+
+    fun removeReceipt(txn: TransactionEntity, onDone: (TransactionEntity) -> Unit) = viewModelScope.launch {
+        txn.receiptUri?.let { container.receiptStore.delete(it) }
+        val updated = txn.copy(receiptUri = null)
+        container.transactionRepository.update(updated)
+        onDone(updated)
+    }
+
+    suspend fun loadReceipt(path: String): android.graphics.Bitmap? = container.receiptStore.loadBitmap(path)
+}
+
+// ---------- Factory ----------
+
+class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        val vm: ViewModel = when {
+            modelClass.isAssignableFrom(DashboardViewModel::class.java) -> DashboardViewModel(container)
+            modelClass.isAssignableFrom(TransactionsViewModel::class.java) -> TransactionsViewModel(container)
+            modelClass.isAssignableFrom(AccountsViewModel::class.java) -> AccountsViewModel(container)
+            modelClass.isAssignableFrom(AnalyticsViewModel::class.java) -> AnalyticsViewModel(container)
+            modelClass.isAssignableFrom(ReviewViewModel::class.java) -> ReviewViewModel(container)
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(container)
+            modelClass.isAssignableFrom(CategoriesViewModel::class.java) -> CategoriesViewModel(container)
+            modelClass.isAssignableFrom(BudgetsViewModel::class.java) -> BudgetsViewModel(container)
+            modelClass.isAssignableFrom(BillsViewModel::class.java) -> BillsViewModel(container)
+            modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> TransactionDetailViewModel(container)
+            else -> error("Unknown ViewModel: ${modelClass.name}")
+        }
+        return vm as T
+    }
+}

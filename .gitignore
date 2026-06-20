@@ -1,0 +1,30 @@
+# Developer instructions with credentials — keep off public repos
+CLAUDE.md
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.keystore
+*.jks
+app/build/
+build/
+build-log.txt
+
+# Local analysis scripts with credentials
+query_db.mjs
+node_modules/
+package-lock.json
+package.json
+graphify-out/
+
+# Claude Code local settings
+.claude/
+
+# Kotlin compiler artifacts
+.kotlin/

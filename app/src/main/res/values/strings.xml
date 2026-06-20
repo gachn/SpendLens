@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">SpendLens</string>
+    <string name="sms_channel_name">Transaction parsing</string>
+    <string name="sms_channel_desc">Notifies when new transactions are detected</string>
+    <string name="bills_channel_name">Bill reminders</string>
+    <string name="bills_channel_desc">Reminds you before recurring bills and subscriptions are due</string>
+</resources>

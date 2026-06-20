@@ -1,0 +1,56 @@
+package com.spendlens.app
+
+import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import com.spendlens.app.di.AppContainer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+class SpendLensApp : Application() {
+
+    lateinit var container: AppContainer
+        private set
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onCreate() {
+        super.onCreate()
+        container = AppContainer(this)
+        createNotificationChannels()
+        com.spendlens.app.work.BillReminderWorker.schedule(this)
+        appScope.launch {
+            container.seed()
+            runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort
+        }
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            // Migrate: delete old low-importance channel so it's recreated with HIGH.
+            manager.deleteNotificationChannel(CHANNEL_TRANSACTIONS_V1)
+            val transactions = NotificationChannel(
+                CHANNEL_TRANSACTIONS,
+                getString(R.string.sms_channel_name),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply { description = getString(R.string.sms_channel_desc) }
+            val bills = NotificationChannel(
+                CHANNEL_BILLS,
+                getString(R.string.bills_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = getString(R.string.bills_channel_desc) }
+            manager.createNotificationChannel(transactions)
+            manager.createNotificationChannel(bills)
+        }
+    }
+
+    companion object {
+        private const val CHANNEL_TRANSACTIONS_V1 = "transactions" // old low-importance channel
+        const val CHANNEL_TRANSACTIONS = "transactions_v2"
+        const val CHANNEL_BILLS = "bills"
+    }
+}
