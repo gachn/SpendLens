@@ -4,17 +4,49 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Stylised magnifying lens over a coin = "SpendLens" -->
-    <group android:scaleX="0.55" android:scaleY="0.55"
-        android:translateX="24.3" android:translateY="24.3">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M48,18a30,30 0,1 0,0.01 0zM48,30a18,18 0,1 1,-0.01 0z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M70,70l8,-8l18,18a5.7,5.7 0,0 1,-8 8z" />
-        <path
-            android:fillColor="#FFD45E"
-            android:pathData="M48,38a10,10 0,1 0,0.01 0zM45,43h6v3h2v3h-8v-3h2v-1h-2z" />
-    </group>
+    <!-- SpendLens logo: magnifying glass with bar chart -->
+    <!-- Magnifying glass circle -->
+    <path
+        android:fillColor="#57f1db"
+        android:pathData="M28,28 C28,16.95 36.95,8 48,8 C59.05,8 68,16.95 68,28 C68,39.05 59.05,48 48,48 C36.95,48 28,39.05 28,28 Z" />
+    <!-- Inner white circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,28 C32,19.16 39.16,12 48,12 C56.84,12 64,19.16 64,28 C64,36.84 56.84,44 48,44 C39.16,44 32,36.84 32,28 Z" />
+    <!-- Bar chart bars inside magnifying glass -->
+    <!-- Bar 1 (shortest) -->
+    <rect
+        android:x="38"
+        android:y="32"
+        android:width="4"
+        android:height="12"
+        android:fillColor="#57f1db" />
+    <!-- Bar 2 -->
+    <rect
+        android:x="44"
+        android:y="28"
+        android:width="4"
+        android:height="16"
+        android:fillColor="#57f1db" />
+    <!-- Bar 3 -->
+    <rect
+        android:x="50"
+        android:y="26"
+        android:width="4"
+        android:height="18"
+        android:fillColor="#57f1db" />
+    <!-- Bar 4 (tallest) -->
+    <rect
+        android:x="56"
+        android:y="22"
+        android:width="4"
+        android:height="22"
+        android:fillColor="#57f1db" />
+    <!-- Handle -->
+    <path
+        android:fillColor="#57f1db"
+        android:pathData="M60,60 L85,85 C87,87 87,90 85,92 C83,94 80,94 78,92 L53,67 Z"
+        android:strokeColor="#57f1db"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
 </vector>
