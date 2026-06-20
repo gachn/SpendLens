@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -21,11 +19,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        val props = Properties().apply {
-            val f = rootProject.file("local.properties")
-            if (f.exists()) load(f.inputStream())
-        }
-        buildConfigField("String", "NEON_JDBC_URL", "\"${props["neon.jdbc.url"] ?: ""}\"")
     }
 
     buildTypes {
@@ -86,9 +79,6 @@ dependencies {
     // Background SMS processing
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
-
-    // PostgreSQL JDBC for Neon cloud backup
-    implementation("org.postgresql:postgresql:42.7.3")
 
     // Runtime permissions in Compose
     implementation(libs.accompanist.permissions)

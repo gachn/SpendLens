@@ -18,7 +18,6 @@ import com.spendlens.app.data.repository.CategoryRepository
 import com.spendlens.app.data.repository.MerchantRepository
 import com.spendlens.app.data.repository.PatternRepository
 import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.data.backup.NeonBackupRepository
 import com.spendlens.app.sms.SmsImporter
 import com.spendlens.app.sms.SmsProcessor
 
@@ -71,8 +70,6 @@ class AppContainer(context: Context) {
     }
 
     val smsImporter: SmsImporter by lazy { SmsImporter(appContext, smsProcessor) }
-
-    val neonBackupRepository by lazy { NeonBackupRepository(appContext) }
 
     /** Seeds built-in patterns and categories. Safe to call repeatedly. */
     suspend fun seed() {

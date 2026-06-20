@@ -136,7 +136,7 @@ interface TransactionDao {
     )
     suspend fun allDebits(): List<TransactionEntity>
 
-    /** All non-duplicate transactions, newest first — used by cloud backup. */
+    /** All non-duplicate transactions, newest first — used by debug export. */
     @Query("SELECT * FROM transactions WHERE isDuplicate = 0 ORDER BY occurredAt DESC")
     suspend fun allTransactions(): List<TransactionEntity>
 

@@ -17,7 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,14 +48,11 @@ import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.SectionHeader
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel) {
     val patterns by vm.patterns.collectAsState()
-    val backupState by vm.backupState.collectAsState()
+    val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
     val context = LocalContext.current
     var showClearDataDialog by remember { mutableStateOf(false) }
@@ -179,6 +176,35 @@ fun SettingsScreen(vm: SettingsViewModel) {
                     ) {
                         Text("Delete all data & re-scan")
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { vm.exportDebugCsv(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = exportState !is SettingsViewModel.ExportState.InProgress,
+                    ) {
+                        if (exportState is SettingsViewModel.ExportState.InProgress) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.height(16.dp).padding(end = 8.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Text("Exporting…")
+                        } else {
+                            Icon(
+                                Icons.Filled.Share,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                            Text("Export debug CSV")
+                        }
+                    }
+                    when (val s = exportState) {
+                        is SettingsViewModel.ExportState.Failed -> Text(
+                            "Export failed: ${s.message}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        else -> {}
+                    }
                 }
             }
         }
@@ -193,57 +219,6 @@ fun SettingsScreen(vm: SettingsViewModel) {
                         "account numbers or full messages. Looked-up names are cached locally.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-            }
-        }
-
-        if (vm.neonConfigured) {
-            item { SectionHeader("Cloud Backup") }
-            item {
-                ElevatedSurfaceCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        when (val state = backupState) {
-                            is SettingsViewModel.BackupState.Success -> Text(
-                                "Last backup: ${SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(state.at))} · ${state.rowsUpserted} rows",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            is SettingsViewModel.BackupState.Failed -> Text(
-                                "Backup failed: ${state.message}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            else -> {}
-                        }
-                        Button(
-                            onClick = { vm.backupNow() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = backupState !is SettingsViewModel.BackupState.InProgress,
-                        ) {
-                            if (backupState is SettingsViewModel.BackupState.InProgress) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier
-                                        .height(16.dp)
-                                        .padding(end = 8.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                                Text("Backing up…")
-                            } else {
-                                Icon(
-                                    Icons.Filled.Cloud,
-                                    contentDescription = null,
-                                    modifier = Modifier.padding(end = 8.dp),
-                                )
-                                Text("Back up to Neon cloud")
-                            }
-                        }
-                        Text(
-                            "Sends all parsed transactions to your Neon PostgreSQL database for AI analysis. Credentials are not embedded in the APK — they come from local.properties.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
             }
         }
 

@@ -14,8 +14,9 @@ import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.di.AppContainer
 import com.spendlens.app.ui.util.Dates
 import androidx.work.WorkManager
-import com.spendlens.app.data.backup.NeonBackupRepository
 import com.spendlens.app.work.SmsSyncWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -390,33 +391,57 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         SmsSyncWorker.enqueueImport(context)
     }
 
-    // ----- Neon cloud backup -----
+    // ----- Debug export -----
 
-    sealed class BackupState {
-        data object Idle : BackupState()
-        data object InProgress : BackupState()
-        data class Success(val rowsUpserted: Int, val at: Long) : BackupState()
-        data class Failed(val message: String) : BackupState()
+    sealed class ExportState {
+        data object Idle : ExportState()
+        data object InProgress : ExportState()
+        data class Success(val path: String) : ExportState()
+        data class Failed(val message: String) : ExportState()
     }
 
-    private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
-    val backupState: StateFlow<BackupState> = _backupState
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState
 
-    val neonConfigured: Boolean get() = NeonBackupRepository.isConfigured
-
-    fun backupNow() = viewModelScope.launch {
-        if (_backupState.value is BackupState.InProgress) return@launch
-        _backupState.value = BackupState.InProgress
-        val categories = container.categoryRepository.all().associateBy { it.id }
-        val transactions = container.transactionRepository.allTransactions()
-        _backupState.value = runCatching {
-            container.neonBackupRepository.backup(transactions, categories)
+    fun exportDebugCsv(context: android.content.Context) = viewModelScope.launch {
+        fun escape(v: String) = if (v.contains(',') || v.contains('"') || v.contains('\n'))
+            "\"${v.replace("\"", "\"\"")}\"" else v
+        if (_exportState.value is ExportState.InProgress) return@launch
+        _exportState.value = ExportState.InProgress
+        _exportState.value = runCatching {
+            val file = withContext(Dispatchers.IO) {
+                val txns = container.transactionRepository.allTransactions()
+                val categories = container.categoryRepository.all().associateBy { it.id }
+                val dir = context.getExternalFilesDir(null) ?: error("External storage unavailable")
+                val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+                val out = java.io.File(dir, "spendlens_debug_$ts.csv")
+                out.bufferedWriter().use { w ->
+                    w.write("id,amount_inr,currency,direction,counterparty,category,occurred_at,channel,account_key,excluded,note,tags\n")
+                    txns.forEach { t ->
+                        val cat = categories[t.categoryId]?.name ?: ""
+                        val date = java.time.Instant.ofEpochMilli(t.occurredAt).toString()
+                        w.write("${t.id},${t.amountBaseMinor / 100.0},${escape(t.currency)},${escape(t.direction)},${escape(t.counterparty)},${escape(cat)},${date},${escape(t.channel)},${escape(t.accountKey)},${t.excludedFromExpense},${escape(t.note ?: "")},${escape(t.tags ?: "")}\n")
+                    }
+                }
+                out
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", file,
+            )
+            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(
+                android.content.Intent.createChooser(shareIntent, "Share debug export").apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            file.absolutePath
         }.fold(
-            onSuccess = { BackupState.Success(it.rowsUpserted, it.backedUpAt) },
-            onFailure = {
-                android.util.Log.e("NeonBackup", "Backup failed: ${it::class.java.name}: ${it.message}", it)
-                BackupState.Failed(it.message ?: "Unknown error")
-            },
+            onSuccess = { ExportState.Success(it) },
+            onFailure = { ExportState.Failed(it.message ?: "Unknown error") },
         )
     }
 }
