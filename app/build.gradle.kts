@@ -83,6 +83,9 @@ dependencies {
     // Runtime permissions in Compose
     implementation(libs.accompanist.permissions)
 
+    // Biometric / device-credential app lock
+    implementation(libs.androidx.biometric)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)

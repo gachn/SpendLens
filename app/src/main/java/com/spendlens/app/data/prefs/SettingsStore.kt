@@ -19,6 +19,14 @@ data class AppearancePrefs(
     val dynamicColor: Boolean = false,
 )
 
+/** App-lock choices, surfaced in Settings → Security. */
+data class SecurityPrefs(
+    /** Require biometric / device-credential auth to open the app. */
+    val appLockEnabled: Boolean = false,
+    /** Seconds the app may sit in the background before it re-locks (avoids re-prompt on rotation). */
+    val gracePeriodSec: Int = 30,
+)
+
 /**
  * Lightweight, synchronous preference store for non-sensitive UI settings.
  * Backed by plain [android.content.SharedPreferences] (no encryption needed —
@@ -32,6 +40,9 @@ class SettingsStore(context: Context) {
     private val _appearance = MutableStateFlow(load())
     val appearance: StateFlow<AppearancePrefs> = _appearance.asStateFlow()
 
+    private val _security = MutableStateFlow(loadSecurity())
+    val security: StateFlow<SecurityPrefs> = _security.asStateFlow()
+
     private fun load(): AppearancePrefs {
         val mode = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
             ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -41,6 +52,15 @@ class SettingsStore(context: Context) {
             dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, false),
         )
     }
+
+    private fun loadSecurity(): SecurityPrefs = SecurityPrefs(
+        appLockEnabled = prefs.getBoolean(KEY_APP_LOCK, false),
+        gracePeriodSec = prefs.getInt(KEY_GRACE_SEC, 30),
+    )
+
+    /** Synchronous read for app-launch gating (before any flow is collected). */
+    fun isAppLockEnabled(): Boolean = prefs.getBoolean(KEY_APP_LOCK, false)
+    fun gracePeriodSec(): Int = prefs.getInt(KEY_GRACE_SEC, 30)
 
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
@@ -52,8 +72,20 @@ class SettingsStore(context: Context) {
         _appearance.value = _appearance.value.copy(dynamicColor = enabled)
     }
 
+    fun setAppLockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_APP_LOCK, enabled).apply()
+        _security.value = _security.value.copy(appLockEnabled = enabled)
+    }
+
+    fun setGracePeriodSec(seconds: Int) {
+        prefs.edit().putInt(KEY_GRACE_SEC, seconds).apply()
+        _security.value = _security.value.copy(gracePeriodSec = seconds)
+    }
+
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
+        const val KEY_APP_LOCK = "app_lock_enabled"
+        const val KEY_GRACE_SEC = "app_lock_grace_sec"
     }
 }

@@ -470,6 +470,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setDynamicColor(enabled: Boolean) = container.settingsStore.setDynamicColor(enabled)
 
+    val security: StateFlow<com.spendlens.app.data.prefs.SecurityPrefs> = container.settingsStore.security
+
+    fun setAppLockEnabled(enabled: Boolean) = container.settingsStore.setAppLockEnabled(enabled)
+
+    fun setGracePeriod(seconds: Int) = container.settingsStore.setGracePeriodSec(seconds)
+
     fun setPatternEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
         container.patternRepository.setEnabled(id, enabled)
     }

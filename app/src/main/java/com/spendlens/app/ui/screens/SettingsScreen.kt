@@ -49,11 +49,20 @@ import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.SectionHeader
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
 
+/** Grace-period choices (seconds → label) for the app-lock re-lock delay. */
+private val GRACE_OPTIONS = listOf(
+    0 to "Instant",
+    30 to "30s",
+    60 to "1 min",
+    300 to "5 min",
+)
+
 @Composable
 fun SettingsScreen(vm: SettingsViewModel) {
     val patterns by vm.patterns.collectAsState()
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
+    val security by vm.security.collectAsState()
     val context = LocalContext.current
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showClearPatternsDialog by remember { mutableStateOf(false) }
@@ -147,6 +156,41 @@ fun SettingsScreen(vm: SettingsViewModel) {
                                 onCheckedChange = { vm.setDynamicColor(it) },
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("Security") }
+        item {
+            ElevatedSurfaceCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("App lock", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Require fingerprint, face or device PIN to open SpendLens.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = security.appLockEnabled,
+                            onCheckedChange = { vm.setAppLockEnabled(it) },
+                        )
+                    }
+                    if (security.appLockEnabled) {
+                        Text("Re-lock after", style = MaterialTheme.typography.titleSmall)
+                        SegmentedChoice(
+                            options = GRACE_OPTIONS,
+                            selected = GRACE_OPTIONS.firstOrNull { it.first == security.gracePeriodSec } ?: GRACE_OPTIONS[1],
+                            label = { it.second },
+                            onSelect = { vm.setGracePeriod(it.first) },
+                        )
                     }
                 }
             }
