@@ -251,6 +251,43 @@ class TransactionsViewModel(container: AppContainer) : ViewModel() {
             DateRangeFilter.THIS_YEAR -> Dates.yearStart() to null
         }
     }
+
+    // ----- Export (CSV / PDF), respecting the current filters -----
+
+    /** One-shot user-facing message after an export attempt (null = nothing to show). */
+    private val _exportMessage = MutableStateFlow<String?>(null)
+    val exportMessage: StateFlow<String?> = _exportMessage
+    fun consumeExportMessage() { _exportMessage.value = null }
+
+    fun exportCsv(context: android.content.Context) =
+        export(context, "text/csv", "Export transactions (CSV)") { snapshot ->
+            com.spendlens.app.data.export.StatementExporter
+                .writeCsv(context, snapshot.items, snapshot.categories)
+        }
+
+    fun exportPdf(context: android.content.Context) =
+        export(context, "application/pdf", "Export statement (PDF)") { snapshot ->
+            com.spendlens.app.data.export.StatementExporter
+                .writePdf(context, snapshot.items, snapshot.categories)
+        }
+
+    private fun export(
+        context: android.content.Context,
+        mime: String,
+        label: String,
+        build: suspend (TransactionsUiState) -> java.io.File,
+    ) = viewModelScope.launch {
+        val snapshot = state.value
+        if (snapshot.items.isEmpty()) {
+            _exportMessage.value = "Nothing to export."
+            return@launch
+        }
+        runCatching {
+            val file = withContext(Dispatchers.IO) { build(snapshot) }
+            // Launch the share-sheet on the main thread.
+            com.spendlens.app.data.export.StatementExporter.share(context, file, mime, label)
+        }.onFailure { _exportMessage.value = "Export failed: ${it.message}" }
+    }
 }
 
 /** One bank account or card, aggregated from its transactions. */
