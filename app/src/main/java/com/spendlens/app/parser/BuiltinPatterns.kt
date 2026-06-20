@@ -53,6 +53,44 @@ object BuiltinPatterns {
                 "(?<dir>withdrawn|debited)\\b.*?atm.*?(?:a/c|ac|card)[^\\dxX*]{0,8}" +
                 "(?<account>[xX*]*\\d{3,})?",
         ),
+        // Mutual-fund SIP / lump-sum purchase. No debit verb sits next to the amount
+        // ("SIP Purchase of Rs.X", "Purchase transaction ... for amount of INR X"), so the
+        // generic seeds miss it. The first money token after the SIP keyword is the invested
+        // amount; the NAV value always appears later, so a lazy match grabs the right one.
+        // Direction defaults to DEBIT (no dir group); SmsProcessor files it under Transfers,
+        // excluded from spend.
+        PatternSeed(
+            name = "Investment SIP purchase",
+            senderRegex = null,
+            priority = 50,
+            bodyRegex = "(?i).*?(?:sip|purchase transaction|mutual fund)" +
+                ".*?(?<curr>rs\\.?|inr)\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)",
+        ),
+        // Mutual-fund redemption / dividend / settlement payout — money in.
+        PatternSeed(
+            name = "Investment redemption/payout",
+            senderRegex = null,
+            priority = 50,
+            bodyRegex = "(?i).*?(?<dir>redemption|payout|settlement)" +
+                ".*?(?<curr>rs\\.?|inr)\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)",
+        ),
+        // Prepaid mobile recharge / govt-fee payment: "Recharge of INR X is successful",
+        // "Payment of Rs. X is successful". No verb adjacent to the amount.
+        PatternSeed(
+            name = "Recharge/payment success",
+            senderRegex = null,
+            priority = 50,
+            bodyRegex = "(?i).*?(?:recharge|payment) of\\s+(?<curr>inr|rs\\.?)\\s?" +
+                "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+is successful",
+        ),
+        // Insurance premium debit: "transaction of Rs X for your <insurer> policy".
+        PatternSeed(
+            name = "Insurance premium",
+            senderRegex = null,
+            priority = 50,
+            bodyRegex = "(?i).*?transaction of\\s+(?<curr>rs\\.?|inr)\\s?" +
+                "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+for your",
+        ),
         // Generic debit/credit account alert — broad fallback
         PatternSeed(
             name = "Generic debit/credit",

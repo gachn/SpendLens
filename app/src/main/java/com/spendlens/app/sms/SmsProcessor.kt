@@ -90,6 +90,31 @@ class SmsProcessor(
         return txn.takeIf { !it.isDuplicate }
     }
 
+    /**
+     * Re-run the filter + pattern match over every SMS currently stuck in UNPARSED. Newly added
+     * builtin patterns turn matches into transactions (→ PARSED); the tightened financial filter
+     * turns non-transactions into IGNORED. Does NOT invoke the AI/heuristic generator — bulk
+     * backlog clearing stays offline and free. Returns how many rows changed status.
+     */
+    suspend fun reprocessUnparsed(): Int {
+        val patterns = patternRepo.compiled()
+        var changed = 0
+        for (raw in rawDao.listByStatus(RawStatus.UNPARSED)) {
+            val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+            if (!FinancialSmsFilter.isFinancial(msg)) {
+                rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                changed++
+                continue
+            }
+            val result = engine.match(msg, patterns) ?: continue
+            result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
+            persistTransaction(raw.id, msg, result)
+            rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
+            changed++
+        }
+        return changed
+    }
+
     /** Parse a credit-card statement, if this SMS is one, keeping only the most recent per card. */
     private suspend fun captureCardBill(rawId: Long, msg: SmsMessage) {
         val bill = CardBillParser.parse(msg.sender, msg.body, msg.receivedAt) ?: return
@@ -184,8 +209,12 @@ class SmsProcessor(
         }
 
         val isSalary = p.direction == TxnDirection.CREDIT && SALARY_RE.containsMatchIn(msg.body)
+        // Mutual-fund / brokerage movements are not spend — file under Transfers and exclude,
+        // same as self-transfers.
+        val isInvestment = INVESTMENT_RE.containsMatchIn(msg.body)
         val categoryId = when {
             isSelfTransfer -> CATEGORY_TRANSFERS
+            isInvestment -> CATEGORY_TRANSFERS
             isSalary -> CATEGORY_INCOME
             else -> categoryRepo.categorizer().categorize(p.counterparty)
         }
@@ -221,7 +250,7 @@ class SmsProcessor(
             categoryId = categoryId,
             dupGroupId = groupId,
             isDuplicate = isDuplicate,
-            excludedFromExpense = isSelfTransfer,
+            excludedFromExpense = isSelfTransfer || isInvestment,
         )
         val id = txnRepo.insert(entity)
         return entity.copy(id = id)
@@ -233,5 +262,6 @@ class SmsProcessor(
         const val CATEGORY_TRANSFERS = 10L // DefaultCategories "Transfers"
         const val CATEGORY_INCOME = 9L // DefaultCategories "Income"
         val SALARY_RE = Regex("(?i)\\b(salary|payroll|wages|stipend)\\b")
+        val INVESTMENT_RE = Regex("(?i)\\b(sip|folio|elss|redemption|settlement|mutual fund)\\b")
     }
 }

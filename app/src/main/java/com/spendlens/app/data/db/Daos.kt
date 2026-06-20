@@ -236,6 +236,9 @@ interface PatternDao {
     @Query("SELECT COUNT(*) FROM sms_patterns")
     suspend fun count(): Int
 
+    @Query("SELECT name FROM sms_patterns")
+    suspend fun names(): List<String>
+
     @Query("DELETE FROM sms_patterns")
     suspend fun clear()
 }

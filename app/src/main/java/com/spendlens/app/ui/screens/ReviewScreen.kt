@@ -51,7 +51,13 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
             }
         }
 
-        item { SectionHeader("Unparsed messages (${state.unparsed.size})") }
+        item {
+            SectionHeader("Unparsed messages (${state.unparsed.size})") {
+                if (state.unparsed.isNotEmpty()) {
+                    OutlinedButton(onClick = { vm.reprocessUnparsed() }) { Text("Reprocess") }
+                }
+            }
+        }
         if (state.unparsed.isEmpty()) {
             item { EmptyHint("Every financial SMS was parsed. ") }
         } else {

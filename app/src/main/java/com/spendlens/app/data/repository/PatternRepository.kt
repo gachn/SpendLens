@@ -16,21 +16,27 @@ class PatternRepository(private val dao: PatternDao) {
     @Volatile
     private var cache: List<CompiledPattern>? = null
 
+    /**
+     * Insert any builtin seed not already present (matched by name). Runs every launch so seeds
+     * added in app updates land on existing installs, not just fresh ones. User-disabled patterns
+     * keep their name, so they are not re-inserted.
+     */
     suspend fun seedIfEmpty() {
-        if (dao.count() == 0) {
-            BuiltinPatterns.seeds.forEach { seed ->
-                dao.insert(
-                    SmsPatternEntity(
-                        name = seed.name,
-                        senderRegex = seed.senderRegex,
-                        bodyRegex = seed.bodyRegex,
-                        priority = seed.priority,
-                        source = PatternSource.BUILTIN,
-                    ),
-                )
-            }
-            invalidate()
+        val existing = dao.names().toSet()
+        val missing = BuiltinPatterns.seeds.filter { it.name !in existing }
+        if (missing.isEmpty()) return
+        missing.forEach { seed ->
+            dao.insert(
+                SmsPatternEntity(
+                    name = seed.name,
+                    senderRegex = seed.senderRegex,
+                    bodyRegex = seed.bodyRegex,
+                    priority = seed.priority,
+                    source = PatternSource.BUILTIN,
+                ),
+            )
         }
+        invalidate()
     }
 
     suspend fun compiled(): List<CompiledPattern> {

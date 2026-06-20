@@ -19,6 +19,7 @@ object Normalize {
     )
     private val creditVerbs = setOf(
         "credited", "received", "deposited", "refunded", "added",
+        "redemption", "payout", "settlement",
     )
 
     fun currency(symbol: String?): String {

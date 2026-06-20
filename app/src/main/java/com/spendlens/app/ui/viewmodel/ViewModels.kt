@@ -413,6 +413,11 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
     fun ignoreSms(raw: RawSmsEntity) = viewModelScope.launch {
         container.rawSmsDao.updateStatus(raw.id, RawStatus.IGNORED, null)
     }
+
+    /** Re-run filter + patterns over the UNPARSED backlog (e.g. after new builtin patterns ship). */
+    fun reprocessUnparsed() = viewModelScope.launch {
+        container.smsProcessor.reprocessUnparsed()
+    }
 }
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
