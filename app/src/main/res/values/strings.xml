@@ -6,4 +6,8 @@
     <string name="bills_channel_desc">Reminds you before recurring bills and subscriptions are due</string>
     <string name="budgets_channel_name">Budget alerts</string>
     <string name="budgets_channel_desc">Warns when a category is on pace to exceed its monthly budget</string>
+    <string name="widget_spend_label">SpendLens — Monthly Spend</string>
+    <string name="widget_spend_desc">Shows your current month spend vs budget at a glance</string>
+    <string name="widget_category_label">SpendLens — Top Categories</string>
+    <string name="widget_category_desc">Shows your top 3 spending categories for the current month</string>
 </resources>

@@ -50,6 +50,32 @@
             </intent-filter>
         </receiver>
 
+        <!-- 2×1 widget: current month spend vs budget -->
+        <receiver
+            android:name=".widget.SpendWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_spend_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_spend_info" />
+        </receiver>
+
+        <!-- 4×2 widget: top 3 category spends -->
+        <receiver
+            android:name=".widget.CategoryWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_category_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_category_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

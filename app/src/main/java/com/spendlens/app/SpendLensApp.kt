@@ -23,6 +23,7 @@ class SpendLensApp : Application() {
         createNotificationChannels()
         com.spendlens.app.work.BillReminderWorker.schedule(this)
         com.spendlens.app.work.VelocityAlertWorker.schedule(this)
+        com.spendlens.app.work.WidgetRefreshWorker.schedule(this)
         appScope.launch {
             container.seed()
             runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort
