@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -102,6 +103,7 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
             )
         } else {
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                item { NetWorthCard(bankAccounts = state.bankAccounts, cards = state.cards) }
                 if (banks.isNotEmpty()) {
                     item { SectionHeader("Bank accounts") }
                     items(banks) { acct -> AccountCard(acct, onClick = { openKey = acct.accountKey }) }
@@ -111,6 +113,86 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
                     items(cards) { acct -> AccountCard(acct, onClick = { openKey = acct.accountKey }) }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NetWorthCard(bankAccounts: List<AccountSummary>, cards: List<AccountSummary>) {
+    val assetsMinor = bankAccounts.mapNotNull { it.balanceMinor }.sum()
+    val liabilitiesMinor = cards.mapNotNull { it.billTotalDueMinor }.sum()
+    val netWorthMinor = assetsMinor - liabilitiesMinor
+    val hasBalances = bankAccounts.any { it.balanceMinor != null }
+    val hasBills = cards.any { it.billTotalDueMinor != null }
+    if (!hasBalances && !hasBills) return
+
+    val netColor: Color = if (netWorthMinor >= 0) SpendLensTheme.colors.credit else SpendLensTheme.colors.debit
+
+    ElevatedSurfaceCard(modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                "Net worth",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                Money.format(netWorthMinor, "INR"),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = netColor,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (hasBalances) {
+                    SummaryStat(
+                        label = "Assets",
+                        value = Money.format(assetsMinor, "INR"),
+                        accent = SpendLensTheme.colors.credit,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (hasBills) {
+                    SummaryStat(
+                        label = "Liabilities",
+                        value = Money.format(liabilitiesMinor, "INR"),
+                        accent = SpendLensTheme.colors.debit,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            if (hasBalances) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Account balances",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    bankAccounts.filter { it.balanceMinor != null }.forEach { acct ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "🏦 ${acct.accountKey}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    Money.format(acct.balanceMinor!!, "INR"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    "Updated ${Dates.date(acct.lastActivityAt)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
