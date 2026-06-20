@@ -83,9 +83,6 @@ dependencies {
     // Runtime permissions in Compose
     implementation(libs.accompanist.permissions)
 
-    // On-device ML — TFLite interpreter (model file optional; falls back to heuristic if absent)
-    implementation(libs.tensorflow.lite)
-
     // Biometric / device-credential app lock
     implementation(libs.androidx.biometric)
     // Override biometric's transitive fragment 1.2.5 (16-bit request-code crash)

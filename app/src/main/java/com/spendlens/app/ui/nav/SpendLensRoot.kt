@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
@@ -103,13 +102,13 @@ enum class Dest(val route: String, val label: String, val icon: ImageVector) {
     Budgets("budgets",    "Budgets",  Icons.Filled.Category),
 }
 
-private const val ROUTE_SETTINGS    = "settings"
-private const val ROUTE_REVIEW      = "review"
-private const val ROUTE_BILLS       = "bills"
-private const val ROUTE_ACCOUNTS    = "accounts"
-private const val ROUTE_CATEGORIES  = "categories"
-private const val ROUTE_MERCHANT    = "merchant"
-private const val ARG_MERCHANT      = "name"
+private const val ROUTE_SETTINGS     = "settings"
+private const val ROUTE_REVIEW       = "review"
+private const val ROUTE_BILLS        = "bills"
+private const val ROUTE_ACCOUNTS     = "accounts"
+private const val ROUTE_CATEGORIES   = "categories"
+private const val ROUTE_MERCHANT     = "merchant"
+private const val ARG_MERCHANT       = "name"
 
 @Composable
 fun SpendLensRoot(

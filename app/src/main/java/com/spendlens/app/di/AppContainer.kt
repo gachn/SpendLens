@@ -49,8 +49,8 @@ class AppContainer(context: Context) {
     /** Encrypted on-device store for receipt images attached to transactions. */
     val receiptStore by lazy { ReceiptStore(appContext) }
 
-    /** The pluggable AI slot — on-device heuristic in v1 (no network). */
-    val patternGenerator: PatternGenerator = HeuristicPatternGenerator()
+    /** On-device, no-network heuristic pattern learner for unrecognised SMS formats. */
+    val patternGenerator: PatternGenerator by lazy { HeuristicPatternGenerator() }
 
     /** Merchant-name resolver. Web-backed (Clearbit) per the user's choice; cached as metadata. */
     val merchantResolver: MerchantResolver = WebMerchantResolver()

@@ -12,6 +12,8 @@ import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.prefs.AppearancePrefs
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.di.AppContainer
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import com.spendlens.app.ui.util.Dates
 import androidx.work.WorkManager
 import com.spendlens.app.work.SmsSyncWorker

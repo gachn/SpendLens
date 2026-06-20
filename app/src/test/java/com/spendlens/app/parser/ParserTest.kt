@@ -87,4 +87,5 @@ class ParserTest {
         assertEquals(32050L, r!!.transaction.amountMinor)
         assertEquals(TxnDirection.DEBIT, r.transaction.direction)
     }
+
 }
