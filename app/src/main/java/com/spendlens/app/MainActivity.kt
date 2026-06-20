@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager
@@ -25,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,6 +43,9 @@ class MainActivity : FragmentActivity() {
 
     private val pendingTxnId = MutableStateFlow<Long?>(null)
     private val locked = MutableStateFlow(false)
+
+    /** Guards against firing a second prompt while one is already on screen. */
+    private var authInProgress = false
 
     private val settingsStore by lazy { (application as SpendLensApp).container.settingsStore }
 
@@ -81,6 +84,16 @@ class MainActivity : FragmentActivity() {
         lastBackgroundElapsed = SystemClock.elapsedRealtime()
     }
 
+    /**
+     * Auto-prompt only once the window actually has focus. BiometricPrompt rejects
+     * authenticate() with "Caller is not foreground" if fired during composition/onResume
+     * on a cold start (window not yet focused), which silently swallowed the prompt.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && locked.value && !authInProgress) promptUnlock()
+    }
+
     override fun onStart() {
         super.onStart()
         if (!settingsStore.isAppLockEnabled()) return
@@ -95,11 +108,14 @@ class MainActivity : FragmentActivity() {
 
     /** Prompt for biometric / device-credential auth. Clears [locked] on success. */
     private fun promptUnlock() {
+        if (authInProgress) return
         val authenticators =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) BIOMETRIC_STRONG or DEVICE_CREDENTIAL
             else BIOMETRIC_WEAK
         // No secure lock configured at all — don't trap the user out of their own app.
-        if (BiometricManager.from(this).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
+        val canAuth = BiometricManager.from(this).canAuthenticate(authenticators)
+        if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
+            Log.w(TAG, "canAuthenticate($authenticators) returned $canAuth — unlocking without prompt")
             locked.value = false
             return
         }
@@ -108,10 +124,19 @@ class MainActivity : FragmentActivity() {
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    authInProgress = false
                     locked.value = false
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    // User cancelled / hardware error / lockout: keep locked so the
+                    // LockScreen's Unlock button lets them retry.
+                    authInProgress = false
+                    Log.w(TAG, "auth error $errorCode: $errString")
                 }
             },
         )
+        authInProgress = true
         val info = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock SpendLens")
             .setSubtitle("Authenticate to view your finances")
@@ -130,6 +155,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        private const val TAG = "SpendLensLock"
         const val EXTRA_TXN_ID = "txn_id"
 
         /**
@@ -143,8 +169,8 @@ class MainActivity : FragmentActivity() {
 
 @Composable
 private fun LockScreen(onUnlock: () -> Unit) {
-    // Auto-show the system prompt as soon as the lock screen appears.
-    LaunchedEffect(Unit) { onUnlock() }
+    // Auto-prompt is driven by Activity.onWindowFocusChanged (the window must have focus
+    // before BiometricPrompt will show). The button below is the manual retry path.
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             Modifier.fillMaxSize().padding(32.dp),
