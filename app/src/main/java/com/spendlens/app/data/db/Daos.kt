@@ -92,6 +92,13 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getById(id: Long): TransactionEntity?
 
+    /** All non-duplicate transactions with a given merchant, newest first — merchant drill-down. */
+    @Query(
+        "SELECT * FROM transactions WHERE counterparty = :name AND isDuplicate = 0 " +
+            "ORDER BY occurredAt DESC",
+    )
+    fun observeByCounterparty(name: String): Flow<List<TransactionEntity>>
+
     /** Transactions linked as probable duplicates, for the Review screen. */
     @Query(
         "SELECT * FROM transactions WHERE dupGroupId IS NOT NULL AND userVerified = 0 " +

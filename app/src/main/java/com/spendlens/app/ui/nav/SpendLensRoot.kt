@@ -60,6 +60,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -75,6 +77,7 @@ import com.spendlens.app.ui.screens.BillsScreen
 import com.spendlens.app.ui.screens.BudgetsScreen
 import com.spendlens.app.ui.screens.CategoriesScreen
 import com.spendlens.app.ui.screens.DashboardScreen
+import com.spendlens.app.ui.screens.MerchantDetailScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
@@ -105,6 +108,8 @@ private const val ROUTE_REVIEW      = "review"
 private const val ROUTE_BILLS       = "bills"
 private const val ROUTE_ACCOUNTS    = "accounts"
 private const val ROUTE_CATEGORIES  = "categories"
+private const val ROUTE_MERCHANT    = "merchant"
+private const val ARG_MERCHANT      = "name"
 
 @Composable
 fun SpendLensRoot(
@@ -123,6 +128,7 @@ fun SpendLensRoot(
 
     PermissionGate {
         MainScaffold(
+            container = container,
             factory = factory,
             selected = selected,
             onSelectedChanged = { selected = it },
@@ -179,6 +185,7 @@ private fun PermissionGate(content: @Composable () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScaffold(
+    container: AppContainer,
     factory: SpendLensViewModelFactory,
     selected: TransactionEntity?,
     onSelectedChanged: (TransactionEntity?) -> Unit,
@@ -293,11 +300,31 @@ private fun MainScaffold(
             composable(ROUTE_REVIEW) {
                 ReviewScreen(viewModel<ReviewViewModel>(factory = factory), onTransactionClick = { onSelectedChanged(it) })
             }
+            composable(
+                route = "$ROUTE_MERCHANT/{$ARG_MERCHANT}",
+                arguments = listOf(navArgument(ARG_MERCHANT) { type = NavType.StringType }),
+            ) { entry ->
+                val name = entry.arguments?.getString(ARG_MERCHANT).orEmpty()
+                MerchantDetailScreen(
+                    counterparty = name,
+                    container = container,
+                    onBack = { nav.popBackStack() },
+                    onTransactionClick = { onSelectedChanged(it) },
+                )
+            }
         }
     }
 
     selected?.let { txn ->
-        TransactionDetailSheet(txn = txn, vm = detailVm, onDismiss = { onSelectedChanged(null) })
+        TransactionDetailSheet(
+            txn = txn,
+            vm = detailVm,
+            onDismiss = { onSelectedChanged(null) },
+            onMerchantHistory = { name ->
+                onSelectedChanged(null)
+                nav.navigate("$ROUTE_MERCHANT/${Uri.encode(name)}") { launchSingleTop = true }
+            },
+        )
     }
 }
 

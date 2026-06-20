@@ -34,6 +34,7 @@ object Dates {
     private val fullDateFmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
     private val dateTimeFmt = DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a", Locale.getDefault())
     private val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
+    private val shortMonthFmt = DateTimeFormatter.ofPattern("MMM", Locale.getDefault())
 
     /** [from, to] epoch-millis bounds of the current calendar month. */
     fun currentMonth(): Pair<Long, Long> {
@@ -65,6 +66,12 @@ object Dates {
         val now = YearMonth.now(zone)
         return (0 until count).map { now.minusMonths(it.toLong()) }
     }
+
+    /** The [YearMonth] an epoch-millis instant falls in (device zone). */
+    fun monthOf(epoch: Long): YearMonth = YearMonth.from(Instant.ofEpochMilli(epoch).atZone(zone))
+
+    /** Short month label e.g. "Jun" for charts/axes. */
+    fun shortMonth(ym: YearMonth): String = ym.format(shortMonthFmt)
 
     fun day(epoch: Long): String = Instant.ofEpochMilli(epoch).atZone(zone).format(dayFmt)
     fun date(epoch: Long): String = Instant.ofEpochMilli(epoch).atZone(zone).format(fullDateFmt)

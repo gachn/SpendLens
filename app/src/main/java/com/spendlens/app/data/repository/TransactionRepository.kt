@@ -28,6 +28,10 @@ class TransactionRepository(private val dao: TransactionDao) {
 
     fun observeFlaggedDuplicates(): Flow<List<TransactionEntity>> = dao.observeFlaggedDuplicates()
 
+    /** All transactions with [name] as counterparty, newest first — backs the merchant drill-down. */
+    fun observeByCounterparty(name: String): Flow<List<TransactionEntity>> =
+        dao.observeByCounterparty(name)
+
     fun observeAccountBalances(): Flow<List<AccountBalance>> = dao.observeAccountBalances()
 
     suspend fun allDebits(): List<TransactionEntity> = dao.allDebits()

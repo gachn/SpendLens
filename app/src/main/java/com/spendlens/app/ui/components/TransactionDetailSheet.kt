@@ -62,6 +62,7 @@ fun TransactionDetailSheet(
     txn: TransactionEntity,
     vm: TransactionDetailViewModel,
     onDismiss: () -> Unit,
+    onMerchantHistory: (String) -> Unit = {},
 ) {
     val categories by vm.categories.collectAsState()
     var current by remember(txn.id) { mutableStateOf(txn) }
@@ -98,6 +99,10 @@ fun TransactionDetailSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = { onMerchantHistory(current.counterparty) }) {
+                Text("📈 View merchant history")
+            }
             Spacer(Modifier.height(12.dp))
             if (current.currency != "INR" && current.amountBaseMinor > 0) {
                 DetailLine("In INR", Money.format(current.amountBaseMinor, "INR"))
