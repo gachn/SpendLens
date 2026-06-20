@@ -1,5 +1,6 @@
 package com.spendlens.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,16 +8,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,13 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardOptions
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
+import androidx.compose.ui.unit.sp
+import com.spendlens.app.ui.components.CircularProgressRing
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Money
 import com.spendlens.app.ui.viewmodel.BudgetRow
@@ -45,31 +56,190 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
     val state by vm.state.collectAsState()
     var editing by remember { mutableStateOf<BudgetRow?>(null) }
 
-    val budgeted = state.rows.filter { it.limitMinor > 0 }
+    val budgeted  = state.rows.filter { it.limitMinor > 0 }
     val totalLimit = budgeted.sumOf { it.limitMinor }
     val totalSpent = budgeted.sumOf { it.spentMinor }
+    val budgetPct  = if (totalLimit > 0) (totalSpent.toFloat() / totalLimit.toFloat()).coerceIn(0f, 1f) else 0f
+    val isOnTrack  = budgetPct < 0.9f
 
     LazyColumn(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item { Spacer(Modifier.height(8.dp)) }
+
+        // ── Global Budget overview ────────────────────────────────────────────
         item {
-            ElevatedSurfaceCard {
-                Column {
-                    Text(state.monthLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        "${Money.format(totalSpent, state.currency)} of ${Money.format(totalLimit, state.currency)}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            ) {
+                Box {
+                    // Gradient tint
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.04f),
+                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.02f),
+                                    )
+                                )
+                            )
                     )
-                    Text("Spent against your monthly budgets", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.padding(20.dp)) {
+                        // Header row
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ShowChart,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "GLOBAL BUDGET",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 0.8.sp,
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Text(
+                                    if (isOnTrack) "ON TRACK" else "AT RISK",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isOnTrack) MaterialTheme.colorScheme.onSurfaceVariant else SpendLensTheme.colors.debit,
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        // Big number
+                        Text(
+                            Money.format(totalSpent, state.currency),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "of ${Money.format(totalLimit, state.currency)} total allocated",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        // Progress bar
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("0%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${(budgetPct * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        ) {
+                            val barColor = if (isOnTrack) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(budgetPct)
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        Brush.horizontalGradient(listOf(barColor, barColor.copy(alpha = 0.7f)))
+                                    )
+                            )
+                        }
+                        if (totalLimit == 0L) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Tap a category below to set a budget limit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
         }
-        item { SectionHeader("Tap a category to set its monthly limit") }
-        items(state.rows) { row ->
-            BudgetRowCard(row, state.currency, onClick = { editing = row })
+
+        // ── AI Insight ────────────────────────────────────────────────────────
+        item {
+            val atRiskCategory = state.rows
+                .filter { it.limitMinor > 0 && it.spentMinor.toFloat() / it.limitMinor.toFloat() > 0.8f }
+                .maxByOrNull { it.spentMinor.toFloat() / it.limitMinor.toFloat() }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("SMART INSIGHT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiaryContainer, letterSpacing = 0.8.sp)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        if (atRiskCategory != null) {
+                            "You are projected to exceed your ${atRiskCategory.category.name} budget. " +
+                                "Spent ${Money.format(atRiskCategory.spentMinor, state.currency)} of ${Money.format(atRiskCategory.limitMinor, state.currency)}."
+                        } else if (totalLimit == 0L) {
+                            "Set category budgets below to start tracking your spending limits."
+                        } else {
+                            "Great job! All your category budgets are on track this month."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (atRiskCategory != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Surface(
+                            onClick = { editing = atRiskCategory },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("ADJUST BUDGET", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, letterSpacing = 0.5.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        // ── Category headers ──────────────────────────────────────────────────
+        item {
+            Text("Category Budgets", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        }
+
+        // ── Category budget cards ─────────────────────────────────────────────
+        items(state.rows) { row ->
+            BudgetCategoryCard(row = row, currency = state.currency, onClick = { editing = row })
+        }
+
         item { Spacer(Modifier.height(24.dp)) }
     }
 
@@ -87,45 +257,105 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
 }
 
 @Composable
-private fun BudgetRowCard(row: BudgetRow, currency: String, onClick: () -> Unit) {
+private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> Unit) {
     val hasBudget = row.limitMinor > 0
-    val color = Color(row.category.color)
+    val catColor = Color(row.category.color)
     val fraction = if (hasBudget) (row.spentMinor.toFloat() / row.limitMinor.toFloat()).coerceIn(0f, 1f) else 0f
     val overBudget = hasBudget && row.spentMinor > row.limitMinor
-    val barColor = if (overBudget) SpendLensTheme.colors.debit else color
+    val ringColor = when {
+        overBudget -> SpendLensTheme.colors.debit
+        fraction > 0.8f -> SpendLensTheme.colors.debit.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.primary
+    }
 
-    ElevatedSurfaceCard(modifier = Modifier.clickable(onClick = onClick)) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.height(36.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center,
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(
+            1.dp,
+            if (overBudget) SpendLensTheme.colors.debit.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.06f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Circular progress ring with icon/emoji center
+            CircularProgressRing(
+                progress = fraction,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                progressColor = ringColor,
+                diameter = 56.dp,
+                strokeWidth = 5.dp,
+            ) {
+                Text(row.category.icon, style = MaterialTheme.typography.titleSmall)
+            }
+
+            Spacer(Modifier.width(14.dp))
+
+            // Category info
+            Column(Modifier.weight(1f)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("  ${row.category.icon}  ", style = MaterialTheme.typography.titleMedium)
-                }
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(row.category.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     Text(
-                        if (hasBudget) {
-                            "${Money.format(row.spentMinor, currency)} of ${Money.format(row.limitMinor, currency)}"
-                        } else {
-                            "${Money.format(row.spentMinor, currency)} spent · no budget"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (overBudget) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
+                        row.category.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        if (hasBudget) "${(fraction * 100).toInt()}%" else "–",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ringColor,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
-                if (overBudget) {
-                    Text("over", style = MaterialTheme.typography.labelMedium, color = SpendLensTheme.colors.debit, fontWeight = FontWeight.Bold)
-                }
-            }
-            if (hasBudget) {
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.fillMaxWidth(fraction).height(8.dp).clip(RoundedCornerShape(4.dp)).background(barColor))
+                    Text(
+                        if (hasBudget)
+                            "${Money.format(row.spentMinor, currency)} / ${Money.format(row.limitMinor, currency)}"
+                        else
+                            "${Money.format(row.spentMinor, currency)} spent · no limit",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (overBudget) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!hasBudget) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                        ) {
+                            Text(
+                                "SET BUDGET",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 0.4.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
+                    } else if (overBudget) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SpendLensTheme.colors.debit.copy(alpha = 0.12f),
+                        ) {
+                            Text(
+                                "OVER BUDGET",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SpendLensTheme.colors.debit,
+                                letterSpacing = 0.4.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -133,12 +363,7 @@ private fun BudgetRowCard(row: BudgetRow, currency: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun SetBudgetDialog(
-    row: BudgetRow,
-    currency: String,
-    onDismiss: () -> Unit,
-    onSave: (limitMinor: Long) -> Unit,
-) {
+private fun SetBudgetDialog(row: BudgetRow, currency: String, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
     var text by remember { mutableStateOf(if (row.limitMinor > 0) (row.limitMinor / 100).toString() else "") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -146,18 +371,17 @@ private fun SetBudgetDialog(
             TextButton(onClick = {
                 val amount = text.trim().toDoubleOrNull() ?: 0.0
                 onSave((amount * 100).toLong())
-            }) { Text("Save") }
+            }) { Text("Save", color = MaterialTheme.colorScheme.primary) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         title = { Text("${row.category.icon} ${row.category.name} budget") },
         text = {
             Column {
-                Text(
-                    "Set a monthly limit. Enter 0 to remove the budget.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
+                Text("Set a monthly limit. Enter 0 to remove the budget.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { new -> text = new.filter { it.isDigit() || it == '.' } },
@@ -165,6 +389,10 @@ private fun SetBudgetDialog(
                     label = { Text("Monthly limit ($currency)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    ),
                 )
             }
         },
