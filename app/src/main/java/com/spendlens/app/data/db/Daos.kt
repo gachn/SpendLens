@@ -27,6 +27,9 @@ interface RawSmsDao {
     @Query("SELECT * FROM raw_sms WHERE status = :status ORDER BY receivedAt DESC")
     fun observeByStatus(status: String): Flow<List<RawSmsEntity>>
 
+    @Query("SELECT * FROM raw_sms WHERE status = :status ORDER BY receivedAt DESC")
+    suspend fun listByStatus(status: String): List<RawSmsEntity>
+
     @Query("SELECT * FROM raw_sms WHERE id = :id")
     suspend fun getById(id: Long): RawSmsEntity?
 
@@ -103,6 +106,14 @@ interface TransactionDao {
     )
     fun observeCategoryTotals(from: Long, to: Long): Flow<List<CategoryTotal>>
 
+    /** One-shot category spend totals for a window — used by the velocity-alert worker. */
+    @Query(
+        "SELECT categoryId AS categoryId, SUM(amountBaseMinor) AS total FROM transactions " +
+            "WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' " +
+            "AND occurredAt BETWEEN :from AND :to GROUP BY categoryId",
+    )
+    suspend fun categoryTotalsBetween(from: Long, to: Long): List<CategoryTotal>
+
     @Query(
         "SELECT counterparty AS counterparty, SUM(amountBaseMinor) AS total, COUNT(*) AS txns " +
             "FROM transactions WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' " +
@@ -154,6 +165,9 @@ interface BudgetDao {
 
     @Query("SELECT * FROM budgets")
     fun observeAll(): Flow<List<BudgetEntity>>
+
+    @Query("SELECT * FROM budgets")
+    suspend fun all(): List<BudgetEntity>
 
     @Query("DELETE FROM budgets")
     suspend fun clear()

@@ -17,6 +17,9 @@ class TransactionRepository(private val dao: TransactionDao) {
     fun observeCategoryTotals(from: Long, to: Long): Flow<List<CategoryTotal>> =
         dao.observeCategoryTotals(from, to)
 
+    suspend fun categoryTotalsBetween(from: Long, to: Long): List<CategoryTotal> =
+        dao.categoryTotalsBetween(from, to)
+
     fun observeTopMerchants(from: Long, to: Long, limit: Int = 5): Flow<List<MerchantTotal>> =
         dao.observeTopMerchants(from, to, limit)
 

@@ -12,6 +12,7 @@ import com.spendlens.app.data.fx.FxProvider
 import com.spendlens.app.data.fx.FxRepository
 import com.spendlens.app.data.fx.WebFxProvider
 import com.spendlens.app.data.prefs.SettingsStore
+import com.spendlens.app.data.prefs.VelocityAlertStore
 import com.spendlens.app.data.repository.BillRepository
 import com.spendlens.app.data.repository.BudgetRepository
 import com.spendlens.app.data.repository.CategoryRepository
@@ -33,6 +34,9 @@ class AppContainer(context: Context) {
 
     /** Non-sensitive UI preferences (theme mode, dynamic colour). */
     val settingsStore by lazy { SettingsStore(appContext) }
+
+    /** Per-category throttle for spending-velocity alerts (issue #3). */
+    val velocityAlertStore by lazy { VelocityAlertStore(appContext) }
 
     val patternRepository by lazy { PatternRepository(database.patternDao()) }
     val transactionRepository by lazy { TransactionRepository(database.transactionDao()) }

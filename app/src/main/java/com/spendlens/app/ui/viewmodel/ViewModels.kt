@@ -480,12 +480,21 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 val dir = context.getExternalFilesDir(null) ?: error("External storage unavailable")
                 val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
                 val out = java.io.File(dir, "spendlens_debug_$ts.csv")
+                val unparsed = container.rawSmsDao.listByStatus(RawStatus.UNPARSED)
                 out.bufferedWriter().use { w ->
                     w.write("id,amount_inr,currency,direction,counterparty,category,occurred_at,channel,account_key,excluded,note,tags\n")
                     txns.forEach { t ->
                         val cat = categories[t.categoryId]?.name ?: ""
                         val date = java.time.Instant.ofEpochMilli(t.occurredAt).toString()
                         w.write("${t.id},${t.amountBaseMinor / 100.0},${escape(t.currency)},${escape(t.direction)},${escape(t.counterparty)},${escape(cat)},${date},${escape(t.channel)},${escape(t.accountKey)},${t.excludedFromExpense},${escape(t.note ?: "")},${escape(t.tags ?: "")}\n")
+                    }
+                    // Second section: messages that passed the financial filter but matched no pattern
+                    // (status UNPARSED). Dumped so the raw bodies can be inspected to find missing patterns.
+                    w.write("\n# UNPARSED (${unparsed.size})\n")
+                    w.write("id,sender,received_at,body\n")
+                    unparsed.forEach { r ->
+                        val date = java.time.Instant.ofEpochMilli(r.receivedAt).toString()
+                        w.write("${r.id},${escape(r.sender)},${date},${escape(r.body)}\n")
                     }
                 }
                 out

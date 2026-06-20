@@ -22,6 +22,7 @@ class SpendLensApp : Application() {
         container = AppContainer(this)
         createNotificationChannels()
         com.spendlens.app.work.BillReminderWorker.schedule(this)
+        com.spendlens.app.work.VelocityAlertWorker.schedule(this)
         appScope.launch {
             container.seed()
             runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort
@@ -43,8 +44,14 @@ class SpendLensApp : Application() {
                 getString(R.string.bills_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply { description = getString(R.string.bills_channel_desc) }
+            val budgets = NotificationChannel(
+                CHANNEL_BUDGETS,
+                getString(R.string.budgets_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = getString(R.string.budgets_channel_desc) }
             manager.createNotificationChannel(transactions)
             manager.createNotificationChannel(bills)
+            manager.createNotificationChannel(budgets)
         }
     }
 
@@ -52,5 +59,6 @@ class SpendLensApp : Application() {
         private const val CHANNEL_TRANSACTIONS_V1 = "transactions" // old low-importance channel
         const val CHANNEL_TRANSACTIONS = "transactions_v2"
         const val CHANNEL_BILLS = "bills"
+        const val CHANNEL_BUDGETS = "budgets"
     }
 }

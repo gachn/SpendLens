@@ -4,4 +4,6 @@
     <string name="sms_channel_desc">Notifies when new transactions are detected</string>
     <string name="bills_channel_name">Bill reminders</string>
     <string name="bills_channel_desc">Reminds you before recurring bills and subscriptions are due</string>
+    <string name="budgets_channel_name">Budget alerts</string>
+    <string name="budgets_channel_desc">Warns when a category is on pace to exceed its monthly budget</string>
 </resources>

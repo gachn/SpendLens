@@ -8,6 +8,9 @@ class BudgetRepository(private val dao: BudgetDao) {
 
     fun observeAll(): Flow<List<BudgetEntity>> = dao.observeAll()
 
+    /** One-shot snapshot of all budgets — used by the velocity-alert worker. */
+    suspend fun all(): List<BudgetEntity> = dao.all()
+
     /** Set (or clear, when [limitMinor] <= 0) the monthly budget for a category. */
     suspend fun setBudget(categoryId: Long, limitMinor: Long) {
         if (limitMinor <= 0) dao.delete(categoryId)
