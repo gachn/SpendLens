@@ -1,6 +1,12 @@
 package com.spendlens.app.ui.screens
 
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -180,7 +186,35 @@ fun SettingsScreen(vm: SettingsViewModel) {
                         }
                         Switch(
                             checked = security.appLockEnabled,
-                            onCheckedChange = { vm.setAppLockEnabled(it) },
+                            onCheckedChange = { enable ->
+                                if (!enable) {
+                                    vm.setAppLockEnabled(false)
+                                    return@Switch
+                                }
+                                val authenticators =
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                                        BIOMETRIC_STRONG or DEVICE_CREDENTIAL
+                                    else BIOMETRIC_WEAK
+                                val bmResult = BiometricManager.from(context)
+                                    .canAuthenticate(authenticators)
+                                if (bmResult == BiometricManager.BIOMETRIC_SUCCESS) {
+                                    vm.setAppLockEnabled(true)
+                                } else {
+                                    // No biometric / PIN enrolled — send user to system enrollment.
+                                    val enrollIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                                            putExtra(
+                                                Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                                                authenticators,
+                                            )
+                                        }
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        Intent(Settings.ACTION_SECURITY_SETTINGS)
+                                    }
+                                    context.startActivity(enrollIntent)
+                                }
+                            },
                         )
                     }
                     if (security.appLockEnabled) {
