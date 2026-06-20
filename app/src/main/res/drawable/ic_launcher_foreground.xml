@@ -4,49 +4,41 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- SpendLens logo: magnifying glass with bar chart -->
-    <!-- Magnifying glass circle -->
+    <!--
+      SpendLens logo: magnifying glass with a bar chart inside.
+      Built entirely from <path> elements (VectorDrawable does NOT
+      support <rect>/<circle>). Centered within the adaptive-icon
+      safe zone (~72dp around centre 54,54).
+    -->
+
+    <!-- Handle (cyan), drawn first so the lens sits on top of it -->
+    <path
+        android:strokeColor="#57f1db"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M61,61 L78,78" />
+
+    <!-- Outer ring: filled cyan circle, r=23 @ (46,46) -->
     <path
         android:fillColor="#57f1db"
-        android:pathData="M28,28 C28,16.95 36.95,8 48,8 C59.05,8 68,16.95 68,28 C68,39.05 59.05,48 48,48 C36.95,48 28,39.05 28,28 Z" />
-    <!-- Inner white circle -->
+        android:pathData="M46,23 a23,23 0 1,0 0.01,0 z" />
+
+    <!-- Lens glass: white inner circle, r=18 @ (46,46) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M32,28 C32,19.16 39.16,12 48,12 C56.84,12 64,19.16 64,28 C64,36.84 56.84,44 48,44 C39.16,44 32,36.84 32,28 Z" />
-    <!-- Bar chart bars inside magnifying glass -->
-    <!-- Bar 1 (shortest) -->
-    <rect
-        android:x="38dp"
-        android:y="32dp"
-        android:width="4dp"
-        android:height="12dp"
-        android:fillColor="#57f1db" />
-    <!-- Bar 2 -->
-    <rect
-        android:x="44dp"
-        android:y="28dp"
-        android:width="4dp"
-        android:height="16dp"
-        android:fillColor="#57f1db" />
-    <!-- Bar 3 -->
-    <rect
-        android:x="50dp"
-        android:y="26dp"
-        android:width="4dp"
-        android:height="18dp"
-        android:fillColor="#57f1db" />
-    <!-- Bar 4 (tallest) -->
-    <rect
-        android:x="56dp"
-        android:y="22dp"
-        android:width="4dp"
-        android:height="22dp"
-        android:fillColor="#57f1db" />
-    <!-- Handle -->
+        android:pathData="M46,28 a18,18 0 1,0 0.01,0 z" />
+
+    <!-- Bar chart inside the lens (cyan), baseline y=56 -->
     <path
         android:fillColor="#57f1db"
-        android:pathData="M60,60 L85,85 C87,87 87,90 85,92 C83,94 80,94 78,92 L53,67 Z"
-        android:strokeColor="#57f1db"
-        android:strokeWidth="3"
-        android:strokeLineCap="round" />
+        android:pathData="M37,46 h3.5 v10 h-3.5 z" />
+    <path
+        android:fillColor="#57f1db"
+        android:pathData="M42.5,42 h3.5 v14 h-3.5 z" />
+    <path
+        android:fillColor="#57f1db"
+        android:pathData="M48,38 h3.5 v18 h-3.5 z" />
+    <path
+        android:fillColor="#57f1db"
+        android:pathData="M53.5,34 h3.5 v22 h-3.5 z" />
 </vector>
