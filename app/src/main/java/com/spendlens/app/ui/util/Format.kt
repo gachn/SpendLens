@@ -46,6 +46,10 @@ object Dates {
     fun monthLabel(epoch: Long = System.currentTimeMillis()): String =
         Instant.ofEpochMilli(epoch).atZone(zone).format(monthFmt)
 
+    /** Epoch-millis of Jan 1 (start of day) of the current year. */
+    fun yearStart(): Long =
+        java.time.LocalDate.now(zone).withDayOfYear(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
     /** [from, to) epoch-millis bounds of [ym] (start inclusive, next-month start exclusive). */
     fun monthRange(ym: YearMonth): Pair<Long, Long> {
         val start = ym.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()

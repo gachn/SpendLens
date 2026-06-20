@@ -10,7 +10,3 @@
 
 # Kotlin metadata
 -keepattributes *Annotation*, Signature, InnerClasses
-
-# PostgreSQL JDBC driver for Neon cloud backup
--keep class org.postgresql.** { *; }
--dontwarn org.postgresql.**

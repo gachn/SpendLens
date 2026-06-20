@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.YearMonth
@@ -51,11 +52,44 @@ enum class TxnFilter(val label: String) {
     CREDIT("Credit"),
 }
 
+enum class DateRangeFilter(val label: String) {
+    ANY("Any time"),
+    THIS_MONTH("This month"),
+    LAST_30("30 days"),
+    LAST_90("90 days"),
+    THIS_YEAR("This year"),
+}
+
+/**
+ * Active transaction filters. A null id/key or an ALL/ANY enum means "no constraint".
+ * Held in the ViewModel so the selection persists for the session.
+ */
+data class TxnFilters(
+    val direction: TxnFilter = TxnFilter.ALL,
+    val categoryId: Long? = null,
+    val accountKey: String? = null,
+    val dateRange: DateRangeFilter = DateRangeFilter.ANY,
+    val minAmountMinor: Long? = null,
+    val maxAmountMinor: Long? = null,
+) {
+    /** Number of constraints currently narrowing the list — shown on the Filters toggle. */
+    val activeCount: Int
+        get() = listOf(
+            direction != TxnFilter.ALL,
+            categoryId != null,
+            accountKey != null,
+            dateRange != DateRangeFilter.ANY,
+            minAmountMinor != null || maxAmountMinor != null,
+        ).count { it }
+}
+
 data class TransactionsUiState(
     val items: List<TransactionEntity> = emptyList(),
     val categories: Map<Long, CategoryEntity> = emptyMap(),
     val query: String = "",
-    val filter: TxnFilter = TxnFilter.ALL,
+    val filters: TxnFilters = TxnFilters(),
+    /** Distinct account keys present in the data, for the account filter chips. */
+    val accounts: List<String> = emptyList(),
 )
 
 data class MonthlyBar(val label: String, val debitMinor: Long, val creditMinor: Long)
@@ -160,32 +194,63 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
 class TransactionsViewModel(container: AppContainer) : ViewModel() {
     private val repo = container.transactionRepository
     private val query = MutableStateFlow("")
-    private val filter = MutableStateFlow(TxnFilter.ALL)
+    private val filters = MutableStateFlow(TxnFilters())
 
     fun setQuery(q: String) { query.value = q }
-    fun setFilter(f: TxnFilter) { filter.value = f }
+    fun setDirection(d: TxnFilter) { filters.update { it.copy(direction = d) } }
+    fun setCategory(id: Long?) { filters.update { it.copy(categoryId = id) } }
+    fun setAccount(key: String?) { filters.update { it.copy(accountKey = key) } }
+    fun setDateRange(r: DateRangeFilter) { filters.update { it.copy(dateRange = r) } }
+    fun setAmountRange(minMinor: Long?, maxMinor: Long?) {
+        filters.update { it.copy(minAmountMinor = minMinor, maxAmountMinor = maxMinor) }
+    }
+    fun clearFilters() { filters.value = TxnFilters() }
 
     val state: StateFlow<TransactionsUiState> = combine(
         repo.observeAll(),
         container.categoryRepository.observeCategories(),
         query,
-        filter,
+        filters,
     ) { all, categories, q, f ->
-        val filtered = all
-            .filter { txn ->
-                when (f) {
-                    TxnFilter.ALL -> true
-                    TxnFilter.DEBIT -> txn.direction == "DEBIT"
-                    TxnFilter.CREDIT -> txn.direction == "CREDIT"
-                }
-            }
-            .filter { txn ->
-                q.isBlank() ||
-                    txn.counterparty.contains(q, ignoreCase = true) ||
-                    txn.accountKey.contains(q, ignoreCase = true)
-            }
-        TransactionsUiState(filtered, categories.associateBy { it.id }, q, f)
+        val (from, to) = dateBounds(f.dateRange)
+        val filtered = all.filter { txn ->
+            (when (f.direction) {
+                TxnFilter.ALL -> true
+                TxnFilter.DEBIT -> txn.direction == "DEBIT"
+                TxnFilter.CREDIT -> txn.direction == "CREDIT"
+            }) &&
+                (f.categoryId == null || txn.categoryId == f.categoryId) &&
+                (f.accountKey == null || txn.accountKey == f.accountKey) &&
+                (from == null || txn.occurredAt >= from) &&
+                (to == null || txn.occurredAt <= to) &&
+                (f.minAmountMinor == null || txn.amountMinor >= f.minAmountMinor) &&
+                (f.maxAmountMinor == null || txn.amountMinor <= f.maxAmountMinor) &&
+                matchesQuery(txn, q)
+        }
+        val accounts = all.map { it.accountKey }.distinct().sorted()
+        TransactionsUiState(filtered, categories.associateBy { it.id }, q, f, accounts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState())
+
+    private fun matchesQuery(txn: TransactionEntity, q: String): Boolean {
+        if (q.isBlank()) return true
+        return txn.counterparty.contains(q, ignoreCase = true) ||
+            txn.accountKey.contains(q, ignoreCase = true) ||
+            (txn.note?.contains(q, ignoreCase = true) == true) ||
+            (txn.tags?.contains(q, ignoreCase = true) == true)
+    }
+
+    /** Resolve a [DateRangeFilter] to inclusive epoch-millis bounds; null means unbounded on that side. */
+    private fun dateBounds(range: DateRangeFilter): Pair<Long?, Long?> {
+        val now = System.currentTimeMillis()
+        val day = 86_400_000L
+        return when (range) {
+            DateRangeFilter.ANY -> null to null
+            DateRangeFilter.THIS_MONTH -> Dates.currentMonth()
+            DateRangeFilter.LAST_30 -> (now - 30L * day) to null
+            DateRangeFilter.LAST_90 -> (now - 90L * day) to null
+            DateRangeFilter.THIS_YEAR -> Dates.yearStart() to null
+        }
+    }
 }
 
 /** One bank account or card, aggregated from its transactions. */

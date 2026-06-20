@@ -11,14 +11,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-
-/**
- * Lightweight charts drawn on Compose Canvas — no third-party chart dependency
- * (keeps the trusted surface small, docs/DESIGN.md §8.3).
- */
 
 @Composable
 fun DonutChart(
@@ -37,7 +33,7 @@ fun DonutChart(
             val arcSize = Size(size.width - strokeWidth.toPx(), size.height - strokeWidth.toPx())
             val topLeft = Offset(inset, inset)
             if (values.isEmpty()) {
-                drawArc(Color(0x22000000), 0f, 360f, false, topLeft, arcSize, style = stroke)
+                drawArc(Color(0x22FFFFFF), 0f, 360f, false, topLeft, arcSize, style = stroke)
             }
             var startAngle = -90f
             values.forEachIndexed { i, v ->
@@ -58,7 +54,7 @@ fun DonutChart(
     }
 }
 
-/** Grouped bar chart: two series (e.g. debit/credit) per label. */
+/** Grouped bar chart: two series per label (e.g. spent / received). */
 @Composable
 fun GroupedBarChart(
     labels: List<String>,
@@ -76,7 +72,7 @@ fun GroupedBarChart(
         val barW = slot / 4f
         val gap = barW * 0.4f
         val baseline = size.height
-        for (i in 0 until labels.size) {
+        for (i in labels.indices) {
             val cx = slot * i + slot / 2f
             val h1 = (series1.getOrElse(i) { 0f } / max) * size.height
             val h2 = (series2.getOrElse(i) { 0f } / max) * size.height
@@ -86,13 +82,36 @@ fun GroupedBarChart(
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRoundBar(
-    x: Float,
-    baseline: Float,
-    width: Float,
-    height: Float,
-    color: Color,
+/** Circular progress ring drawn on Canvas. Used by the Budgets screen. */
+@Composable
+fun CircularProgressRing(
+    progress: Float,            // 0f..1f
+    trackColor: Color,
+    progressColor: Color,
+    modifier: Modifier = Modifier,
+    diameter: Dp = 56.dp,
+    strokeWidth: Dp = 6.dp,
+    center: @Composable () -> Unit = {},
 ) {
+    Box(modifier = modifier.size(diameter), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(diameter)) {
+            val stroke = Stroke(strokeWidth.toPx(), cap = StrokeCap.Round)
+            val inset = strokeWidth.toPx() / 2f
+            val arcSize = Size(size.width - strokeWidth.toPx(), size.height - strokeWidth.toPx())
+            val topLeft = Offset(inset, inset)
+            // Track
+            drawArc(trackColor, -90f, 360f, false, topLeft, arcSize, style = stroke)
+            // Progress
+            val sweep = (progress * 360f).coerceIn(0f, 360f)
+            if (sweep > 0f) {
+                drawArc(progressColor, -90f, sweep, false, topLeft, arcSize, style = stroke)
+            }
+        }
+        center()
+    }
+}
+
+private fun DrawScope.drawRoundBar(x: Float, baseline: Float, width: Float, height: Float, color: Color) {
     if (height <= 0f) return
     drawRoundRect(
         color = color,
