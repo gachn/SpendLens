@@ -681,13 +681,45 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
             onCreated(id)
         }
 
-    /** Rename a merchant: remember it as metadata and apply to all of its transactions. */
-    fun renameMerchant(txn: TransactionEntity, newName: String) = viewModelScope.launch {
-        container.merchantRepository.setUserName(txn.counterparty, newName)
-        container.transactionRepository.renameCounterparty(txn.counterparty, newName.trim())
+    /**
+     * Rename a merchant. [applyToAll] = true renames every transaction from this merchant and
+     * remembers it for future ones; false touches only this transaction.
+     */
+    fun renameMerchant(txn: TransactionEntity, newName: String, applyToAll: Boolean) = viewModelScope.launch {
+        if (applyToAll) {
+            container.merchantRepository.setUserName(txn.counterparty, newName)
+            container.transactionRepository.renameCounterparty(txn.counterparty, newName.trim())
+        } else {
+            container.transactionRepository.update(txn.copy(counterparty = newName.trim()))
+        }
     }
 
-    suspend fun smsBody(rawSmsId: Long): String? = container.rawSmsDao.getById(rawSmsId)?.body
+    /**
+     * Set the category. [txn] already carries the new categoryId. [applyToAll] = true also
+     * re-categorises every other transaction from this merchant and remembers it for future ones.
+     */
+    fun setCategory(txn: TransactionEntity, categoryId: Long, applyToAll: Boolean) = viewModelScope.launch {
+        container.transactionRepository.update(txn)
+        if (applyToAll) {
+            container.transactionRepository.setCategoryForCounterparty(txn.counterparty, categoryId)
+            container.categoryRepository.addUserRule(txn.counterparty, categoryId)
+        }
+    }
+
+    /**
+     * Save the note/tags carried by [txn]. The note is always per-transaction; [applyToAll] = true
+     * additionally copies the tags to every transaction from this merchant and remembers them.
+     */
+    fun setTags(txn: TransactionEntity, applyToAll: Boolean) = viewModelScope.launch {
+        container.transactionRepository.update(txn)
+        if (applyToAll) {
+            container.transactionRepository.setTagsForCounterparty(txn.counterparty, txn.tags)
+            container.merchantRepository.setUserTags(txn.counterparty, txn.tags)
+        }
+    }
+
+    suspend fun smsBody(rawSmsId: Long?): String? =
+        rawSmsId?.let { container.rawSmsDao.getById(it)?.body }
 
     /** Copy a picked image into encrypted storage and link it to the transaction. */
     fun attachReceipt(txn: TransactionEntity, uri: android.net.Uri, onDone: (TransactionEntity) -> Unit) =

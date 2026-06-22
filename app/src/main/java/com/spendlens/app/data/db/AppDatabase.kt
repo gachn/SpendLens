@@ -25,7 +25,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         BillEntity::class,
         CardBillEntity::class,
     ],
-    version = 6,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -103,6 +103,65 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v6 → v7: remember user tags per merchant so future parsed transactions inherit them. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE merchant_aliases ADD COLUMN tags TEXT")
+            }
+        }
+
+        /**
+         * v7 → v8: make transactions.rawSmsId nullable so manually-entered rows can have no
+         * backing SMS. SQLite cannot drop a NOT NULL constraint via ALTER, so this is an explicit
+         * table rebuild: create the new table with rawSmsId nullable, copy every row, drop the old
+         * table, rename, and recreate the four indices. The statements live in [MIGRATION_7_8_SQL]
+         * so the migration test can replay the identical SQL.
+         */
+        internal val MIGRATION_7_8_SQL: List<String> = listOf(
+            "CREATE TABLE transactions_new (" +
+                "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                "rawSmsId INTEGER, " +
+                "amountMinor INTEGER NOT NULL, " +
+                "currency TEXT NOT NULL, " +
+                "amountBaseMinor INTEGER NOT NULL DEFAULT 0, " +
+                "direction TEXT NOT NULL, " +
+                "accountKey TEXT NOT NULL, " +
+                "counterparty TEXT NOT NULL, " +
+                "balanceMinor INTEGER, " +
+                "referenceId TEXT, " +
+                "occurredAt INTEGER NOT NULL, " +
+                "channel TEXT NOT NULL, " +
+                "categoryId INTEGER, " +
+                "dupGroupId TEXT, " +
+                "isDuplicate INTEGER NOT NULL DEFAULT 0, " +
+                "userVerified INTEGER NOT NULL DEFAULT 0, " +
+                "excludedFromExpense INTEGER NOT NULL DEFAULT 0, " +
+                "note TEXT, " +
+                "tags TEXT, " +
+                "receiptUri TEXT)",
+            "INSERT INTO transactions_new (" +
+                "id, rawSmsId, amountMinor, currency, amountBaseMinor, direction, accountKey, " +
+                "counterparty, balanceMinor, referenceId, occurredAt, channel, categoryId, " +
+                "dupGroupId, isDuplicate, userVerified, excludedFromExpense, note, tags, receiptUri) " +
+                "SELECT id, rawSmsId, amountMinor, currency, amountBaseMinor, direction, accountKey, " +
+                "counterparty, balanceMinor, referenceId, occurredAt, channel, categoryId, " +
+                "dupGroupId, isDuplicate, userVerified, excludedFromExpense, note, tags, receiptUri " +
+                "FROM transactions",
+            "DROP TABLE transactions",
+            "ALTER TABLE transactions_new RENAME TO transactions",
+            "CREATE INDEX index_transactions_rawSmsId ON transactions(rawSmsId)",
+            "CREATE INDEX index_transactions_amountMinor_accountKey_direction " +
+                "ON transactions(amountMinor, accountKey, direction)",
+            "CREATE INDEX index_transactions_occurredAt ON transactions(occurredAt)",
+            "CREATE INDEX index_transactions_dupGroupId ON transactions(dupGroupId)",
+        )
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_7_8_SQL.forEach(db::execSQL)
+            }
+        }
+
         fun create(context: Context, keyManager: DatabaseKeyManager): AppDatabase {
             // Load SQLCipher native libs. The SupportOpenHelperFactory also triggers this;
             // guarded so a double-load (or already-linked lib) can't crash startup.
@@ -110,7 +169,10 @@ abstract class AppDatabase : RoomDatabase() {
             val factory = SupportOpenHelperFactory(keyManager.getOrCreatePassphrase())
             return Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, DB_NAME)
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_7_8,
+                )
                 .fallbackToDestructiveMigration() // safety net for older dev builds
                 .build()
         }
