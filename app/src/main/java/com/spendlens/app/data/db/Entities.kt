@@ -31,6 +31,11 @@ object RawStatus {
     const val IGNORED = "IGNORED"     // not a financial SMS
 }
 
+/** Discriminator stored in [TransactionEntity.channel] for transactions the user entered by hand. */
+object TransactionChannel {
+    const val MANUAL = "MANUAL"
+}
+
 /** A parsed financial transaction. */
 @Entity(
     tableName = "transactions",
@@ -43,7 +48,8 @@ object RawStatus {
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val rawSmsId: Long,
+    /** Source SMS row, or null for manually-entered transactions ([TransactionChannel.MANUAL]). */
+    val rawSmsId: Long?,
     val amountMinor: Long,
     val currency: String,
     /** Amount converted to the base currency (INR) minor units at ingest time. Totals use this. */
@@ -131,6 +137,8 @@ data class MerchantAliasEntity(
     @PrimaryKey val rawKey: String,
     val displayName: String,
     val source: String,    // DICTIONARY | WEB | NORMALIZED | USER
+    /** User tags remembered for this merchant; applied to future parsed transactions. Comma-joined. */
+    val tags: String? = null,
 )
 
 /** A user-set monthly spending limit for one category. One row per category (categoryId = PK). */
