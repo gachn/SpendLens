@@ -24,8 +24,10 @@ class CategoryRepository(private val dao: CategoryDao) {
         Categorizer(dao.allRules().map { Categorizer.Rule(it.matcher, it.categoryId) })
 
     suspend fun addUserRule(matcher: String, categoryId: Long) {
+        val m = matcher.lowercase()
+        dao.deleteUserRule(m) // replace any prior USER rule for this merchant so the latest pick wins
         dao.insertRule(
-            CategoryRuleEntity(matcher = matcher.lowercase(), categoryId = categoryId, source = "USER"),
+            CategoryRuleEntity(matcher = m, categoryId = categoryId, source = "USER"),
         )
     }
 

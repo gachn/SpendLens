@@ -40,8 +40,34 @@ class MerchantRepository(
         return save(key.ifBlank { name.lowercase().filter { it.isLetterOrDigit() } }, name.trim(), "USER")
     }
 
+    /** Remember user tags for a merchant so future parsed transactions inherit them. */
+    suspend fun setUserTags(merchant: String, tags: String?) {
+        val key = keyFor(merchant)
+        val existing = dao.getByKey(key)
+        dao.upsert(
+            MerchantAliasEntity(
+                rawKey = key,
+                displayName = existing?.displayName ?: merchant.trim(),
+                source = existing?.source ?: "USER",
+                tags = tags,
+            ),
+        )
+    }
+
+    /** Tags previously remembered for this merchant, or null. */
+    suspend fun tagsFor(merchant: String): String? {
+        val key = MerchantNormalizer.key(merchant)
+        if (key.isBlank()) return null
+        return dao.getByKey(key)?.tags
+    }
+
+    private fun keyFor(merchant: String): String =
+        MerchantNormalizer.key(merchant).ifBlank { merchant.lowercase().filter { it.isLetterOrDigit() } }
+
     private suspend fun save(key: String, display: String, source: String): String {
-        dao.upsert(MerchantAliasEntity(rawKey = key, displayName = display, source = source))
+        // Preserve any user tags already remembered for this merchant across re-resolution.
+        val existingTags = dao.getByKey(key)?.tags
+        dao.upsert(MerchantAliasEntity(rawKey = key, displayName = display, source = source, tags = existingTags))
         cache[key] = display
         return display
     }
