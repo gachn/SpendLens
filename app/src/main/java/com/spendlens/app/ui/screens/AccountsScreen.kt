@@ -1,6 +1,7 @@
 package com.spendlens.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,19 +14,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,11 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
+import com.spendlens.app.ui.components.GlassCard
 import com.spendlens.app.ui.components.MonthDropdown
 import com.spendlens.app.ui.components.SectionHeader
 import com.spendlens.app.ui.components.SummaryStat
@@ -102,15 +112,21 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
                 },
             )
         } else {
-            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                item { NetWorthCard(bankAccounts = state.bankAccounts, cards = state.cards) }
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item { NetLiquidBalanceCard(bankAccounts = state.bankAccounts, cards = state.cards) }
                 if (banks.isNotEmpty()) {
                     item { SectionHeader("Bank accounts") }
-                    items(banks) { acct -> AccountCard(acct, onClick = { openKey = acct.accountKey }) }
+                    items(banks) { acct -> BankAccountRow(acct, onClick = { openKey = acct.accountKey }) }
                 }
                 if (cards.isNotEmpty()) {
-                    item { SectionHeader("Cards") }
-                    items(cards) { acct -> AccountCard(acct, onClick = { openKey = acct.accountKey }) }
+                    item { SectionHeader("Credit cards") }
+                    items(cards) { acct -> CreditCardRow(acct, onClick = { openKey = acct.accountKey }) }
+                }
+                smartInsight(state.cards)?.let { insight ->
+                    item { SmartInsightModule(insight) }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
@@ -118,118 +134,295 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
     }
 }
 
+// ---------------------------------------------------------------------------
+// Net Liquid Balance — hero summary card (mock: "Net Liquid Balance")
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun NetWorthCard(bankAccounts: List<AccountSummary>, cards: List<AccountSummary>) {
-    val assetsMinor = bankAccounts.mapNotNull { it.balanceMinor }.sum()
-    val liabilitiesMinor = cards.mapNotNull { it.billTotalDueMinor }.sum()
-    val netWorthMinor = assetsMinor - liabilitiesMinor
-    val hasBalances = bankAccounts.any { it.balanceMinor != null }
-    val hasBills = cards.any { it.billTotalDueMinor != null }
-    if (!hasBalances && !hasBills) return
+private fun NetLiquidBalanceCard(bankAccounts: List<AccountSummary>, cards: List<AccountSummary>) {
+    val cashMinor = bankAccounts.mapNotNull { it.balanceMinor }.sum()
+    val outstandingMinor = cards.mapNotNull { it.billTotalDueMinor }.sum()
+    val netMinor = cashMinor - outstandingMinor
+    val hasCash = bankAccounts.any { it.balanceMinor != null }
+    val hasOutstanding = cards.any { it.billTotalDueMinor != null }
+    if (!hasCash && !hasOutstanding) return
 
-    val netColor: Color = if (netWorthMinor >= 0) SpendLensTheme.colors.credit else SpendLensTheme.colors.debit
-
-    ElevatedSurfaceCard(modifier = Modifier.padding(vertical = 4.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    GlassCard {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                "Net worth",
-                style = MaterialTheme.typography.titleSmall,
+                "NET LIQUID BALANCE",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 1.5.sp,
             )
             Text(
-                Money.format(netWorthMinor, "INR"),
-                style = MaterialTheme.typography.headlineMedium,
+                Money.format(netMinor, "INR"),
+                style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = netColor,
+                color = MaterialTheme.colorScheme.primary,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (hasBalances) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (hasCash) {
                     SummaryStat(
-                        label = "Assets",
-                        value = Money.format(assetsMinor, "INR"),
-                        accent = SpendLensTheme.colors.credit,
+                        label = "Total cash",
+                        value = Money.format(cashMinor, "INR"),
+                        accent = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
                     )
                 }
-                if (hasBills) {
+                if (hasOutstanding) {
                     SummaryStat(
-                        label = "Liabilities",
-                        value = Money.format(liabilitiesMinor, "INR"),
+                        label = "Outstanding",
+                        value = Money.format(outstandingMinor, "INR"),
                         accent = SpendLensTheme.colors.debit,
                         modifier = Modifier.weight(1f),
                     )
-                }
-            }
-            if (hasBalances) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "Account balances",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    bankAccounts.filter { it.balanceMinor != null }.forEach { acct ->
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "🏦 ${acct.accountKey}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    Money.format(acct.balanceMinor!!, "INR"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                                Text(
-                                    "Updated ${Dates.date(acct.lastActivityAt)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Bank account row — icon tile + name + balance (mock: Bank Accounts list)
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun AccountCard(acct: AccountSummary, onClick: () -> Unit) {
-    ElevatedSurfaceCard(modifier = Modifier.clickable(onClick = onClick)) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(40.dp).clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
+private fun BankAccountRow(acct: AccountSummary, onClick: () -> Unit) {
+    GlassCard(modifier = Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                modifier = Modifier.size(48.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.AccountBalance,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(
+                    acct.accountKey,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${acct.channel.ifBlank { "BANK" }} · ${acct.txnCount} txns",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    acct.balanceMinor?.let { Money.format(it, "INR") }
+                        ?: ("-" + Money.format(acct.totalDebitMinor, "INR")),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    if (acct.balanceMinor != null) "Balance" else "Debit",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Credit card row — card visual + accent border + outstanding (mock: Cards)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun CreditCardRow(acct: AccountSummary, onClick: () -> Unit) {
+    val accent = SpendLensTheme.colors.debit
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Left accent strip
+            Box(
+                Modifier.width(4.dp).height(72.dp).background(accent),
+            )
+            Row(
+                Modifier.weight(1f).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Mini card visual
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.size(width = 56.dp, height = 36.dp),
                 ) {
-                    Text(if (acct.isCard) "💳" else "🏦", style = MaterialTheme.typography.titleMedium)
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.CreditCard,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(
                         acct.accountKey,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        "${acct.channel.ifBlank { if (acct.isCard) "CARD" else "BANK" }} · ${acct.txnCount} txns",
-                        style = MaterialTheme.typography.labelMedium,
+                        "${acct.channel.ifBlank { "CARD" }} · ${acct.txnCount} txns",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "View transactions",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                Column(horizontalAlignment = Alignment.End) {
+                    val outstanding = acct.billTotalDueMinor
+                    Text(
+                        outstanding?.let { Money.format(it, "INR") }
+                            ?: ("-" + Money.format(acct.totalDebitMinor, "INR")),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accent,
+                    )
+                    Text(
+                        acct.billDueDate?.let { "Due ${Dates.date(it)}" }
+                            ?: if (outstanding != null) "Outstanding" else "Debit",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Smart Insight — gradient-border AI module (mock: Smart Suggestion)
+// ---------------------------------------------------------------------------
+
+private data class Insight(val text: String)
+
+private fun smartInsight(cards: List<AccountSummary>): Insight? {
+    val due = cards.filter { it.billTotalDueMinor != null && it.billDueDate != null }
+        .maxByOrNull { it.billTotalDueMinor!! } ?: return null
+    return Insight(
+        "Pay off the ${due.accountKey} balance of " +
+            "${Money.format(due.billTotalDueMinor!!, "INR")} before " +
+            "${Dates.date(due.billDueDate!!)} to avoid interest charges.",
+    )
+}
+
+@Composable
+private fun SmartInsightModule(insight: Insight) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
+                        MaterialTheme.colorScheme.primary,
+                    ),
+                ),
+            )
+            .padding(1.5.dp),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.5.dp))
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "SMART SUGGESTION",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.5.sp,
+                )
+                Text(
+                    insight.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            AccountStats(acct)
+        }
+    }
+}
+
+@Composable
+private fun AccountDetail(
+    account: AccountSummary,
+    monthLabel: String,
+    categories: Map<Long, CategoryEntity>,
+    onBack: () -> Unit,
+    onTransactionClick: (TransactionEntity) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to accounts")
+            }
+            Column(Modifier.padding(start = 4.dp)) {
+                Text(
+                    "${if (account.isCard) "💳" else "🏦"}  ${account.accountKey}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "${account.channel.ifBlank { if (account.isCard) "CARD" else "BANK" }} · $monthLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        ElevatedSurfaceCard { AccountStats(account) }
+        Spacer(Modifier.height(8.dp))
+        SectionHeader("Transactions (${account.txnCount})")
+        if (account.transactions.isEmpty()) {
+            EmptyHint("No transactions on this account in $monthLabel.")
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(account.transactions) { txn ->
+                    TransactionRow(txn, categories, onClick = { onTransactionClick(txn) })
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
         }
     }
 }
@@ -282,50 +475,6 @@ private fun AccountStats(acct: AccountSummary) {
                     accent = SpendLensTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccountDetail(
-    account: AccountSummary,
-    monthLabel: String,
-    categories: Map<Long, CategoryEntity>,
-    onBack: () -> Unit,
-    onTransactionClick: (TransactionEntity) -> Unit,
-) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to accounts")
-            }
-            Column(Modifier.padding(start = 4.dp)) {
-                Text(
-                    "${if (account.isCard) "💳" else "🏦"}  ${account.accountKey}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "${account.channel.ifBlank { if (account.isCard) "CARD" else "BANK" }} · $monthLabel",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        ElevatedSurfaceCard { AccountStats(account) }
-        Spacer(Modifier.height(8.dp))
-        SectionHeader("Transactions (${account.txnCount})")
-        if (account.transactions.isEmpty()) {
-            EmptyHint("No transactions on this account in $monthLabel.")
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(account.transactions) { txn ->
-                    TransactionRow(txn, categories, onClick = { onTransactionClick(txn) })
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

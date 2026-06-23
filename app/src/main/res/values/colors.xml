@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Luminous Ledger base background — keeps the cold-start window matching the Compose dark scheme. -->
+    <color name="ll_background">#131313</color>
+</resources>
