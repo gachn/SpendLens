@@ -199,6 +199,9 @@ private fun MainScaffold(
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    // One-shot category filter handed to the History screen when a category is tapped elsewhere.
+    var pendingCategoryFilter by remember { mutableStateOf<Long?>(null) }
+
     val detailVm = viewModel<TransactionDetailViewModel>(factory = factory)
     val reviewVm = viewModel<ReviewViewModel>(factory = factory)
     val reviewState by reviewVm.state.collectAsState()
@@ -293,12 +296,21 @@ private fun MainScaffold(
                     onOpenReview = { nav.navigate(ROUTE_REVIEW) { launchSingleTop = true } },
                     onTransactionClick = { onSelectedChanged(it) },
                     onEditTransaction = { nav.navigate("$ROUTE_ENTRY/${it.id}") { launchSingleTop = true } },
+                    initialCategoryId = pendingCategoryFilter,
+                    onInitialCategoryConsumed = { pendingCategoryFilter = null },
                 )
             }
             composable(Dest.Insights.route) {
                 AnalyticsScreen(
                     vm = viewModel<AnalyticsViewModel>(factory = factory),
                     onViewAllMerchants = { navigateToTab(nav, Dest.History) },
+                    onMerchantClick = { name ->
+                        nav.navigate("$ROUTE_MERCHANT/${Uri.encode(name)}") { launchSingleTop = true }
+                    },
+                    onCategoryClick = { categoryId ->
+                        pendingCategoryFilter = categoryId
+                        navigateToTab(nav, Dest.History)
+                    },
                 )
             }
             composable(Dest.Budgets.route) {
@@ -317,7 +329,10 @@ private fun MainScaffold(
                 )
             }
             composable(ROUTE_SETTINGS) {
-                SettingsScreen(viewModel<SettingsViewModel>(factory = factory))
+                SettingsScreen(
+                    vm = viewModel<SettingsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable(ROUTE_REVIEW) {
                 ReviewScreen(viewModel<ReviewViewModel>(factory = factory), onTransactionClick = { onSelectedChanged(it) })

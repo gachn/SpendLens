@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -54,7 +57,43 @@ import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 @Composable
 fun BudgetsScreen(vm: BudgetsViewModel) {
     val state by vm.state.collectAsState()
+    val predictState by vm.predictState.collectAsState()
     var editing by remember { mutableStateOf<BudgetRow?>(null) }
+    var confirmPredict by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    LaunchedEffect(predictState) {
+        (predictState as? BudgetsViewModel.PredictState.Done)?.let { done ->
+            val msg = if (done.updated > 0)
+                "Predicted budgets for ${done.updated} ${if (done.updated == 1) "category" else "categories"}"
+            else
+                "Not enough history to predict budgets yet"
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            vm.consumePredictResult()
+        }
+    }
+
+    if (confirmPredict) {
+        AlertDialog(
+            onDismissRequest = { confirmPredict = false },
+            title = { Text("Predict budgets?") },
+            text = {
+                Text(
+                    "SpendLens will forecast a monthly limit for each category from the last 12 months " +
+                        "of spending — weighting recent months, following the trend and leaving headroom " +
+                        "for volatile categories. Existing limits for categories with history will be overwritten.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmPredict = false
+                    vm.predictBudgets()
+                }) { Text("Predict", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = { TextButton(onClick = { confirmPredict = false }) { Text("Cancel") } },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        )
+    }
 
     val budgeted  = state.rows.filter { it.limitMinor > 0 }
     val totalLimit = budgeted.sumOf { it.limitMinor }
@@ -232,7 +271,47 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
 
         // ── Category headers ──────────────────────────────────────────────────
         item {
-            Text("Category Budgets", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Category Budgets", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                val running = predictState is BudgetsViewModel.PredictState.Running
+                Surface(
+                    onClick = { if (!running) confirmPredict = true },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (running) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (running) "Predicting…" else "Predict",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
         }
 
         // ── Category budget cards ─────────────────────────────────────────────

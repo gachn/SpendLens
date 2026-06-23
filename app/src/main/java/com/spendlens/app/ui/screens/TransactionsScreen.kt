@@ -67,11 +67,21 @@ fun TransactionsScreen(
     onOpenReview: () -> Unit = {},
     onTransactionClick: (TransactionEntity) -> Unit = {},
     onEditTransaction: (TransactionEntity) -> Unit = {},
+    initialCategoryId: Long? = null,
+    onInitialCategoryConsumed: () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // Apply a category filter passed in from another screen (e.g. tapping a category in Insights).
+    LaunchedEffect(initialCategoryId) {
+        if (initialCategoryId != null) {
+            vm.setCategory(initialCategoryId)
+            onInitialCategoryConsumed()
+        }
+    }
 
     val exportMessage by vm.exportMessage.collectAsState()
     LaunchedEffect(exportMessage) {

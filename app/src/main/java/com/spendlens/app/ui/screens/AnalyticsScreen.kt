@@ -1,6 +1,7 @@
 package com.spendlens.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import com.spendlens.app.ui.viewmodel.CategorySlice
 fun AnalyticsScreen(
     vm: AnalyticsViewModel,
     onViewAllMerchants: () -> Unit = {},
+    onMerchantClick: (String) -> Unit = {},
+    onCategoryClick: (Long) -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
 
@@ -139,7 +142,12 @@ fun AnalyticsScreen(
                     rows.forEach { pair ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             pair.forEach { slice ->
-                                CategoryBentoCard(slice, maxAmount, Modifier.weight(1f))
+                                CategoryBentoCard(
+                                    slice,
+                                    maxAmount,
+                                    Modifier.weight(1f),
+                                    onClick = slice.categoryId?.let { id -> { onCategoryClick(id) } },
+                                )
                             }
                             // Fill empty slot if odd
                             if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -175,7 +183,7 @@ fun AnalyticsScreen(
                 ) {
                     Column {
                         state.topMerchants.forEachIndexed { i, merchant ->
-                            MerchantRow(merchant, state.currency)
+                            MerchantRow(merchant, state.currency, onClick = { onMerchantClick(merchant.name) })
                             if (i < state.topMerchants.size - 1) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -193,10 +201,17 @@ fun AnalyticsScreen(
 }
 
 @Composable
-private fun CategoryBentoCard(slice: CategorySlice, maxAmount: Float, modifier: Modifier = Modifier) {
+private fun CategoryBentoCard(
+    slice: CategorySlice,
+    maxAmount: Float,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     val fillFraction = (slice.amountMinor.toFloat() / maxAmount).coerceIn(0f, 1f)
     Surface(
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier
+            .aspectRatio(1f)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
@@ -251,10 +266,11 @@ private fun CategoryBentoCard(slice: CategorySlice, maxAmount: Float, modifier: 
 }
 
 @Composable
-private fun MerchantRow(merchant: CategorySlice, currency: String) {
+private fun MerchantRow(merchant: CategorySlice, currency: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
