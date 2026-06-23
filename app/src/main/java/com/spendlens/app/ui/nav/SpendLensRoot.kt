@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -76,6 +78,7 @@ import com.spendlens.app.ui.screens.BillsScreen
 import com.spendlens.app.ui.screens.BudgetsScreen
 import com.spendlens.app.ui.screens.CategoriesScreen
 import com.spendlens.app.ui.screens.DashboardScreen
+import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
@@ -87,6 +90,7 @@ import com.spendlens.app.ui.viewmodel.BillsViewModel
 import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 import com.spendlens.app.ui.viewmodel.CategoriesViewModel
 import com.spendlens.app.ui.viewmodel.DashboardViewModel
+import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
 import com.spendlens.app.ui.viewmodel.ReviewViewModel
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
 import com.spendlens.app.ui.viewmodel.SpendLensViewModelFactory
@@ -109,6 +113,8 @@ private const val ROUTE_ACCOUNTS     = "accounts"
 private const val ROUTE_CATEGORIES   = "categories"
 private const val ROUTE_MERCHANT     = "merchant"
 private const val ARG_MERCHANT       = "name"
+private const val ROUTE_ENTRY        = "entry"
+private const val ARG_TXN_ID         = "txnId"
 
 @Composable
 fun SpendLensRoot(
@@ -252,6 +258,18 @@ private fun MainScaffold(
                 }
             }
         },
+        floatingActionButton = {
+            // Add manual transaction — reachable from Home and History (FR-A).
+            if (currentRoute == Dest.Home.route || currentRoute == Dest.History.route) {
+                FloatingActionButton(
+                    onClick = { nav.navigate(ROUTE_ENTRY) { launchSingleTop = true } },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add transaction")
+                }
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         NavHost(
@@ -265,6 +283,7 @@ private fun MainScaffold(
                     budgetVm = viewModel<BudgetsViewModel>(factory = factory),
                     onTransactionClick = { onSelectedChanged(it) },
                     onOpenBills = { nav.navigate(ROUTE_BILLS) { launchSingleTop = true } },
+                    onViewAll = { navigateToTab(nav, Dest.History) },
                 )
             }
             composable(Dest.History.route) {
@@ -276,7 +295,10 @@ private fun MainScaffold(
                 )
             }
             composable(Dest.Insights.route) {
-                AnalyticsScreen(viewModel<AnalyticsViewModel>(factory = factory))
+                AnalyticsScreen(
+                    vm = viewModel<AnalyticsViewModel>(factory = factory),
+                    onViewAllMerchants = { navigateToTab(nav, Dest.History) },
+                )
             }
             composable(Dest.Budgets.route) {
                 BudgetsScreen(viewModel<BudgetsViewModel>(factory = factory))
@@ -298,6 +320,23 @@ private fun MainScaffold(
             }
             composable(ROUTE_REVIEW) {
                 ReviewScreen(viewModel<ReviewViewModel>(factory = factory), onTransactionClick = { onSelectedChanged(it) })
+            }
+            composable(ROUTE_ENTRY) {
+                ManualEntryScreen(
+                    vm = viewModel<ManualEntryViewModel>(factory = factory),
+                    editId = null,
+                    onClose = { nav.popBackStack() },
+                )
+            }
+            composable(
+                route = "$ROUTE_ENTRY/{$ARG_TXN_ID}",
+                arguments = listOf(navArgument(ARG_TXN_ID) { type = NavType.LongType }),
+            ) { entry ->
+                ManualEntryScreen(
+                    vm = viewModel<ManualEntryViewModel>(factory = factory),
+                    editId = entry.arguments?.getLong(ARG_TXN_ID),
+                    onClose = { nav.popBackStack() },
+                )
             }
             composable(
                 route = "$ROUTE_MERCHANT/{$ARG_MERCHANT}",
@@ -324,6 +363,15 @@ private fun MainScaffold(
                 nav.navigate("$ROUTE_MERCHANT/${Uri.encode(name)}") { launchSingleTop = true }
             },
         )
+    }
+}
+
+/** Navigate to a primary bottom-nav tab, matching the nav bar's behavior (single-top, state-preserving). */
+private fun navigateToTab(nav: androidx.navigation.NavController, dest: Dest) {
+    nav.navigate(dest.route) {
+        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 

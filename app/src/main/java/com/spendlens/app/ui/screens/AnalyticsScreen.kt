@@ -43,7 +43,10 @@ import com.spendlens.app.ui.viewmodel.AnalyticsViewModel
 import com.spendlens.app.ui.viewmodel.CategorySlice
 
 @Composable
-fun AnalyticsScreen(vm: AnalyticsViewModel) {
+fun AnalyticsScreen(
+    vm: AnalyticsViewModel,
+    onViewAllMerchants: () -> Unit = {},
+) {
     val state by vm.state.collectAsState()
 
     LazyColumn(
@@ -86,6 +89,9 @@ fun AnalyticsScreen(vm: AnalyticsViewModel) {
                         color2 = SpendLensTheme.colors.credit,
                         modifier = Modifier.fillMaxWidth(),
                         height = 160.dp,
+                        series1Label = "Spent",
+                        series2Label = "Received",
+                        formatValue = { Money.format(it.toLong(), state.currency) },
                     )
                     Spacer(Modifier.height(8.dp))
                     // Month labels
@@ -151,7 +157,7 @@ fun AnalyticsScreen(vm: AnalyticsViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Top Merchants · ${Dates.label(state.selectedMonth)}", style = MaterialTheme.typography.titleSmall)
-                TextButton(onClick = {}) {
+                TextButton(onClick = onViewAllMerchants) {
                     Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                 }
             }

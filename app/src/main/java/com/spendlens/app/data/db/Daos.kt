@@ -137,6 +137,12 @@ interface TransactionDao {
     @Query("UPDATE transactions SET counterparty = :newName WHERE counterparty = :oldName")
     suspend fun renameCounterparty(oldName: String, newName: String)
 
+    @Query("UPDATE transactions SET categoryId = :categoryId WHERE counterparty = :name")
+    suspend fun setCategoryForCounterparty(name: String, categoryId: Long?)
+
+    @Query("UPDATE transactions SET tags = :tags WHERE counterparty = :name")
+    suspend fun setTagsForCounterparty(name: String, tags: String?)
+
     /** Latest non-null balance per account, newest first. Used by the Accounts overview. */
     @Query(
         "SELECT accountKey AS accountKey, balanceMinor AS balanceMinor, occurredAt AS updatedAt " +
@@ -157,6 +163,13 @@ interface TransactionDao {
     /** All non-duplicate transactions, newest first — used by debug export. */
     @Query("SELECT * FROM transactions WHERE isDuplicate = 0 ORDER BY occurredAt DESC")
     suspend fun allTransactions(): List<TransactionEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM transactions " +
+            "WHERE counterparty = :counterparty AND categoryId = :incomeCategoryId " +
+            "AND direction = 'CREDIT' AND isDuplicate = 0",
+    )
+    suspend fun countIncomeTransactions(counterparty: String, incomeCategoryId: Long): Int
 
     @Query("DELETE FROM transactions")
     suspend fun clear()
@@ -254,6 +267,10 @@ interface CategoryDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertRule(rule: CategoryRuleEntity): Long
+
+    /** Drop a prior USER rule for this matcher so a re-categorisation replaces it (latest wins). */
+    @Query("DELETE FROM category_rules WHERE matcher = :matcher AND source = 'USER'")
+    suspend fun deleteUserRule(matcher: String)
 
     @Query("SELECT * FROM categories ORDER BY id")
     fun observeCategories(): Flow<List<CategoryEntity>>

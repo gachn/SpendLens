@@ -69,6 +69,7 @@ fun TransactionDetailSheet(
     var smsBody by remember(txn.id) { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
+    var pendingScope by remember { mutableStateOf<PendingScopeEdit?>(null) }
     LaunchedEffect(txn.id) { smsBody = vm.smsBody(txn.rawSmsId) }
 
     val pickReceipt = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -140,10 +141,7 @@ fun TransactionDetailSheet(
                 categories.forEach { cat ->
                     FilterChip(
                         selected = current.categoryId == cat.id,
-                        onClick = {
-                            current = current.copy(categoryId = cat.id)
-                            vm.update(current)
-                        },
+                        onClick = { pendingScope = PendingScopeEdit.Category(cat.id) },
                         label = { Text("${cat.icon} ${cat.name}") },
                     )
                 }
@@ -159,12 +157,10 @@ fun TransactionDetailSheet(
                 note = current.note.orEmpty(),
                 tags = current.tags.orEmpty(),
                 onSave = { newNote, newTags ->
-                    current = current.copy(
-                        note = newNote.trim().ifBlank { null },
-                        tags = newTags.split(",").map { it.trim().lowercase() }
-                            .filter { it.isNotEmpty() }.distinct().joinToString(",").ifBlank { null },
-                    )
-                    vm.update(current)
+                    val normNote = newNote.trim().ifBlank { null }
+                    val normTags = newTags.split(",").map { it.trim().lowercase() }
+                        .filter { it.isNotEmpty() }.distinct().joinToString(",").ifBlank { null }
+                    pendingScope = PendingScopeEdit.Tags(normNote, normTags)
                 },
             )
 
@@ -209,11 +205,62 @@ fun TransactionDetailSheet(
             onDismiss = { showRename = false },
             onRename = { newName ->
                 showRename = false
-                vm.renameMerchant(current, newName)
-                current = current.copy(counterparty = newName.trim())
+                pendingScope = PendingScopeEdit.Rename(newName)
             },
         )
     }
+
+    pendingScope?.let { edit ->
+        ApplyScopeDialog(
+            merchant = current.counterparty,
+            onDismiss = { pendingScope = null },
+            onChoice = { applyToAll ->
+                when (edit) {
+                    is PendingScopeEdit.Rename -> {
+                        vm.renameMerchant(current, edit.newName, applyToAll)
+                        current = current.copy(counterparty = edit.newName.trim())
+                    }
+                    is PendingScopeEdit.Category -> {
+                        current = current.copy(categoryId = edit.categoryId)
+                        vm.setCategory(current, edit.categoryId, applyToAll)
+                    }
+                    is PendingScopeEdit.Tags -> {
+                        current = current.copy(note = edit.note, tags = edit.tags)
+                        vm.setTags(current, applyToAll)
+                    }
+                }
+                pendingScope = null
+            },
+        )
+    }
+}
+
+/** A pending edit awaiting the user's "this one vs. all from this merchant" choice. */
+private sealed class PendingScopeEdit {
+    data class Rename(val newName: String) : PendingScopeEdit()
+    data class Category(val categoryId: Long) : PendingScopeEdit()
+    data class Tags(val note: String?, val tags: String?) : PendingScopeEdit()
+}
+
+@Composable
+private fun ApplyScopeDialog(
+    merchant: String,
+    onDismiss: () -> Unit,
+    onChoice: (applyToAll: Boolean) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onChoice(true) }) { Text("All from $merchant") } },
+        dismissButton = { TextButton(onClick = { onChoice(false) }) { Text("Just this one") } },
+        title = { Text("Apply to which transactions?") },
+        text = {
+            Text(
+                "Update only this transaction, or every transaction from $merchant " +
+                    "and remember it for future ones?",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+    )
 }
 
 @Composable
@@ -236,7 +283,7 @@ private fun RenameMerchantDialog(
         text = {
             Column {
                 Text(
-                    "Applies to all transactions from this merchant and is remembered for future ones.",
+                    "You'll choose whether this applies to just this transaction or all from this merchant.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

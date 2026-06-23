@@ -208,7 +208,10 @@ class SmsProcessor(
             )
         }
 
-        val isSalary = p.direction == TxnDirection.CREDIT && SALARY_RE.containsMatchIn(msg.body)
+        val isSalary = p.direction == TxnDirection.CREDIT && (
+            SALARY_RE.containsMatchIn(msg.body) ||
+            (p.counterparty.isNotBlank() && p.counterparty != "Unknown" && txnRepo.hasHistoricalIncome(p.counterparty, CATEGORY_INCOME))
+        )
         // Mutual-fund / brokerage movements are not spend — file under Transfers and exclude,
         // same as self-transfers.
         val isInvestment = INVESTMENT_RE.containsMatchIn(msg.body)
@@ -248,6 +251,7 @@ class SmsProcessor(
             occurredAt = p.occurredAt,
             channel = p.channel.name,
             categoryId = categoryId,
+            tags = merchantRepo.tagsFor(p.counterparty),
             dupGroupId = groupId,
             isDuplicate = isDuplicate,
             excludedFromExpense = isSelfTransfer || isInvestment,
@@ -256,12 +260,12 @@ class SmsProcessor(
         return entity.copy(id = id)
     }
 
-    private companion object {
+    internal companion object {
         const val DAY = 86_400_000L
         const val LEARNED_PRIORITY = 60 // above broad built-ins, learned-format specific
         const val CATEGORY_TRANSFERS = 10L // DefaultCategories "Transfers"
         const val CATEGORY_INCOME = 9L // DefaultCategories "Income"
-        val SALARY_RE = Regex("(?i)\\b(salary|payroll|wages|stipend)\\b")
+        val SALARY_RE = Regex("(?i)\\b(salary|payroll|wages|stipend|sal|pension|allowance|reimbursement|reimb|payout|direct deposit|direct dep|nach|ecs|ach)\\b")
         val INVESTMENT_RE = Regex("(?i)\\b(sip|folio|elss|redemption|settlement|mutual fund)\\b")
     }
 }
