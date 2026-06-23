@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -740,6 +741,93 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     suspend fun loadReceipt(path: String): android.graphics.Bitmap? = container.receiptStore.loadBitmap(path)
 }
 
+/**
+ * Backs the manual (cash / non-SMS) transaction entry & edit form. Persists through
+ * [TransactionRepository.addManual]/[updateManual] so manual rows skip the SMS pipeline and
+ * count in totals identically to parsed rows (PRD FR-A/FR-B).
+ */
+class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
+
+    val categories: StateFlow<List<CategoryEntity>> =
+        container.categoryRepository.observeCategories()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Accounts seen so far plus a "Cash" default, for the account picker. */
+    val accounts: StateFlow<List<String>> =
+        container.transactionRepository.observeAll()
+            .map { txns -> (listOf(CASH_ACCOUNT) + txns.map { it.accountKey }).distinct().sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), listOf(CASH_ACCOUNT))
+
+    /** Currencies the app can convert to the base currency. Base ("INR") first. */
+    val currencies: List<String> =
+        listOf(com.spendlens.app.parser.CurrencyConverter.BASE) +
+            (com.spendlens.app.data.fx.FxRepository.BUNDLED.keys - com.spendlens.app.parser.CurrencyConverter.BASE).sorted()
+
+    val baseCurrency: String get() = com.spendlens.app.parser.CurrencyConverter.BASE
+
+    suspend fun loadById(id: Long): TransactionEntity? = container.transactionRepository.getById(id)
+
+    fun createCategory(name: String, icon: String, color: Long, onCreated: (Long) -> Unit) =
+        viewModelScope.launch {
+            onCreated(container.categoryRepository.createCategory(name, icon, color))
+        }
+
+    /**
+     * Save a manual entry. [editing] = null adds a new row; otherwise the existing row is updated
+     * in place (same id, no duplicate). [amountBaseMinor] is recomputed from the live FX rates.
+     */
+    fun save(
+        editing: TransactionEntity?,
+        amountMinor: Long,
+        currency: String,
+        direction: String,
+        accountKey: String,
+        counterparty: String,
+        occurredAt: Long,
+        categoryId: Long,
+        note: String?,
+        tags: String?,
+        onDone: () -> Unit,
+    ) = viewModelScope.launch {
+        val rates = container.fxRepository.ratesToBase()
+        if (editing == null) {
+            container.transactionRepository.addManual(
+                amountMinor = amountMinor,
+                currency = currency,
+                direction = direction,
+                accountKey = accountKey,
+                counterparty = counterparty,
+                occurredAt = occurredAt,
+                categoryId = categoryId,
+                note = note,
+                tags = tags,
+                receiptUri = null,
+                ratesToBase = rates,
+            )
+        } else {
+            container.transactionRepository.updateManual(
+                editing.copy(
+                    amountMinor = amountMinor,
+                    currency = currency,
+                    direction = direction,
+                    accountKey = accountKey,
+                    counterparty = counterparty,
+                    occurredAt = occurredAt,
+                    categoryId = categoryId,
+                    note = note,
+                    tags = tags,
+                ),
+                rates,
+            )
+        }
+        onDone()
+    }
+
+    companion object {
+        const val CASH_ACCOUNT = "Cash"
+    }
+}
+
 // ---------- Factory ----------
 
 class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
@@ -756,6 +844,7 @@ class SpendLensViewModelFactory(private val container: AppContainer) : ViewModel
             modelClass.isAssignableFrom(BudgetsViewModel::class.java) -> BudgetsViewModel(container)
             modelClass.isAssignableFrom(BillsViewModel::class.java) -> BillsViewModel(container)
             modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> TransactionDetailViewModel(container)
+            modelClass.isAssignableFrom(ManualEntryViewModel::class.java) -> ManualEntryViewModel(container)
             else -> error("Unknown ViewModel: ${modelClass.name}")
         }
         return vm as T
