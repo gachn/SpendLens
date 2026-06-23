@@ -55,6 +55,7 @@ fun DashboardScreen(
     budgetVm: BudgetsViewModel,
     onTransactionClick: (TransactionEntity) -> Unit = {},
     onOpenBills: () -> Unit = {},
+    onViewAll: () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     val budgetState by budgetVm.state.collectAsState()
@@ -265,7 +266,7 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Recent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                TextButton(onClick = {}) {
+                TextButton(onClick = onViewAll) {
                     Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                 }
             }
