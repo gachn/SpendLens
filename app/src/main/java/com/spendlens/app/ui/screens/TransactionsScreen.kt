@@ -379,6 +379,15 @@ private fun FilterPanel(vm: TransactionsViewModel, activeCount: Int) {
                         selectedLabelColor     = MaterialTheme.colorScheme.primary,
                     ),
                 )
+                FilterChip(
+                    selected = f.categoryId == TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID,
+                    onClick = { vm.setCategory(TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID) },
+                    label = { Text("Uncategorized", style = MaterialTheme.typography.labelSmall) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                    ),
+                )
                 state.categories.values.forEach { cat ->
                     FilterChip(
                         selected = f.categoryId == cat.id,

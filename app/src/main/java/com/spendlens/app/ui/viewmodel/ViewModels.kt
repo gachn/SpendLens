@@ -199,6 +199,11 @@ class TransactionsViewModel(container: AppContainer) : ViewModel() {
     private val query = MutableStateFlow("")
     private val filters = MutableStateFlow(TxnFilters())
 
+    companion object {
+        /** Sentinel category id meaning "transactions with no category" (txn.categoryId == null). */
+        const val UNCATEGORIZED_CATEGORY_ID = -1L
+    }
+
     fun setQuery(q: String) { query.value = q }
     fun setDirection(d: TxnFilter) { filters.update { it.copy(direction = d) } }
     fun setCategory(id: Long?) { filters.update { it.copy(categoryId = id) } }
@@ -222,7 +227,9 @@ class TransactionsViewModel(container: AppContainer) : ViewModel() {
                 TxnFilter.DEBIT -> txn.direction == "DEBIT"
                 TxnFilter.CREDIT -> txn.direction == "CREDIT"
             }) &&
-                (f.categoryId == null || txn.categoryId == f.categoryId) &&
+                (f.categoryId == null ||
+                    (f.categoryId == UNCATEGORIZED_CATEGORY_ID && txn.categoryId == null) ||
+                    txn.categoryId == f.categoryId) &&
                 (f.accountKey == null || txn.accountKey == f.accountKey) &&
                 (from == null || txn.occurredAt >= from) &&
                 (to == null || txn.occurredAt <= to) &&
@@ -414,7 +421,7 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             .mapNotNull { (catId, list) ->
                 val total = list.sumOf { t -> t.amountBaseMinor }
                 if (catId == null) {
-                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total, categoryId = null)
+                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total, categoryId = TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID)
                 } else {
                     map[catId]?.let { CategorySlice(it.name, Color(it.color), total, categoryId = catId) }
                 }
