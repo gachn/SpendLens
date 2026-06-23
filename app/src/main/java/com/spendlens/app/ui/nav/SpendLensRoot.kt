@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
@@ -58,6 +59,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Arrangement
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -98,10 +112,12 @@ import com.spendlens.app.ui.viewmodel.TransactionDetailViewModel
 import com.spendlens.app.ui.viewmodel.TransactionsViewModel
 import com.spendlens.app.work.SmsSyncWorker
 
-// Bottom nav destinations (4 primary sections matching the design)
+// Bottom nav destinations (5 primary sections matching the design mock:
+// Home · History · Accounts · Insights · Budgets)
 enum class Dest(val route: String, val label: String, val icon: ImageVector) {
     Home("dashboard",     "Home",     Icons.Filled.Home),
     History("transactions","History", Icons.AutoMirrored.Filled.ReceiptLong),
+    Accounts("accounts",  "Accounts", Icons.Filled.AccountBalanceWallet),
     Insights("analytics", "Insights", Icons.Filled.Analytics),
     Budgets("budgets",    "Budgets",  Icons.Filled.Category),
 }
@@ -109,7 +125,6 @@ enum class Dest(val route: String, val label: String, val icon: ImageVector) {
 private const val ROUTE_SETTINGS     = "settings"
 private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
-private const val ROUTE_ACCOUNTS     = "accounts"
 private const val ROUTE_CATEGORIES   = "categories"
 private const val ROUTE_MERCHANT     = "merchant"
 private const val ARG_MERCHANT       = "name"
@@ -124,6 +139,195 @@ fun SpendLensRoot(
 ) {
     val factory = remember { SpendLensViewModelFactory(container) }
     var selected by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    var lastProcessedClip by remember { mutableStateOf("") }
+    var detectedPatternSingle by remember { mutableStateOf<DetectedPatternSingle?>(null) }
+    var detectedPatternBulk by remember { mutableStateOf<List<DetectedPatternSingle>?>(null) }
+
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clipText = if (clipboard.hasPrimaryClip()) {
+                    val data = clipboard.primaryClip
+                    if (data != null && data.itemCount > 0) {
+                        data.getItemAt(0).text?.toString()
+                    } else null
+                } else null
+
+                if (clipText != null && clipText != lastProcessedClip) {
+                    val extracted = extractJson(clipText)
+                    if (extracted != null) {
+                        try {
+                            if (extracted.startsWith("[")) {
+                                val array = org.json.JSONArray(extracted)
+                                val list = mutableListOf<DetectedPatternSingle>()
+                                for (i in 0 until array.length()) {
+                                    val obj = array.getJSONObject(i)
+                                    val bodyRegex = obj.optString("bodyRegex")
+                                    if (bodyRegex.isNullOrBlank()) continue
+                                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
+                                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
+                                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
+                                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
+                                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
+
+                                    list.add(
+                                        DetectedPatternSingle(
+                                            originalText = "Bulk Pattern #${i+1}",
+                                            name = name,
+                                            cleanMerchant = cleanMerchant,
+                                            logoEmoji = logoEmoji,
+                                            categoryName = categoryName,
+                                            bodyRegex = bodyRegex,
+                                            senderRegex = senderRegex,
+                                            rawJson = clipText
+                                        )
+                                    )
+                                }
+                                if (list.isNotEmpty()) {
+                                    detectedPatternBulk = list
+                                }
+                            } else if (extracted.startsWith("{")) {
+                                val obj = org.json.JSONObject(extracted)
+                                val bodyRegex = obj.optString("bodyRegex")
+                                if (!bodyRegex.isNullOrBlank()) {
+                                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
+                                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
+                                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
+                                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
+                                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
+
+                                    detectedPatternSingle = DetectedPatternSingle(
+                                        originalText = "",
+                                        name = name,
+                                        cleanMerchant = cleanMerchant,
+                                        logoEmoji = logoEmoji,
+                                        categoryName = categoryName,
+                                        bodyRegex = bodyRegex,
+                                        senderRegex = senderRegex,
+                                        rawJson = clipText
+                                    )
+                                }
+                            }
+                        } catch (_: Exception) {
+                            // ignore silently if it's not our JSON format
+                        }
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Single Pattern Dialog
+    detectedPatternSingle?.let { pat ->
+        AlertDialog(
+            onDismissRequest = {
+                detectedPatternSingle = null
+                lastProcessedClip = pat.rawJson
+            },
+            title = { Text("🤖 AI Pattern Detected") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("We found a parsing pattern in your clipboard:", style = MaterialTheme.typography.bodyMedium)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Name: ${pat.name}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Merchant: ${pat.logoEmoji ?: ""} ${pat.cleanMerchant}", style = MaterialTheme.typography.bodyMedium)
+                            Text("Category: ${pat.categoryName}", style = MaterialTheme.typography.bodyMedium)
+                            Text("Regex: ${pat.bodyRegex.take(40)}...", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                val reviewVm = viewModel<ReviewViewModel>(factory = factory)
+                val scope = rememberCoroutineScope()
+                TextButton(onClick = {
+                    scope.launch {
+                        reviewVm.applyAiPatterns(pat.rawJson)
+                        detectedPatternSingle = null
+                        lastProcessedClip = pat.rawJson
+                    }
+                }) {
+                    Text("Approve & Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    detectedPatternSingle = null
+                    lastProcessedClip = pat.rawJson
+                }) {
+                    Text("Discard")
+                }
+            }
+        )
+    }
+
+    // Bulk Pattern Dialog
+    detectedPatternBulk?.let { list ->
+        AlertDialog(
+            onDismissRequest = {
+                detectedPatternBulk = null
+                lastProcessedClip = list.first().rawJson
+            },
+            title = { Text("🤖 AI Bulk Mappings Detected") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("We found ${list.size} parsing patterns in your clipboard:", style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.heightIn(max = 240.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(list) { pat ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(8.dp)) {
+                                    Text("${pat.logoEmoji ?: "📝"} ${pat.cleanMerchant} (${pat.categoryName})", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text(pat.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                val reviewVm = viewModel<ReviewViewModel>(factory = factory)
+                val scope = rememberCoroutineScope()
+                TextButton(onClick = {
+                    scope.launch {
+                        reviewVm.applyAiPatterns(list.first().rawJson)
+                        detectedPatternBulk = null
+                        lastProcessedClip = list.first().rawJson
+                    }
+                }) {
+                    Text("Approve All (${list.size})")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    detectedPatternBulk = null
+                    lastProcessedClip = list.first().rawJson
+                }) {
+                    Text("Discard")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(initialTxnId) {
         initialTxnId ?: return@LaunchedEffect
@@ -319,7 +523,7 @@ private fun MainScaffold(
             composable(ROUTE_BILLS) {
                 BillsScreen(viewModel<BillsViewModel>(factory = factory))
             }
-            composable(ROUTE_ACCOUNTS) {
+            composable(Dest.Accounts.route) {
                 AccountsScreen(viewModel<AccountsViewModel>(factory = factory), onTransactionClick = { onSelectedChanged(it) })
             }
             composable(ROUTE_CATEGORIES) {
@@ -486,3 +690,33 @@ private fun LuminousNavBar(currentRoute: String?, onNavigate: (Dest) -> Unit) {
         }
     }
 }
+
+private fun extractJson(input: String): String? {
+    val firstBracket = input.indexOf('[')
+    val firstBrace = input.indexOf('{')
+    
+    if (firstBracket == -1 && firstBrace == -1) return null
+    
+    return if (firstBracket != -1 && (firstBrace == -1 || firstBracket < firstBrace)) {
+        val lastBracket = input.lastIndexOf(']')
+        if (lastBracket != -1 && lastBracket > firstBracket) {
+            input.substring(firstBracket, lastBracket + 1)
+        } else null
+    } else {
+        val lastBrace = input.lastIndexOf('}')
+        if (lastBrace != -1 && lastBrace > firstBrace) {
+            input.substring(firstBrace, lastBrace + 1)
+        } else null
+    }
+}
+
+private data class DetectedPatternSingle(
+    val originalText: String,
+    val name: String,
+    val cleanMerchant: String,
+    val logoEmoji: String?,
+    val categoryName: String,
+    val bodyRegex: String,
+    val senderRegex: String?,
+    val rawJson: String
+)
