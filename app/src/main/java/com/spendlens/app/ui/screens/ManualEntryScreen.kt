@@ -78,6 +78,7 @@ fun ManualEntryScreen(
     var showCreateCategory by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // Prefill in edit mode.
     LaunchedEffect(editId) {
@@ -255,6 +256,30 @@ fun ManualEntryScreen(
             enabled = canSave,
             modifier = Modifier.fillMaxWidth(),
         ) { Text(if (editing == null) "Save transaction" else "Save changes") }
+
+        // Delete is only offered when editing an existing manual entry (FR-C lifecycle).
+        editing?.let { existing ->
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+
+            if (showDeleteConfirm) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showDeleteConfirm = false
+                            vm.delete(existing.id, onClose)
+                        }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } },
+                    title = { Text("Delete transaction?") },
+                    text = { Text("This permanently removes the manual entry and updates your totals.") },
+                )
+            }
+        }
     }
 
     if (showCreateCategory) {

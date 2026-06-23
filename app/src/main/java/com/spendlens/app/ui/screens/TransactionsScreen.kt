@@ -66,6 +66,7 @@ fun TransactionsScreen(
     pendingReviewCount: Int = 0,
     onOpenReview: () -> Unit = {},
     onTransactionClick: (TransactionEntity) -> Unit = {},
+    onEditTransaction: (TransactionEntity) -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
@@ -296,7 +297,13 @@ fun TransactionsScreen(
                         ) {
                             Column {
                                 txns.forEachIndexed { i, txn ->
-                                    TransactionRow(txn, state.categories, onClick = { onTransactionClick(txn) })
+                                    // Manual rows open the editable entry form; parsed rows open the detail sheet.
+                                    val isManual = txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL
+                                    TransactionRow(
+                                        txn,
+                                        state.categories,
+                                        onClick = { if (isManual) onEditTransaction(txn) else onTransactionClick(txn) },
+                                    )
                                     if (i < txns.size - 1) {
                                         HorizontalDivider(
                                             modifier = Modifier.padding(horizontal = 16.dp),

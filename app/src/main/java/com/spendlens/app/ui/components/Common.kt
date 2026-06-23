@@ -151,6 +151,20 @@ fun TransactionRow(
                         )
                     }
                 }
+                if (txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL) {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+                    ) {
+                        Text(
+                            "✍ Manual",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
                 Text(
                     Dates.day(txn.occurredAt),
                     style = MaterialTheme.typography.bodySmall,

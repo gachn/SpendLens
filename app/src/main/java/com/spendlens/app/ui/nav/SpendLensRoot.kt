@@ -292,6 +292,7 @@ private fun MainScaffold(
                     pendingReviewCount = pending,
                     onOpenReview = { nav.navigate(ROUTE_REVIEW) { launchSingleTop = true } },
                     onTransactionClick = { onSelectedChanged(it) },
+                    onEditTransaction = { nav.navigate("$ROUTE_ENTRY/${it.id}") { launchSingleTop = true } },
                 )
             }
             composable(Dest.Insights.route) {

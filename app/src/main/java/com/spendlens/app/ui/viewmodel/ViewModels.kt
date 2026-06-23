@@ -35,7 +35,7 @@ import java.time.ZoneId
 
 // ---------- UI state models ----------
 
-data class CategorySlice(val name: String, val color: Color, val amountMinor: Long)
+data class CategorySlice(val name: String, val color: Color, val amountMinor: Long, val categoryId: Long? = null)
 
 data class DashboardUiState(
     val spendMinor: Long = 0,
@@ -414,9 +414,9 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             .mapNotNull { (catId, list) ->
                 val total = list.sumOf { t -> t.amountBaseMinor }
                 if (catId == null) {
-                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total)
+                    CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total, categoryId = null)
                 } else {
-                    map[catId]?.let { CategorySlice(it.name, Color(it.color), total) }
+                    map[catId]?.let { CategorySlice(it.name, Color(it.color), total, categoryId = catId) }
                 }
             }.sortedByDescending { it.amountMinor }
         val palette = listOf(0xFF0E7C66, 0xFF42A5F5, 0xFFEC407A, 0xFFFFB300, 0xFFAB47BC)
@@ -610,6 +610,7 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
 
 class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
     private val range = Dates.currentMonth()
+    private val zone: ZoneId = ZoneId.systemDefault()
 
     val state: StateFlow<BudgetsUiState> = combine(
         container.budgetRepository.observeAll(),
@@ -627,6 +628,53 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setBudget(categoryId: Long, limitMinor: Long) = viewModelScope.launch {
         container.budgetRepository.setBudget(categoryId, limitMinor)
+    }
+
+    /** Tracks the predict-budgets action so the screen can show progress / a result. */
+    sealed interface PredictState {
+        data object Idle : PredictState
+        data object Running : PredictState
+        data class Done(val updated: Int) : PredictState
+    }
+
+    private val _predictState = MutableStateFlow<PredictState>(PredictState.Idle)
+    val predictState: StateFlow<PredictState> = _predictState
+    fun consumePredictResult() { _predictState.value = PredictState.Idle }
+
+    /**
+     * Forecast a monthly limit for every category from the last 12 months of debit history and
+     * write the results. Uses [BudgetPredictor], which weights recent months, follows the trend
+     * and adds a volatility buffer instead of a flat average. Categories with no usable history
+     * are left untouched.
+     */
+    fun predictBudgets() = viewModelScope.launch {
+        if (_predictState.value is PredictState.Running) return@launch
+        _predictState.value = PredictState.Running
+
+        val months = Dates.recentMonths(12) // newest → oldest
+        val orderedMonths = months.reversed() // oldest → newest, matching BudgetPredictor's input
+
+        val debits = withContext(Dispatchers.IO) { container.transactionRepository.allDebits() }
+
+        // Per-category, per-month base-minor totals.
+        val byCategory: Map<Long, Map<YearMonth, Long>> = debits
+            .filter { it.categoryId != null }
+            .groupBy { it.categoryId!! }
+            .mapValues { (_, list) ->
+                list.groupBy { YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) }
+                    .mapValues { (_, txns) -> txns.sumOf { t -> t.amountBaseMinor } }
+            }
+
+        var updated = 0
+        byCategory.forEach { (categoryId, monthly) ->
+            val series = orderedMonths.map { ym -> monthly[ym] ?: 0L }
+            val predicted = com.spendlens.app.ui.util.BudgetPredictor.predict(series)
+            if (predicted > 0L) {
+                container.budgetRepository.setBudget(categoryId, predicted)
+                updated++
+            }
+        }
+        _predictState.value = PredictState.Done(updated)
     }
 }
 
@@ -820,6 +868,12 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                 rates,
             )
         }
+        onDone()
+    }
+
+    /** Delete a manual transaction by id (FR-C lifecycle). Reverts totals automatically. */
+    fun delete(id: Long, onDone: () -> Unit) = viewModelScope.launch {
+        container.transactionRepository.delete(id)
         onDone()
     }
 
