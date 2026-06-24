@@ -45,6 +45,9 @@ class AppContainer(context: Context) {
     val budgetRepository by lazy { BudgetRepository(database.budgetDao()) }
     val billRepository by lazy { BillRepository(database.billDao()) }
     val savingsGoalRepository by lazy { SavingsGoalRepository(database.savingsGoalDao(), transactionRepository) }
+
+    /** Encrypted, offline backup/restore of the user's data (issue #13). */
+    val backupManager by lazy { com.spendlens.app.data.backup.BackupManager(database) }
     val rawSmsDao get() = database.rawSmsDao()
     val cardBillDao get() = database.cardBillDao()
 

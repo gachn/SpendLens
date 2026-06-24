@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -72,9 +73,50 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
     val security by vm.security.collectAsState()
+    val backupState by vm.backupState.collectAsState()
+    val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showClearPatternsDialog by remember { mutableStateOf(false) }
+
+    // Encrypted backup/restore (issue #13). A picked file uri + mode opens the password dialog.
+    var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val exportPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri -> if (uri != null) pendingExportUri = uri }
+    val importPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) pendingImportUri = uri }
+
+    androidx.compose.runtime.LaunchedEffect(backupState) {
+        when (val s = backupState) {
+            is SettingsViewModel.BackupState.Done -> {
+                android.widget.Toast.makeText(context, s.message, android.widget.Toast.LENGTH_SHORT).show()
+                vm.consumeBackupState()
+            }
+            is SettingsViewModel.BackupState.Failed -> {
+                android.widget.Toast.makeText(context, s.message, android.widget.Toast.LENGTH_LONG).show()
+                vm.consumeBackupState()
+            }
+            else -> {}
+        }
+    }
+
+    pendingExportUri?.let { uri ->
+        BackupPasswordDialog(
+            confirm = true,
+            onDismiss = { pendingExportUri = null },
+            onConfirm = { pwd -> pendingExportUri = null; vm.exportBackup(context, uri, pwd) },
+        )
+    }
+    pendingImportUri?.let { uri ->
+        BackupPasswordDialog(
+            confirm = false,
+            onDismiss = { pendingImportUri = null },
+            onConfirm = { pwd -> pendingImportUri = null; vm.importBackup(context, uri, pwd) },
+        )
+    }
 
     if (showClearDataDialog) {
         AlertDialog(
@@ -305,6 +347,51 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
             }
         }
 
+        item { SectionHeader("Backup & restore") }
+        item {
+            val working = backupState is SettingsViewModel.BackupState.Working
+            val tsFmt = remember { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()) }
+            ElevatedSurfaceCard {
+                Column {
+                    Text(
+                        "Encrypted, offline backup. Choose a password — it's the only way to restore, " +
+                            "and SpendLens can't recover it. Nothing is uploaded.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            val name = "spendlens-backup-${java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())}.slb"
+                            exportPicker.launch(name)
+                        },
+                        enabled = !working,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Create encrypted backup") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { importPicker.launch(arrayOf("*/*")) },
+                        enabled = !working,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Restore from backup") }
+                    if (working) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.height(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Working…", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        lastBackupAt?.let { "Last backup: ${tsFmt.format(java.util.Date(it))}" } ?: "No backup yet",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         item { SectionHeader("Data") }
         item {
             ElevatedSurfaceCard {
@@ -501,4 +588,77 @@ private fun PatternDetail(label: String, value: String) {
             modifier = Modifier.padding(8.dp),
         )
     }
+}
+
+/**
+ * Prompts for the backup password. [confirm] = true (create) requires a second matching entry and a
+ * minimum length; false (restore) accepts a single password. The password is handed back as a
+ * CharArray the caller wipes after use.
+ */
+@Composable
+private fun BackupPasswordDialog(
+    confirm: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (CharArray) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
+    val tooShort = confirm && password.length < 6
+    val mismatch = confirm && repeat.isNotEmpty() && password != repeat
+    val valid = password.isNotEmpty() && !tooShort && (!confirm || password == repeat)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onConfirm(password.toCharArray()) }) {
+                Text(if (confirm) "Encrypt & save" else "Restore", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(if (confirm) "Set backup password" else "Enter backup password") },
+        text = {
+            Column {
+                if (confirm) {
+                    Text(
+                        "This password encrypts your backup. There's no recovery if you forget it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    label = { Text("Password") },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                    ),
+                    isError = tooShort,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (confirm) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = repeat,
+                        onValueChange = { repeat = it },
+                        singleLine = true,
+                        label = { Text("Confirm password") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                        ),
+                        isError = mismatch,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (tooShort) {
+                        Text("At least 6 characters.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    } else if (mismatch) {
+                        Text("Passwords don't match.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+    )
 }

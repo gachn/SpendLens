@@ -82,10 +82,23 @@ class SettingsStore(context: Context) {
         _security.value = _security.value.copy(gracePeriodSec = seconds)
     }
 
+    // Backup tracking (issue #13) — drives the "last backup" label and the 30-day reminder.
+    private val _lastBackupAt = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L })
+    val lastBackupAt: StateFlow<Long?> = _lastBackupAt.asStateFlow()
+
+    /** Epoch millis of the last successful export, or 0 if never. */
+    fun lastBackupAtMillis(): Long = prefs.getLong(KEY_LAST_BACKUP, 0L)
+
+    fun setLastBackupAt(epochMillis: Long) {
+        prefs.edit().putLong(KEY_LAST_BACKUP, epochMillis).apply()
+        _lastBackupAt.value = epochMillis
+    }
+
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
         const val KEY_APP_LOCK = "app_lock_enabled"
         const val KEY_GRACE_SEC = "app_lock_grace_sec"
+        const val KEY_LAST_BACKUP = "last_backup_at"
     }
 }

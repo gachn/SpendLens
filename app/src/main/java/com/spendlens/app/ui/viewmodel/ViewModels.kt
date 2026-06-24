@@ -831,6 +831,58 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         SmsSyncWorker.enqueueImport(context)
     }
 
+    // ----- Encrypted backup / restore (issue #13) -----
+
+    /** Epoch millis of the last successful export, or null if never backed up. */
+    val lastBackupAt: StateFlow<Long?> = container.settingsStore.lastBackupAt
+
+    sealed interface BackupState {
+        data object Idle : BackupState
+        data object Working : BackupState
+        data class Done(val message: String) : BackupState
+        data class Failed(val message: String) : BackupState
+    }
+
+    private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
+    val backupState: StateFlow<BackupState> = _backupState
+    fun consumeBackupState() { _backupState.value = BackupState.Idle }
+
+    /** Encrypt all data under [password] and write the blob to the user-chosen [uri]. */
+    fun exportBackup(context: android.content.Context, uri: android.net.Uri, password: CharArray) =
+        viewModelScope.launch {
+            if (_backupState.value is BackupState.Working) return@launch
+            _backupState.value = BackupState.Working
+            _backupState.value = runCatching {
+                val blob = container.backupManager.export(password)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(blob) }
+                        ?: error("Could not open the destination file")
+                }
+                container.settingsStore.setLastBackupAt(System.currentTimeMillis())
+                BackupState.Done("Backup saved")
+            }.getOrElse { e -> BackupState.Failed(e.message ?: "Export failed") }
+                .also { password.fill(' ') }
+        }
+
+    /** Read the blob at [uri], decrypt with [password], and replace current data on success. */
+    fun importBackup(context: android.content.Context, uri: android.net.Uri, password: CharArray) =
+        viewModelScope.launch {
+            if (_backupState.value is BackupState.Working) return@launch
+            _backupState.value = BackupState.Working
+            _backupState.value = runCatching {
+                val blob = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("Could not open the backup file")
+                }
+                container.backupManager.import(blob, password)
+                BackupState.Done("Backup restored")
+            }.getOrElse { e ->
+                val msg = if (e is com.spendlens.app.data.backup.BackupManager.BadPasswordException)
+                    "Wrong password or corrupt file" else (e.message ?: "Restore failed")
+                BackupState.Failed(msg)
+            }.also { password.fill(' ') }
+        }
+
     // ----- Debug export -----
 
     sealed class ExportState {

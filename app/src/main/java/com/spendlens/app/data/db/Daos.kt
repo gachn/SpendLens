@@ -213,6 +213,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions")
     suspend fun getAllTransactions(): List<TransactionEntity>
 
+    @Query("SELECT COUNT(*) FROM transactions")
+    suspend fun count(): Int
+
 
     @Query(
         "SELECT COUNT(*) FROM transactions " +
@@ -257,6 +260,12 @@ interface TransactionSplitDao {
     @Query("SELECT * FROM transaction_splits")
     fun observeAll(): Flow<List<TransactionSplitEntity>>
 
+    @Query("SELECT * FROM transaction_splits")
+    suspend fun all(): List<TransactionSplitEntity>
+
+    @Query("DELETE FROM transaction_splits")
+    suspend fun clear()
+
     @Query("SELECT * FROM transaction_splits WHERE parentId = :parentId")
     suspend fun forParent(parentId: Long): List<TransactionSplitEntity>
 
@@ -286,6 +295,9 @@ interface SavingsGoalDao {
 
     @Query("DELETE FROM savings_goals WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM savings_goals")
+    suspend fun clear()
 }
 
 @Dao
@@ -341,6 +353,9 @@ interface MerchantDao {
 
     @Query("SELECT * FROM merchant_aliases")
     fun observeAll(): kotlinx.coroutines.flow.Flow<List<MerchantAliasEntity>>
+
+    @Query("DELETE FROM merchant_aliases")
+    suspend fun clear()
 }
 
 @Dao
@@ -403,6 +418,12 @@ interface CategoryDao {
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun categoryCount(): Int
+
+    @Query("DELETE FROM categories")
+    suspend fun clearCategories()
+
+    @Query("DELETE FROM category_rules")
+    suspend fun clearRules()
 }
 
 @Dao

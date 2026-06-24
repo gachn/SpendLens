@@ -466,7 +466,12 @@ private fun PermissionGate(content: @Composable () -> Unit) {
         ?.status?.isGranted ?: true
     var requested by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(smsGranted) { if (smsGranted) SmsSyncWorker.enqueueImport(context) }
+    LaunchedEffect(smsGranted) {
+        if (smsGranted) {
+            SmsSyncWorker.enqueueImport(context)
+            com.spendlens.app.work.BackupReminderWorker.schedule(context)
+        }
+    }
     LaunchedEffect(smsGranted, notifGranted) {
         if (smsGranted && !notifGranted) permState.launchMultiplePermissionRequest()
     }
