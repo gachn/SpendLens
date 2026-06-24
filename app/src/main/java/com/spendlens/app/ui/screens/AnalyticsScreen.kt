@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
 import com.spendlens.app.ui.viewmodel.AnalyticsTab
 import com.spendlens.app.ui.viewmodel.AnalyticsViewModel
+import com.spendlens.app.ui.viewmodel.CategoryComparisonRow
 import com.spendlens.app.ui.viewmodel.CategorySlice
 import kotlin.math.absoluteValue
 
@@ -123,6 +125,48 @@ fun AnalyticsScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                             LegendPill(color = SpendLensTheme.colors.debit, label = "Spent")
                             LegendPill(color = SpendLensTheme.colors.credit, label = "Received")
+                        }
+                    }
+                }
+            }
+
+            // ── Month-over-month comparison (issue #15) ───────────────────────
+            item {
+                GlassCard {
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text("Compare Months", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                                Text("See where spending changed by category", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = state.compareMode, onCheckedChange = vm::setCompareMode)
+                        }
+                        if (state.compareMode) {
+                            Spacer(Modifier.height(12.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("From", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    MonthDropdown(state.compareMonthA, state.monthOptions, vm::setCompareMonthA)
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text("To", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    MonthDropdown(state.compareMonthB, state.monthOptions, vm::setCompareMonthB)
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            ComparisonTable(
+                                rows = state.comparisonRows,
+                                currency = state.currency,
+                                onCategoryClick = onCategoryClick,
+                            )
                         }
                     }
                 }
@@ -577,6 +621,96 @@ private fun MerchantRow(merchant: CategorySlice, currency: String, onClick: () -
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+// ── Month-over-month comparison table (issue #15) ────────────────────────────
+
+@Composable
+private fun ComparisonTable(
+    rows: List<CategoryComparisonRow>,
+    currency: String,
+    onCategoryClick: (Long) -> Unit,
+) {
+    if (rows.isEmpty()) {
+        Text(
+            "No spending in either month.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    Column {
+        // Header row.
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Text("Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.4f))
+            Text("From", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text("To", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text("Δ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
+        }
+        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+        rows.forEach { row ->
+            ComparisonRow(row, currency, onCategoryClick)
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+        }
+    }
+}
+
+@Composable
+private fun ComparisonRow(
+    row: CategoryComparisonRow,
+    currency: String,
+    onCategoryClick: (Long) -> Unit,
+) {
+    // Spending going down is good → green; going up → red. Zero delta is neutral.
+    val deltaColor = when {
+        row.deltaMinor < 0 -> SpendLensTheme.colors.credit
+        row.deltaMinor > 0 -> SpendLensTheme.colors.debit
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val deltaPrefix = if (row.deltaMinor > 0) "+" else ""
+    val pctText = row.deltaPercent?.let { " (${if (it >= 0) "+" else ""}${it.toInt()}%)" }
+        ?: if (row.amountBMinor > 0) " (new)" else ""
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(row.categoryId?.let { id -> Modifier.clickable { onCategoryClick(id) } } ?: Modifier)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(Modifier.weight(1.4f), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = row.color, modifier = Modifier.size(8.dp)) {}
+            Spacer(Modifier.width(6.dp))
+            Text(
+                row.name,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            Money.format(row.amountAMinor, currency),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            Money.format(row.amountBMinor, currency),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "$deltaPrefix${Money.format(row.deltaMinor, currency)}$pctText",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = deltaColor,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.1f),
         )
     }
 }

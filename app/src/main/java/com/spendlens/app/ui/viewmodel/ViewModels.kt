@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
+import kotlin.math.absoluteValue
 
 // ---------- UI state models ----------
 
@@ -64,6 +65,22 @@ data class MerchantsUiState(
 )
 
 data class CategorySlice(val name: String, val color: Color, val amountMinor: Long, val categoryId: Long? = null)
+
+/**
+ * One category's spend in two months being compared (issue #15). [deltaMinor] is B − A;
+ * [deltaPercent] is null when month A had no spend (an entirely new category), so the UI can show
+ * "new" instead of a divide-by-zero.
+ */
+data class CategoryComparisonRow(
+    val name: String,
+    val color: Color,
+    val categoryId: Long?,
+    val amountAMinor: Long,
+    val amountBMinor: Long,
+) {
+    val deltaMinor: Long get() = amountBMinor - amountAMinor
+    val deltaPercent: Float? get() = if (amountAMinor == 0L) null else deltaMinor * 100f / amountAMinor
+}
 
 data class DashboardUiState(
     val spendMinor: Long = 0,
@@ -139,6 +156,11 @@ data class AnalyticsUiState(
     val activeTab: AnalyticsTab = AnalyticsTab.Spend,
     val incomeSlices: List<CategorySlice> = emptyList(),
     val monthlySavingsRates: List<Float> = emptyList(),
+    // Month-over-month comparison (issue #15).
+    val compareMode: Boolean = false,
+    val compareMonthA: YearMonth = YearMonth.now().minusMonths(1),
+    val compareMonthB: YearMonth = YearMonth.now(),
+    val comparisonRows: List<CategoryComparisonRow> = emptyList(),
 )
 
 data class ReviewUiState(
@@ -466,16 +488,31 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
     private val selectedMonth = MutableStateFlow(monthOptions.first())
     private val activeTab = MutableStateFlow(AnalyticsTab.Spend)
 
+    /** Comparison-mode controls (issue #15): on/off plus the two months being diffed. */
+    private data class CompareControls(val enabled: Boolean, val monthA: YearMonth, val monthB: YearMonth)
+    private val compare = MutableStateFlow(
+        CompareControls(
+            enabled = false,
+            monthA = monthOptions.getOrElse(1) { monthOptions.first() },
+            monthB = monthOptions.first(),
+        ),
+    )
+
     fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
     fun setTab(tab: AnalyticsTab) { activeTab.value = tab }
+    fun setCompareMode(enabled: Boolean) { compare.value = compare.value.copy(enabled = enabled) }
+    fun setCompareMonthA(ym: YearMonth) { compare.value = compare.value.copy(monthA = ym) }
+    fun setCompareMonthB(ym: YearMonth) { compare.value = compare.value.copy(monthB = ym) }
+
+    private val controls = combine(selectedMonth, activeTab, compare) { month, tab, cmp -> Triple(month, tab, cmp) }
 
     val state: StateFlow<AnalyticsUiState> = combine(
         repo.observeAll(),
         container.categoryRepository.observeCategories(),
         repo.observeAllSplits(),
-        selectedMonth,
-        activeTab,
-    ) { txns, categories, splits, breakdownMonth, tab ->
+        controls,
+    ) { txns, categories, splits, ctrl ->
+        val (breakdownMonth, tab, cmp) = ctrl
         val map = categories.associateBy { it.id }
         val splitsByParent = splits.groupBy { it.parentId }
         val currency = "INR" // base currency for all totals
@@ -493,21 +530,28 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             )
         }
 
-        // Selected-month spend: category slices + top merchants.
-        val inMonthDebits = spendable.filter {
-            YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == breakdownMonth && it.direction == "DEBIT"
+        // Per-month DEBIT totals by category. Split parents contribute via their children's
+        // categories, not their own. Reused for the breakdown slices and the A/B comparison.
+        fun debitsIn(month: YearMonth) = spendable.filter {
+            YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == month && it.direction == "DEBIT"
         }
-        // Category totals: split parents contribute via their children's categories, not their own.
-        val totalByCat = HashMap<Long?, Long>()
-        inMonthDebits.forEach { t ->
-            if (t.isSplit) {
-                splitsByParent[t.id].orEmpty().forEach { s ->
-                    totalByCat[s.categoryId] = (totalByCat[s.categoryId] ?: 0L) + s.amountBaseMinor
+        fun categoryTotals(month: YearMonth): Map<Long?, Long> {
+            val totals = HashMap<Long?, Long>()
+            debitsIn(month).forEach { t ->
+                if (t.isSplit) {
+                    splitsByParent[t.id].orEmpty().forEach { s ->
+                        totals[s.categoryId] = (totals[s.categoryId] ?: 0L) + s.amountBaseMinor
+                    }
+                } else {
+                    totals[t.categoryId] = (totals[t.categoryId] ?: 0L) + t.amountBaseMinor
                 }
-            } else {
-                totalByCat[t.categoryId] = (totalByCat[t.categoryId] ?: 0L) + t.amountBaseMinor
             }
+            return totals
         }
+
+        // Selected-month spend: category slices + top merchants.
+        val inMonthDebits = debitsIn(breakdownMonth)
+        val totalByCat = categoryTotals(breakdownMonth)
         val slices = totalByCat
             .mapNotNull { (catId, total) ->
                 if (catId == null) {
@@ -534,6 +578,31 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             CategorySlice(src.name, Color(palette[i % palette.size]), src.amountMinor)
         }
 
+        // Month-over-month comparison (issue #15): diff category spend between the two chosen months.
+        val comparisonRows = if (cmp.enabled) {
+            val totalsA = categoryTotals(cmp.monthA)
+            val totalsB = categoryTotals(cmp.monthB)
+            (totalsA.keys + totalsB.keys).map { catId ->
+                val name: String
+                val color: Color
+                if (catId == null) {
+                    name = "Uncategorized"; color = Color(0xFF9E9E9EL)
+                } else {
+                    val cat = map[catId]
+                    name = cat?.name ?: "Unknown"; color = Color(cat?.color ?: 0xFF9E9E9EL)
+                }
+                CategoryComparisonRow(
+                    name = name,
+                    color = color,
+                    categoryId = catId ?: TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID,
+                    amountAMinor = totalsA[catId] ?: 0L,
+                    amountBMinor = totalsB[catId] ?: 0L,
+                )
+            }.sortedByDescending { it.deltaMinor.absoluteValue }
+        } else {
+            emptyList()
+        }
+
         AnalyticsUiState(
             months = months,
             slices = slices,
@@ -544,6 +613,10 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             activeTab = tab,
             incomeSlices = incomeSlices,
             monthlySavingsRates = incomeData.monthlySavingsRates,
+            compareMode = cmp.enabled,
+            compareMonthA = cmp.monthA,
+            compareMonthB = cmp.monthB,
+            comparisonRows = comparisonRows,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState(monthOptions = monthOptions))
 }
