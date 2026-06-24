@@ -230,7 +230,9 @@ private fun BankAccountRow(acct: AccountSummary, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    if (acct.balanceMinor != null) "Balance" else "Debit",
+                    if (acct.balanceMinor != null) {
+                        acct.balanceUpdatedAt?.let { "Balance · ${Dates.date(it)}" } ?: "Balance"
+                    } else "Debit",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -379,6 +379,8 @@ data class AccountSummary(
     val isCard: Boolean,
     /** Latest balance reported by an SMS for this account, if any. */
     val balanceMinor: Long?,
+    /** When that balance was last reported (occurredAt of the latest balance-bearing SMS). */
+    val balanceUpdatedAt: Long? = null,
     val totalDebitMinor: Long,
     val totalCreditMinor: Long,
     val txnCount: Int,
@@ -416,7 +418,7 @@ class AccountsViewModel(container: AppContainer) : ViewModel() {
         selectedMonth,
     ) { txns, balances, cats, bills, month ->
         val (start, end) = Dates.monthRange(month)
-        val balanceByKey = balances.associate { it.accountKey to it.balanceMinor }
+        val balanceByKey = balances.associateBy { it.accountKey }
         val billByCard = bills.associateBy { it.cardKey }
         // Group across all history so every account stays visible; scope totals to the month.
         val summaries = txns
@@ -434,7 +436,8 @@ class AccountsViewModel(container: AppContainer) : ViewModel() {
                     accountKey = key,
                     channel = topChannel,
                     isCard = topChannel.equals("CARD", ignoreCase = true),
-                    balanceMinor = balanceByKey[key],
+                    balanceMinor = balanceByKey[key]?.balanceMinor,
+                    balanceUpdatedAt = balanceByKey[key]?.updatedAt,
                     totalDebitMinor = monthTxns.filter { it.direction == "DEBIT" }.sumOf { it.amountBaseMinor },
                     totalCreditMinor = monthTxns.filter { it.direction == "CREDIT" }.sumOf { it.amountBaseMinor },
                     txnCount = monthTxns.size,
