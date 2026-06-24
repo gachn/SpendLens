@@ -1377,6 +1377,72 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
+// ---------- Savings goals (issue #12) ----------
+
+data class GoalItem(
+    val goal: com.spendlens.app.data.db.SavingsGoalEntity,
+    val savedMinor: Long,
+    val progress: Float,              // 0f..1f
+    val reached: Boolean,
+    /** Projected completion (epoch millis) from the current savings pace, or null if not derivable. */
+    val projectedCompletion: Long?,
+)
+
+data class GoalsUiState(
+    val goals: List<GoalItem> = emptyList(),
+    val currency: String = "INR",
+    /** Account keys the user can link a goal to (auto-tracking CREDITs into them). */
+    val accounts: List<String> = emptyList(),
+)
+
+class GoalsViewModel(private val container: AppContainer) : ViewModel() {
+    private val repo = container.savingsGoalRepository
+
+    val state: StateFlow<GoalsUiState> = combine(
+        repo.observeAll(),
+        container.transactionRepository.observeAll(),
+    ) { goals, txns ->
+        val accounts = txns.map { it.accountKey }.filter { it.isNotBlank() }.distinct().sorted()
+        val items = goals.map { g ->
+            val auto = g.linkedAccountKey?.let { key ->
+                txns.filter { it.direction == "CREDIT" && it.accountKey == key && it.occurredAt >= g.createdAt }
+                    .sumOf { it.amountBaseMinor }
+            } ?: 0L
+            val saved = g.savedManualMinor + auto
+            val progress = if (g.targetAmountMinor > 0) (saved.toFloat() / g.targetAmountMinor).coerceIn(0f, 1f) else 0f
+            GoalItem(
+                goal = g,
+                savedMinor = saved,
+                progress = progress,
+                reached = saved >= g.targetAmountMinor,
+                projectedCompletion = projectCompletion(g, saved),
+            )
+        }
+        GoalsUiState(goals = items, currency = "INR", accounts = accounts)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GoalsUiState())
+
+    private fun projectCompletion(goal: com.spendlens.app.data.db.SavingsGoalEntity, saved: Long): Long? {
+        if (saved >= goal.targetAmountMinor || saved <= 0L) return null
+        val now = System.currentTimeMillis()
+        val elapsedMs = (now - goal.createdAt).coerceAtLeast(DAY_MS)
+        val ratePerMs = saved.toDouble() / elapsedMs
+        if (ratePerMs <= 0.0) return null
+        val msLeft = ((goal.targetAmountMinor - saved) / ratePerMs).toLong()
+        return now + msLeft
+    }
+
+    fun createGoal(name: String, targetAmountMinor: Long, deadline: Long?, linkedAccountKey: String?) =
+        viewModelScope.launch { repo.createGoal(name, targetAmountMinor, deadline, linkedAccountKey) }
+
+    fun deleteGoal(id: Long) = viewModelScope.launch { repo.delete(id) }
+
+    fun addContribution(id: Long, deltaMinor: Long) = viewModelScope.launch { repo.addContribution(id, deltaMinor) }
+
+    private companion object {
+        const val DAY_MS = 86_400_000L
+    }
+}
+
 // ---------- Factory ----------
 
 class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
@@ -1393,6 +1459,7 @@ class SpendLensViewModelFactory(private val container: AppContainer) : ViewModel
             modelClass.isAssignableFrom(CategoriesViewModel::class.java) -> CategoriesViewModel(container)
             modelClass.isAssignableFrom(BudgetsViewModel::class.java) -> BudgetsViewModel(container)
             modelClass.isAssignableFrom(BillsViewModel::class.java) -> BillsViewModel(container)
+            modelClass.isAssignableFrom(GoalsViewModel::class.java) -> GoalsViewModel(container)
             modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> TransactionDetailViewModel(container)
             modelClass.isAssignableFrom(ManualEntryViewModel::class.java) -> ManualEntryViewModel(container)
             else -> error("Unknown ViewModel: ${modelClass.name}")

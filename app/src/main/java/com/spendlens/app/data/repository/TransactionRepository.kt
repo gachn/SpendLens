@@ -145,6 +145,10 @@ class TransactionRepository(
         return dao.countIncomeTransactions(counterparty, incomeCategoryId) > 0
     }
 
+    /** Total CREDIT (base minor) into [accountKey] at/after [since] — savings-goal progress (#12). */
+    suspend fun sumCreditForAccountSince(accountKey: String, since: Long): Long =
+        dao.sumCreditForAccountSince(accountKey, since)
+
     // ── Transaction splits (issue #11) ──────────────────────────────────────────
 
     fun observeSplits(parentId: Long): Flow<List<TransactionSplitEntity>> =

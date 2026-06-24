@@ -67,7 +67,7 @@ private val GRACE_OPTIONS = listOf(
 )
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchants: () -> Unit = {}) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchants: () -> Unit = {}, onOpenGoals: () -> Unit = {}) {
     val patterns by vm.patterns.collectAsState()
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
@@ -267,6 +267,31 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
                         Text("Manage merchants", style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "Edit names, categories, expense setting and matched tokens.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        item { SectionHeader("Savings") }
+        item {
+            ElevatedSurfaceCard {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenGoals() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Savings goals", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Track progress toward a target like a vacation or emergency fund.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

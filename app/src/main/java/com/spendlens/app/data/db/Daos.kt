@@ -170,6 +170,13 @@ interface TransactionDao {
     )
     fun observeTotal(direction: String, from: Long, to: Long): Flow<Long>
 
+    /** Total CREDIT (base minor) into an account at/after [since] — backs savings-goal progress (#12). */
+    @Query(
+        "SELECT COALESCE(SUM(amountBaseMinor), 0) FROM transactions WHERE isDuplicate = 0 " +
+            "AND direction = 'CREDIT' AND accountKey = :accountKey AND occurredAt >= :since",
+    )
+    suspend fun sumCreditForAccountSince(accountKey: String, since: Long): Long
+
     @Query("UPDATE transactions SET counterparty = :newName WHERE counterparty = :oldName")
     suspend fun renameCounterparty(oldName: String, newName: String)
 
@@ -255,6 +262,30 @@ interface TransactionSplitDao {
 
     @Query("DELETE FROM transaction_splits WHERE parentId = :parentId")
     suspend fun deleteForParent(parentId: Long)
+}
+
+@Dao
+interface SavingsGoalDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(goal: SavingsGoalEntity): Long
+
+    @Query("SELECT * FROM savings_goals ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<SavingsGoalEntity>>
+
+    @Query("SELECT * FROM savings_goals")
+    suspend fun all(): List<SavingsGoalEntity>
+
+    @Query("SELECT * FROM savings_goals WHERE linkedAccountKey = :accountKey")
+    suspend fun forAccount(accountKey: String): List<SavingsGoalEntity>
+
+    @Query("UPDATE savings_goals SET savedManualMinor = savedManualMinor + :deltaMinor WHERE id = :id")
+    suspend fun addManualContribution(id: Long, deltaMinor: Long)
+
+    @Query("UPDATE savings_goals SET notifiedReached = :reached WHERE id = :id")
+    suspend fun setNotifiedReached(id: Long, reached: Boolean)
+
+    @Query("DELETE FROM savings_goals WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Dao

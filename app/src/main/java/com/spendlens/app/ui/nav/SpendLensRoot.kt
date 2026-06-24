@@ -97,6 +97,7 @@ import com.spendlens.app.ui.screens.BillsScreen
 import com.spendlens.app.ui.screens.BudgetsScreen
 import com.spendlens.app.ui.screens.CategoriesScreen
 import com.spendlens.app.ui.screens.DashboardScreen
+import com.spendlens.app.ui.screens.GoalsScreen
 import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
 import com.spendlens.app.ui.screens.MerchantsScreen
@@ -110,6 +111,7 @@ import com.spendlens.app.ui.viewmodel.BillsViewModel
 import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 import com.spendlens.app.ui.viewmodel.CategoriesViewModel
 import com.spendlens.app.ui.viewmodel.DashboardViewModel
+import com.spendlens.app.ui.viewmodel.GoalsViewModel
 import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
 import com.spendlens.app.ui.viewmodel.MerchantsViewModel
 import com.spendlens.app.ui.viewmodel.ReviewViewModel
@@ -134,6 +136,7 @@ private const val ROUTE_MERCHANTS    = "merchants"
 private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
 private const val ROUTE_CATEGORIES   = "categories"
+private const val ROUTE_GOALS        = "goals"
 private const val ROUTE_MERCHANT     = "merchant"
 private const val ARG_MERCHANT       = "name"
 private const val ROUTE_ENTRY        = "entry"
@@ -635,6 +638,13 @@ private fun MainScaffold(
                     vm = viewModel<SettingsViewModel>(factory = factory),
                     onBack = { nav.popBackStack() },
                     onOpenMerchants = { nav.navigate(ROUTE_MERCHANTS) { launchSingleTop = true } },
+                    onOpenGoals = { nav.navigate(ROUTE_GOALS) { launchSingleTop = true } },
+                )
+            }
+            composable(ROUTE_GOALS) {
+                GoalsScreen(
+                    vm = viewModel<GoalsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(ROUTE_MERCHANTS) {

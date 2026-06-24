@@ -18,6 +18,7 @@ import com.spendlens.app.data.repository.BudgetRepository
 import com.spendlens.app.data.repository.CategoryRepository
 import com.spendlens.app.data.repository.MerchantRepository
 import com.spendlens.app.data.repository.PatternRepository
+import com.spendlens.app.data.repository.SavingsGoalRepository
 import com.spendlens.app.data.repository.TransactionRepository
 import com.spendlens.app.sms.SmsImporter
 import com.spendlens.app.sms.SmsProcessor
@@ -43,6 +44,7 @@ class AppContainer(context: Context) {
     val categoryRepository by lazy { CategoryRepository(database.categoryDao()) }
     val budgetRepository by lazy { BudgetRepository(database.budgetDao()) }
     val billRepository by lazy { BillRepository(database.billDao()) }
+    val savingsGoalRepository by lazy { SavingsGoalRepository(database.savingsGoalDao(), transactionRepository) }
     val rawSmsDao get() = database.rawSmsDao()
     val cardBillDao get() = database.cardBillDao()
 

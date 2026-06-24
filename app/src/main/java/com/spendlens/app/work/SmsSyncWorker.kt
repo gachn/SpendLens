@@ -43,7 +43,10 @@ class SmsSyncWorker(
                 val ts = inputData.getLong(KEY_TS, System.currentTimeMillis())
                 runCatching { container.smsProcessor.process(SmsMessage(sender, body, ts)) }
                     .onSuccess { txn ->
-                        txn?.let { TransactionNotifier.notify(applicationContext, it) }
+                        txn?.let {
+                            TransactionNotifier.notify(applicationContext, it)
+                            container.savingsGoalRepository.onCreditCommitted(applicationContext, it)
+                        }
                         WidgetRefreshWorker.enqueue(applicationContext)
                     }
                     .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })

@@ -174,6 +174,27 @@ data class BudgetEntity(
 )
 
 /**
+ * A user savings goal (issue #12) — e.g. a vacation or emergency fund. SpendLens never moves money;
+ * progress is the sum of [savedManualMinor] (manual contributions) plus, when [linkedAccountKey] is
+ * set, every CREDIT into that account since [createdAt]. [notifiedReached] guards the one-shot
+ * "goal reached" notification.
+ */
+@Entity(tableName = "savings_goals")
+data class SavingsGoalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val targetAmountMinor: Long,
+    /** Target date (epoch millis), if the user set one. */
+    val deadline: Long? = null,
+    /** Account whose CREDIT transactions auto-increment progress, or null for a manual-only goal. */
+    val linkedAccountKey: String? = null,
+    val createdAt: Long,
+    /** Manual contributions in base-currency minor units. */
+    val savedManualMinor: Long = 0,
+    val notifiedReached: Boolean = false,
+)
+
+/**
  * A recurring bill/subscription inferred from transactions (e.g. rent, electricity, Netflix).
  * Reminders only — SpendLens never moves money. [dayOfMonth] is the predicted due day (1–28).
  */
