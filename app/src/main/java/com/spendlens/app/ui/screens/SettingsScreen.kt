@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -66,7 +67,7 @@ private val GRACE_OPTIONS = listOf(
 )
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchants: () -> Unit = {}) {
     val patterns by vm.patterns.collectAsState()
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
@@ -250,6 +251,31 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}) {
                             onSelect = { vm.setGracePeriod(it.first) },
                         )
                     }
+                }
+            }
+        }
+
+        item { SectionHeader("Merchants") }
+        item {
+            ElevatedSurfaceCard {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenMerchants() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Manage merchants", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Edit names, categories, expense setting and matched tokens.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

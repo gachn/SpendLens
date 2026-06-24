@@ -253,6 +253,19 @@ interface MerchantDao {
     @Query("SELECT * FROM merchant_aliases WHERE rawKey = :key")
     fun observeByKey(key: String): kotlinx.coroutines.flow.Flow<MerchantAliasEntity?>
 
+    /** All raw tokens that resolve to one display name — the "patterns" shown in the editor. */
+    @Query("SELECT * FROM merchant_aliases WHERE displayName = :name")
+    suspend fun getByDisplayName(name: String): List<MerchantAliasEntity>
+
+    @Query("SELECT * FROM merchant_aliases WHERE displayName = :name")
+    fun observeByDisplayName(name: String): kotlinx.coroutines.flow.Flow<List<MerchantAliasEntity>>
+
+    @Query("UPDATE merchant_aliases SET displayName = :newName WHERE displayName = :oldName")
+    suspend fun renameDisplayName(oldName: String, newName: String)
+
+    @Query("DELETE FROM merchant_aliases WHERE rawKey = :key")
+    suspend fun deleteByKey(key: String)
+
     @Query("SELECT * FROM merchant_aliases")
     suspend fun getAll(): List<MerchantAliasEntity>
 
@@ -314,6 +327,9 @@ interface CategoryDao {
 
     @Query("SELECT * FROM category_rules")
     suspend fun allRules(): List<CategoryRuleEntity>
+
+    @Query("SELECT * FROM category_rules")
+    fun observeRules(): Flow<List<CategoryRuleEntity>>
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun categoryCount(): Int

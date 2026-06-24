@@ -23,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,9 +44,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.CategoryCreateDialog
+import com.spendlens.app.ui.components.MerchantSuggestField
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.ManualAmount
 import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 
@@ -61,6 +65,8 @@ fun ManualEntryScreen(
 ) {
     val categories by vm.categories.collectAsState()
     val accounts by vm.accounts.collectAsState()
+    val merchantNames by vm.merchantNames.collectAsState()
+    val scope = rememberCoroutineScope()
 
     var editing by remember { mutableStateOf<TransactionEntity?>(null) }
     var amountText by remember { mutableStateOf("") }
@@ -74,6 +80,7 @@ fun ManualEntryScreen(
     var counterparty by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
+    var excluded by remember { mutableStateOf(false) }
 
     var showCreateCategory by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -94,6 +101,7 @@ fun ManualEntryScreen(
             counterparty = txn.counterparty
             note = txn.note.orEmpty()
             tags = txn.tags.orEmpty()
+            excluded = txn.excludedFromExpense
         }
     }
 
@@ -208,13 +216,35 @@ fun ManualEntryScreen(
         }
         Spacer(Modifier.height(12.dp))
 
-        OutlinedTextField(
+        MerchantSuggestField(
             value = counterparty,
             onValueChange = { counterparty = it },
-            label = { Text("Description / merchant") },
-            singleLine = true,
+            suggestions = merchantNames,
+            onPick = { name ->
+                // Known merchant chosen → auto-fill its remembered category + expense flag.
+                scope.launch {
+                    vm.resolveMerchant(name)?.let { match ->
+                        match.categoryId?.let { categoryId = it; categoryTouched = true }
+                        excluded = match.excluded
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(Modifier.height(12.dp))
+
+        // Count-as-expense toggle (auto-set when a known merchant is picked).
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Count as expense", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Turn off for transfers, salary or refunds you don't want in spending.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = !excluded, onCheckedChange = { excluded = !it })
+        }
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = note,
@@ -250,6 +280,7 @@ fun ManualEntryScreen(
                     note = note.trim().ifBlank { null },
                     tags = tags.split(",").map { it.trim().lowercase() }
                         .filter { it.isNotEmpty() }.distinct().joinToString(",").ifBlank { null },
+                    excludedFromExpense = excluded,
                     onDone = onClose,
                 )
             },

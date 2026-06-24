@@ -17,8 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -254,6 +257,64 @@ fun LegendDot(color: Color, label: String, value: String) {
             overflow = TextOverflow.Ellipsis,
         )
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * Merchant text field with type-ahead. As the user types, [suggestions] containing the text are
+ * offered in a dropdown; picking one calls [onPick] with the chosen name (caller then auto-fills
+ * category/expense). [onPick] is also fired when the typed text exactly matches a known merchant.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MerchantSuggestField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    suggestions: List<String>,
+    onPick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = "Description / merchant",
+    singleLine: Boolean = true,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filtered = remember(value, suggestions) {
+        if (value.isBlank()) emptyList()
+        else suggestions.filter {
+            it.contains(value, ignoreCase = true) && !it.equals(value, ignoreCase = true)
+        }.take(6)
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded && filtered.isNotEmpty(),
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { typed ->
+                onValueChange(typed)
+                expanded = true
+                // Exact match while typing → treat like a pick so the form auto-fills.
+                suggestions.firstOrNull { it.equals(typed.trim(), ignoreCase = true) }?.let(onPick)
+            },
+            label = { Text(label) },
+            singleLine = singleLine,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded && filtered.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+        ) {
+            filtered.forEach { name ->
+                DropdownMenuItem(
+                    text = { Text(name) },
+                    onClick = {
+                        onValueChange(name)
+                        onPick(name)
+                        expanded = false
+                    },
+                )
+            }
+        }
     }
 }
 

@@ -65,6 +65,7 @@ class TransactionRepository(private val dao: TransactionDao) {
         note: String?,
         tags: String?,
         receiptUri: String?,
+        excludedFromExpense: Boolean = false,
         ratesToBase: Map<String, Double>,
     ): Long = dao.insert(
         TransactionEntity(
@@ -83,6 +84,7 @@ class TransactionRepository(private val dao: TransactionDao) {
             dupGroupId = null,
             isDuplicate = false,
             userVerified = true,
+            excludedFromExpense = excludedFromExpense,
             note = note,
             tags = tags,
             receiptUri = receiptUri,

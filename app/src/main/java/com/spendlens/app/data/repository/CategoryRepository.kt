@@ -36,5 +36,6 @@ class CategoryRepository(private val dao: CategoryDao) {
         dao.insertCategory(CategoryEntity(name = name.trim(), icon = icon, color = color))
 
     fun observeCategories(): Flow<List<CategoryEntity>> = dao.observeCategories()
+    fun observeRules(): Flow<List<CategoryRuleEntity>> = dao.observeRules()
     suspend fun all(): List<CategoryEntity> = dao.allCategories()
 }

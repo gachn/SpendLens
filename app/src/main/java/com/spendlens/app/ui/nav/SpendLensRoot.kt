@@ -99,6 +99,7 @@ import com.spendlens.app.ui.screens.CategoriesScreen
 import com.spendlens.app.ui.screens.DashboardScreen
 import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
+import com.spendlens.app.ui.screens.MerchantsScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
@@ -110,6 +111,7 @@ import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 import com.spendlens.app.ui.viewmodel.CategoriesViewModel
 import com.spendlens.app.ui.viewmodel.DashboardViewModel
 import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
+import com.spendlens.app.ui.viewmodel.MerchantsViewModel
 import com.spendlens.app.ui.viewmodel.ReviewViewModel
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
 import com.spendlens.app.ui.viewmodel.SpendLensViewModelFactory
@@ -128,6 +130,7 @@ enum class Dest(val route: String, val label: String, val icon: ImageVector) {
 }
 
 private const val ROUTE_SETTINGS     = "settings"
+private const val ROUTE_MERCHANTS    = "merchants"
 private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
 private const val ROUTE_CATEGORIES   = "categories"
@@ -630,6 +633,13 @@ private fun MainScaffold(
             composable(ROUTE_SETTINGS) {
                 SettingsScreen(
                     vm = viewModel<SettingsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
+                    onOpenMerchants = { nav.navigate(ROUTE_MERCHANTS) { launchSingleTop = true } },
+                )
+            }
+            composable(ROUTE_MERCHANTS) {
+                MerchantsScreen(
+                    vm = viewModel<MerchantsViewModel>(factory = factory),
                     onBack = { nav.popBackStack() },
                 )
             }

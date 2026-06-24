@@ -9,6 +9,7 @@ import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.parser.Categorizer
 import com.spendlens.app.data.repository.MerchantRepository
 import com.spendlens.app.data.repository.CategoryRepository
 import com.spendlens.app.data.repository.TransactionRepository
@@ -41,6 +42,26 @@ import java.time.YearMonth
 import java.time.ZoneId
 
 // ---------- UI state models ----------
+
+/** Remembered metadata for a known merchant, applied when its name is picked/typed. */
+data class MerchantMatch(val categoryId: Long?, val excluded: Boolean)
+
+/** One merchant in the Settings → Merchants manager, aggregated across its alias rows. */
+data class MerchantRow(
+    val displayName: String,
+    val emoji: String?,
+    val categoryId: Long?,
+    val excluded: Boolean,
+    val tags: String?,
+    /** Raw SMS tokens (alias keys) that resolve to this merchant — its "patterns". */
+    val tokens: List<String>,
+)
+
+data class MerchantsUiState(
+    val items: List<MerchantRow> = emptyList(),
+    val categories: List<CategoryEntity> = emptyList(),
+    val query: String = "",
+)
 
 data class CategorySlice(val name: String, val color: Color, val amountMinor: Long, val categoryId: Long? = null)
 
@@ -1003,6 +1024,18 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
         container.categoryRepository.observeCategories()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Known merchant names for the rename type-ahead. */
+    val merchantNames: StateFlow<List<String>> =
+        container.merchantRepository.observeDisplayNames()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Remembered category + expense flag for [name], or null if it isn't a known merchant. */
+    private suspend fun matchFor(name: String): MerchantMatch? {
+        if (!container.merchantRepository.isKnownMerchant(name)) return null
+        val categorizer = container.categoryRepository.categorizer()
+        return MerchantMatch(categorizer.categorize(name.trim()), container.merchantRepository.isExcluded(name))
+    }
+
     fun update(txn: TransactionEntity) = viewModelScope.launch {
         container.transactionRepository.update(txn)
     }
@@ -1015,15 +1048,33 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
 
     /**
      * Rename a merchant. [applyToAll] = true renames every transaction from this merchant and
-     * remembers it for future ones; false touches only this transaction.
+     * remembers it for future ones; false touches only this transaction. When [newName] is an
+     * already-known merchant, its remembered category and expense flag are applied too. [onApplied]
+     * reports the match (if any) so the sheet can reflect the auto-changed category/expense flag.
      */
-    fun renameMerchant(txn: TransactionEntity, newName: String, applyToAll: Boolean) = viewModelScope.launch {
+    fun renameMerchant(
+        txn: TransactionEntity,
+        newName: String,
+        applyToAll: Boolean,
+        onApplied: (MerchantMatch?) -> Unit = {},
+    ) = viewModelScope.launch {
+        val trimmed = newName.trim()
+        val match = matchFor(trimmed)
         if (applyToAll) {
-            container.merchantRepository.setUserName(txn.counterparty, newName)
-            container.transactionRepository.renameCounterparty(txn.counterparty, newName.trim())
+            container.merchantRepository.setUserName(txn.counterparty, trimmed)
+            container.transactionRepository.renameCounterparty(txn.counterparty, trimmed)
+            match?.categoryId?.let { container.transactionRepository.setCategoryForCounterparty(trimmed, it) }
+            match?.let { container.transactionRepository.setExcludedForCounterparty(trimmed, it.excluded) }
         } else {
-            container.transactionRepository.update(txn.copy(counterparty = newName.trim()))
+            container.transactionRepository.update(
+                txn.copy(
+                    counterparty = trimmed,
+                    categoryId = match?.categoryId ?: txn.categoryId,
+                    excludedFromExpense = match?.excluded ?: txn.excludedFromExpense,
+                ),
+            )
         }
+        onApplied(match)
     }
 
     /**
@@ -1103,6 +1154,21 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
         container.categoryRepository.observeCategories()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Known merchant names for the description/merchant type-ahead. */
+    val merchantNames: StateFlow<List<String>> =
+        container.merchantRepository.observeDisplayNames()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Remembered category + expense flag for [name], or null if it isn't a known merchant — used
+     * to auto-fill the form when the user picks/types a known merchant.
+     */
+    suspend fun resolveMerchant(name: String): MerchantMatch? {
+        if (!container.merchantRepository.isKnownMerchant(name)) return null
+        val categorizer = container.categoryRepository.categorizer()
+        return MerchantMatch(categorizer.categorize(name.trim()), container.merchantRepository.isExcluded(name))
+    }
+
     /** Accounts seen so far plus a "Cash" default, for the account picker. */
     val accounts: StateFlow<List<String>> =
         container.transactionRepository.observeAll()
@@ -1138,6 +1204,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
         categoryId: Long,
         note: String?,
         tags: String?,
+        excludedFromExpense: Boolean,
         onDone: () -> Unit,
     ) = viewModelScope.launch {
         val rates = container.fxRepository.ratesToBase()
@@ -1153,6 +1220,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                 note = note,
                 tags = tags,
                 receiptUri = null,
+                excludedFromExpense = excludedFromExpense,
                 ratesToBase = rates,
             )
         } else {
@@ -1167,6 +1235,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                     categoryId = categoryId,
                     note = note,
                     tags = tags,
+                    excludedFromExpense = excludedFromExpense,
                 ),
                 rates,
             )
@@ -1185,6 +1254,76 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
+/**
+ * Backs Settings → Merchants: lists every known merchant with its remembered category, expense
+ * flag, emoji, tags and matched raw tokens, and persists edits across the alias/rule/transaction
+ * tables so corrections stick and apply to past and future transactions.
+ */
+class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
+    private val query = MutableStateFlow("")
+
+    fun setQuery(q: String) { query.value = q }
+
+    val state: StateFlow<MerchantsUiState> = combine(
+        container.merchantRepository.observeAll(),
+        container.categoryRepository.observeCategories(),
+        container.categoryRepository.observeRules(),
+        query,
+    ) { aliases, categories, rules, q ->
+        val categorizer = Categorizer(rules.map { Categorizer.Rule(it.matcher, it.categoryId) })
+        val rows = aliases
+            .groupBy { it.displayName }
+            .map { (name, group) ->
+                MerchantRow(
+                    displayName = name,
+                    emoji = group.firstNotNullOfOrNull { it.logoEmoji },
+                    categoryId = categorizer.categorize(name),
+                    excluded = group.any { it.excludedFromExpense },
+                    tags = group.firstNotNullOfOrNull { it.tags },
+                    tokens = group.map { it.rawKey }.sorted(),
+                )
+            }
+            .filter { q.isBlank() || it.displayName.contains(q, ignoreCase = true) }
+            .sortedBy { it.displayName.lowercase() }
+        MerchantsUiState(rows, categories, q)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MerchantsUiState())
+
+    /**
+     * Persist edits to a merchant. Renames propagate to the alias rows and existing transactions;
+     * category/expense/tags are remembered (for future parses) and stamped onto existing rows.
+     */
+    fun save(
+        original: MerchantRow,
+        newName: String,
+        categoryId: Long?,
+        excluded: Boolean,
+        emoji: String?,
+        tags: String?,
+    ) = viewModelScope.launch {
+        val target = newName.trim().ifBlank { original.displayName }
+        if (target != original.displayName) {
+            container.merchantRepository.renameDisplay(original.displayName, target)
+            container.transactionRepository.renameCounterparty(original.displayName, target)
+        }
+        if (categoryId != null) {
+            container.categoryRepository.addUserRule(target, categoryId)
+            container.transactionRepository.setCategoryForCounterparty(target, categoryId)
+        }
+        container.merchantRepository.setExcluded(target, excluded)
+        container.transactionRepository.setExcludedForCounterparty(target, excluded)
+        container.merchantRepository.setMerchantEmoji(target, emoji?.trim()?.ifBlank { null })
+        val normTags = tags?.split(",")?.map { it.trim().lowercase() }
+            ?.filter { it.isNotEmpty() }?.distinct()?.joinToString(",")?.ifBlank { null }
+        container.merchantRepository.setUserTags(target, normTags)
+        container.transactionRepository.setTagsForCounterparty(target, normTags)
+    }
+
+    /** Remove one raw-token → merchant mapping. */
+    fun deleteToken(rawKey: String) = viewModelScope.launch {
+        container.merchantRepository.deleteAlias(rawKey)
+    }
+}
+
 // ---------- Factory ----------
 
 class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
@@ -1197,6 +1336,7 @@ class SpendLensViewModelFactory(private val container: AppContainer) : ViewModel
             modelClass.isAssignableFrom(AnalyticsViewModel::class.java) -> AnalyticsViewModel(container)
             modelClass.isAssignableFrom(ReviewViewModel::class.java) -> ReviewViewModel(container)
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> SettingsViewModel(container)
+            modelClass.isAssignableFrom(MerchantsViewModel::class.java) -> MerchantsViewModel(container)
             modelClass.isAssignableFrom(CategoriesViewModel::class.java) -> CategoriesViewModel(container)
             modelClass.isAssignableFrom(BudgetsViewModel::class.java) -> BudgetsViewModel(container)
             modelClass.isAssignableFrom(BillsViewModel::class.java) -> BillsViewModel(container)

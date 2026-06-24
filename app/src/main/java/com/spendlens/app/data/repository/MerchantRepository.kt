@@ -127,4 +127,35 @@ class MerchantRepository(
     }
 
     fun observeAll(): kotlinx.coroutines.flow.Flow<List<MerchantAliasEntity>> = dao.observeAll()
+
+    /** Distinct merchant display names, sorted — backs the type-ahead suggestion list. */
+    fun observeDisplayNames(): kotlinx.coroutines.flow.Flow<List<String>> =
+        dao.observeAll().map { aliases ->
+            aliases.map { it.displayName }.distinct().sortedBy { it.lowercase() }
+        }
+
+    /** Raw tokens (alias keys) that resolve to [name] — the "patterns" for this merchant. */
+    suspend fun aliasesForDisplay(name: String): List<MerchantAliasEntity> = dao.getByDisplayName(name)
+
+    /** True if [name] is an already-known merchant (has at least one alias row). */
+    suspend fun isKnownMerchant(name: String): Boolean = dao.getByDisplayName(name.trim()).isNotEmpty()
+
+    /** Rename a merchant: move every alias from [old] display to [new], keeping its metadata. */
+    suspend fun renameDisplay(old: String, new: String) {
+        val trimmed = new.trim()
+        if (trimmed.isBlank() || trimmed == old) return
+        dao.renameDisplayName(old, trimmed)
+        // Guarantee an alias keyed by the new name exists so it round-trips for future edits.
+        val key = keyFor(trimmed)
+        if (dao.getByKey(key) == null) {
+            dao.upsert(MerchantAliasEntity(rawKey = key, displayName = trimmed, source = "USER"))
+        }
+        cache.clear()
+    }
+
+    /** Remove one raw-token → merchant mapping (delete a "pattern"). */
+    suspend fun deleteAlias(rawKey: String) {
+        dao.deleteByKey(rawKey)
+        cache.remove(rawKey)
+    }
 }

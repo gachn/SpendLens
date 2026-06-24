@@ -72,6 +72,7 @@ fun TransactionDetailSheet(
     onMerchantHistory: (String) -> Unit = {},
 ) {
     val categories by vm.categories.collectAsState()
+    val merchantNames by vm.merchantNames.collectAsState()
     var current by remember(txn.id) { mutableStateOf(txn) }
     var smsBody by remember(txn.id) { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
@@ -234,6 +235,7 @@ fun TransactionDetailSheet(
     if (showRename) {
         RenameMerchantDialog(
             initial = current.counterparty,
+            suggestions = merchantNames,
             onDismiss = { showRename = false },
             onRename = { newName ->
                 showRename = false
@@ -249,8 +251,13 @@ fun TransactionDetailSheet(
             onChoice = { applyToAll ->
                 when (edit) {
                     is PendingScopeEdit.Rename -> {
-                        vm.renameMerchant(current, edit.newName, applyToAll)
-                        current = current.copy(counterparty = edit.newName.trim())
+                        vm.renameMerchant(current, edit.newName, applyToAll) { match ->
+                            current = current.copy(
+                                counterparty = edit.newName.trim(),
+                                categoryId = match?.categoryId ?: current.categoryId,
+                                excludedFromExpense = match?.excluded ?: current.excludedFromExpense,
+                            )
+                        }
                     }
                     is PendingScopeEdit.Category -> {
                         current = current.copy(categoryId = edit.categoryId)
@@ -298,6 +305,7 @@ private fun ApplyScopeDialog(
 @Composable
 private fun RenameMerchantDialog(
     initial: String,
+    suggestions: List<String>,
     onDismiss: () -> Unit,
     onRename: (String) -> Unit,
 ) {
@@ -315,16 +323,18 @@ private fun RenameMerchantDialog(
         text = {
             Column {
                 Text(
-                    "You'll choose whether this applies to just this transaction or all from this merchant.",
+                    "Pick a known merchant to also apply its category and expense setting, or type a " +
+                        "new name. You'll choose whether this applies to just this transaction or all.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
+                MerchantSuggestField(
                     value = name,
                     onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Merchant name") },
+                    suggestions = suggestions,
+                    onPick = { name = it },
+                    label = "Merchant name",
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
