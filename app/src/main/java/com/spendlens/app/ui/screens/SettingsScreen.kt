@@ -18,14 +18,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -50,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,7 +63,13 @@ private val GRACE_OPTIONS = listOf(
 )
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchants: () -> Unit = {}, onOpenGoals: () -> Unit = {}) {
+fun SettingsScreen(
+    vm: SettingsViewModel,
+    onBack: () -> Unit = {},
+    onOpenMerchants: () -> Unit = {},
+    onOpenGoals: () -> Unit = {},
+    onOpenPatterns: () -> Unit = {},
+) {
     val patterns by vm.patterns.collectAsState()
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
@@ -77,7 +78,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
     var showClearDataDialog by remember { mutableStateOf(false) }
-    var showClearPatternsDialog by remember { mutableStateOf(false) }
 
     // Encrypted backup/restore (issue #13). A picked file uri + mode opens the password dialog.
     var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -142,33 +142,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
             },
             dismissButton = {
                 TextButton(onClick = { showClearDataDialog = false }) { Text("Cancel") }
-            },
-        )
-    }
-
-    if (showClearPatternsDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearPatternsDialog = false },
-            title = { Text("Delete all patterns?") },
-            text = {
-                Text(
-                    "This removes all SMS parsing patterns including built-ins and learned ones. " +
-                        "They will be re-seeded on the next re-scan. This cannot be undone.",
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showClearPatternsDialog = false
-                        vm.clearAllPatterns()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Delete all") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearPatternsDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -462,62 +435,27 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit = {}, onOpenMerchan
             }
         }
 
+        item { SectionHeader("Patterns") }
         item {
-            SectionHeader("Patterns (${patterns.size})")
-        }
-        item {
-            Column {
-                Text(
-                    "These are the rules used to read your SMS. Tap one to see its regex and the " +
-                        "sample message it was learned from. Learned patterns sit above the built-ins.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                if (patterns.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = { showClearPatternsDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    ) {
-                        Text("Delete all patterns")
-                    }
-                }
-            }
-        }
-        items(patterns) { p ->
-            var expanded by remember(p.id) { mutableStateOf(false) }
             ElevatedSurfaceCard {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(
-                            Modifier.weight(1f).clickable { expanded = !expanded },
-                        ) {
-                            Text(p.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "${p.source} · matched ${p.matchCount}× · ${if (p.enabled) "on" else "off"}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Icon(
-                            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
-                            modifier = Modifier.clickable { expanded = !expanded },
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenPatterns() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("SMS patterns (${patterns.size})", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "View, toggle, test and add the rules that read your SMS.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Switch(checked = p.enabled, onCheckedChange = { vm.setPatternEnabled(p.id, it) })
-                        IconButton(onClick = { vm.deletePattern(p.id) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete pattern")
-                        }
                     }
-                    if (expanded) {
-                        Spacer(Modifier.height(8.dp))
-                        PatternDetail("Matches body", p.bodyRegex)
-                        p.senderRegex?.let { PatternDetail("Matches sender", it) }
-                        p.sampleSms?.let { PatternDetail("Learned from", it) }
-                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -565,28 +503,6 @@ private fun <T> SegmentedChoice(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PatternDetail(label: String, value: String) {
-    Text(
-        label,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp),
-    )
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-    ) {
-        Text(
-            value,
-            style = MaterialTheme.typography.labelMedium,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(8.dp),
-        )
     }
 }
 

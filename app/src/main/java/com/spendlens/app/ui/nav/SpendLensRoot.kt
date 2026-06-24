@@ -101,6 +101,7 @@ import com.spendlens.app.ui.screens.GoalsScreen
 import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
 import com.spendlens.app.ui.screens.MerchantsScreen
+import com.spendlens.app.ui.screens.PatternsScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
@@ -137,6 +138,7 @@ private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
 private const val ROUTE_CATEGORIES   = "categories"
 private const val ROUTE_GOALS        = "goals"
+private const val ROUTE_PATTERNS     = "patterns"
 private const val ROUTE_MERCHANT     = "merchant"
 private const val ARG_MERCHANT       = "name"
 private const val ROUTE_ENTRY        = "entry"
@@ -644,6 +646,13 @@ private fun MainScaffold(
                     onBack = { nav.popBackStack() },
                     onOpenMerchants = { nav.navigate(ROUTE_MERCHANTS) { launchSingleTop = true } },
                     onOpenGoals = { nav.navigate(ROUTE_GOALS) { launchSingleTop = true } },
+                    onOpenPatterns = { nav.navigate(ROUTE_PATTERNS) { launchSingleTop = true } },
+                )
+            }
+            composable(ROUTE_PATTERNS) {
+                PatternsScreen(
+                    vm = viewModel<SettingsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(ROUTE_GOALS) {

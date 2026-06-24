@@ -811,6 +811,25 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun clearAllPatterns() = viewModelScope.launch { container.patternRepository.clearAll() }
 
+    /**
+     * Persist a user-authored SMS pattern (issue #14). User patterns get a high priority so they
+     * sit above the built-ins, mirroring how learned patterns are ranked. Blank fields are coerced
+     * to null/empty; the caller is expected to have validated the regexes via [testPattern].
+     */
+    fun savePattern(name: String, senderRegex: String?, bodyRegex: String, sampleSms: String?) =
+        viewModelScope.launch {
+            container.patternRepository.savePattern(
+                SmsPatternEntity(
+                    name = name.trim(),
+                    senderRegex = senderRegex?.trim()?.takeIf { it.isNotEmpty() },
+                    bodyRegex = bodyRegex.trim(),
+                    priority = 1000, // above built-ins (their priorities are well under this)
+                    source = com.spendlens.app.data.db.PatternSource.USER,
+                    sampleSms = sampleSms?.trim()?.takeIf { it.isNotEmpty() },
+                ),
+            )
+        }
+
     fun reimport(context: android.content.Context) = SmsSyncWorker.enqueueImport(context)
 
     /** Clears parsed transactions, raw SMS and derived bills, leaving learned patterns/categories. */
