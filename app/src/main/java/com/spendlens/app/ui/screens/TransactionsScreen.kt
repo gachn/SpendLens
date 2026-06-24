@@ -312,6 +312,7 @@ fun TransactionsScreen(
                                     TransactionRow(
                                         txn,
                                         state.categories,
+                                        merchantEmojis = state.merchantEmojis,
                                         onClick = { if (isManual) onEditTransaction(txn) else onTransactionClick(txn) },
                                     )
                                     if (i < txns.size - 1) {

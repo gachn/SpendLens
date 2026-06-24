@@ -39,10 +39,14 @@ class TransactionRepository(private val dao: TransactionDao) {
     suspend fun allDebits(): List<TransactionEntity> = dao.allDebits()
 
     suspend fun allTransactions(): List<TransactionEntity> = dao.allTransactions()
+    suspend fun getAllTransactions(): List<TransactionEntity> = dao.getAllTransactions()
+
 
     suspend fun insert(txn: TransactionEntity): Long = dao.insert(txn)
     suspend fun update(txn: TransactionEntity) = dao.update(txn)
     suspend fun delete(id: Long) = dao.delete(id)
+    suspend fun deleteByRawSmsId(rawSmsId: Long) = dao.deleteByRawSmsId(rawSmsId)
+    suspend fun getByRawSmsId(rawSmsId: Long): TransactionEntity? = dao.getByRawSmsId(rawSmsId)
 
     /**
      * Persist a user-entered (cash / non-SMS) transaction. Manual rows carry [rawSmsId] = null,
@@ -119,6 +123,9 @@ class TransactionRepository(private val dao: TransactionDao) {
 
     suspend fun setTagsForCounterparty(name: String, tags: String?) =
         dao.setTagsForCounterparty(name, tags)
+
+    suspend fun setExcludedForCounterparty(name: String, excluded: Boolean) =
+        dao.setExcludedForCounterparty(name, excluded)
 
     suspend fun hasHistoricalIncome(counterparty: String, incomeCategoryId: Long): Boolean {
         return dao.countIncomeTransactions(counterparty, incomeCategoryId) > 0

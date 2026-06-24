@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -255,10 +256,16 @@ fun SpendLensRoot(
                 val reviewVm = viewModel<ReviewViewModel>(factory = factory)
                 val scope = rememberCoroutineScope()
                 TextButton(onClick = {
+                    val rawJson = pat.rawJson
+                    detectedPatternSingle = null
+                    lastProcessedClip = rawJson
                     scope.launch {
-                        reviewVm.applyAiPatterns(pat.rawJson)
-                        detectedPatternSingle = null
-                        lastProcessedClip = pat.rawJson
+                        val updated = reviewVm.applyAiPatterns(rawJson)
+                        if (updated > 0) {
+                            Toast.makeText(context, "🤖 AI pattern applied! Updated $updated transactions.", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, "⚠️ AI pattern saved, but matched 0 transactions.", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }) {
                     Text("Approve & Save")
@@ -309,10 +316,16 @@ fun SpendLensRoot(
                 val reviewVm = viewModel<ReviewViewModel>(factory = factory)
                 val scope = rememberCoroutineScope()
                 TextButton(onClick = {
+                    val rawJson = list.first().rawJson
+                    detectedPatternBulk = null
+                    lastProcessedClip = rawJson
                     scope.launch {
-                        reviewVm.applyAiPatterns(list.first().rawJson)
-                        detectedPatternBulk = null
-                        lastProcessedClip = list.first().rawJson
+                        val updated = reviewVm.applyAiPatterns(rawJson)
+                        if (updated > 0) {
+                            Toast.makeText(context, "🤖 AI patterns applied! Updated $updated transactions.", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, "⚠️ AI patterns saved, but matched 0 transactions.", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }) {
                     Text("Approve All (${list.size})")

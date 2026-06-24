@@ -287,6 +287,7 @@ fun DashboardScreen(
                             TransactionRow(
                                 txn = txn,
                                 categories = state.categories,
+                                merchantEmojis = state.merchantEmojis,
                                 onClick = { onTransactionClick(txn) },
                             )
                             if (index < (state.recent.size - 1).coerceAtMost(4)) {

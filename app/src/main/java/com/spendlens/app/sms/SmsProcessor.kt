@@ -12,6 +12,8 @@ import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.fx.FxRepository
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import com.spendlens.app.parser.CardBillParser
 import com.spendlens.app.data.repository.CategoryRepository
 import com.spendlens.app.data.repository.MerchantRepository
@@ -114,6 +116,70 @@ class SmsProcessor(
         }
         return changed
     }
+
+    suspend fun reprocessAllSms(): Int = withContext(Dispatchers.IO) {
+        val patterns = patternRepo.compiled()
+        val userPatterns = patterns.filter { it.priority >= LEARNED_PRIORITY }
+        var changed = 0
+        val rawMessages = rawDao.listByStatus(RawStatus.UNPARSED) + rawDao.listByStatus(RawStatus.PARSED)
+        
+        // Fetch all transactions once and build a rawSmsId-to-transaction lookup map
+        val existingTxnsMap = txnRepo.getAllTransactions()
+            .filter { it.rawSmsId != null }
+            .associateBy { it.rawSmsId!! }
+
+        for (raw in rawMessages) {
+            val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+            val existing = existingTxnsMap[raw.id]
+            if (!FinancialSmsFilter.isFinancial(msg)) {
+                if (existing != null && existing.userVerified) {
+                    continue
+                }
+                if (existing != null || raw.status != RawStatus.IGNORED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                    changed++
+                }
+                continue
+            }
+
+            // OPTIMIZATION: If already parsed, only reprocess if it matches a user pattern
+            if (raw.status == RawStatus.PARSED) {
+                val matchesUserPattern = userPatterns.any { pat ->
+                    (pat.sender == null || pat.sender.containsMatchIn(raw.sender)) &&
+                    pat.body.containsMatchIn(raw.body)
+                }
+                if (!matchesUserPattern) {
+                    continue
+                }
+            }
+
+            val result = engine.match(msg, patterns)
+            if (result != null) {
+                val matchedPattern = patterns.firstOrNull { it.id == result.patternId }
+                val isUserPattern = matchedPattern != null && matchedPattern.priority >= LEARNED_PRIORITY
+                if (existing != null && existing.userVerified && !isUserPattern) {
+                    continue
+                }
+                txnRepo.deleteByRawSmsId(raw.id)
+                result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
+                persistTransaction(raw.id, msg, result)
+                rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
+                changed++
+            } else {
+                if (existing != null && existing.userVerified) {
+                    continue
+                }
+                if (existing != null || raw.status != RawStatus.UNPARSED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
+                    changed++
+                }
+            }
+        }
+        return@withContext changed
+    }
+
 
     /** Parse a credit-card statement, if this SMS is one, keeping only the most recent per card. */
     private suspend fun captureCardBill(rawId: Long, msg: SmsMessage) {
@@ -254,7 +320,7 @@ class SmsProcessor(
             tags = merchantRepo.tagsFor(p.counterparty),
             dupGroupId = groupId,
             isDuplicate = isDuplicate,
-            excludedFromExpense = isSelfTransfer || isInvestment,
+            excludedFromExpense = isSelfTransfer || isInvestment || merchantRepo.isExcluded(p.counterparty),
         )
         val id = txnRepo.insert(entity)
         return entity.copy(id = id)

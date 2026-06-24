@@ -20,11 +20,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +41,7 @@ import com.spendlens.app.ui.components.TransactionRow
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
+import kotlinx.coroutines.launch
 
 private const val MONTHS_BACK = 6
 
@@ -61,6 +64,10 @@ fun MerchantDetailScreen(
         container.categoryRepository.observeCategories()
     }.collectAsState(initial = emptyList())
     val categories = remember(categoryList) { categoryList.associateBy { it.id } }
+    val scope = rememberCoroutineScope()
+    val excluded by remember(counterparty) {
+        container.merchantRepository.observeExcluded(counterparty)
+    }.collectAsState(initial = false)
 
     // Spend totals use base-currency (INR) minor units and ignore non-expense rows (transfers etc.).
     val spendable = txns.filter { it.direction == "DEBIT" && !it.excludedFromExpense }
@@ -109,6 +116,46 @@ fun MerchantDetailScreen(
                             value = txns.size.toString(),
                             accent = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp),
+                        )
+                    }
+                }
+            }
+
+            // ── Exclude-from-expense toggle ──────────────────────────────────
+            item {
+                GlassCard {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 16.dp)) {
+                            Text(
+                                "Count in spending",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                if (excluded) {
+                                    "Excluded — these transactions are kept out of all totals."
+                                } else {
+                                    "Included in spend, income and budget totals."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = !excluded,
+                            onCheckedChange = { include ->
+                                scope.launch {
+                                    container.merchantRepository.setExcluded(counterparty, !include)
+                                    container.transactionRepository
+                                        .setExcludedForCounterparty(counterparty, !include)
+                                }
+                            },
                         )
                     }
                 }

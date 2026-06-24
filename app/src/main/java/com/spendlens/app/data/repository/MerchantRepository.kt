@@ -6,6 +6,7 @@ import com.spendlens.app.data.db.MerchantAliasEntity
 import com.spendlens.app.data.db.MerchantDao
 import com.spendlens.app.parser.MerchantNormalizer
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.map
 
 /**
  * Resolves a raw merchant token to a canonical display name and caches the result as
@@ -50,9 +51,40 @@ class MerchantRepository(
                 displayName = existing?.displayName ?: merchant.trim(),
                 source = existing?.source ?: "USER",
                 tags = tags,
+                logoEmoji = existing?.logoEmoji,
+                excludedFromExpense = existing?.excludedFromExpense ?: false,
             ),
         )
     }
+
+    /**
+     * Remember that a merchant is (not) excluded from spend/income totals, so future parsed
+     * transactions for it inherit the flag. The caller is responsible for updating existing rows.
+     */
+    suspend fun setExcluded(merchant: String, excluded: Boolean) {
+        val key = keyFor(merchant)
+        val existing = dao.getByKey(key)
+        dao.upsert(
+            MerchantAliasEntity(
+                rawKey = key,
+                displayName = existing?.displayName ?: merchant.trim(),
+                source = existing?.source ?: "USER",
+                tags = existing?.tags,
+                logoEmoji = existing?.logoEmoji,
+                excludedFromExpense = excluded,
+            ),
+        )
+    }
+
+    /** Whether new transactions for this merchant should be excluded from totals. */
+    suspend fun isExcluded(merchant: String): Boolean {
+        val key = MerchantNormalizer.key(merchant)
+        if (key.isBlank()) return false
+        return dao.getByKey(key)?.excludedFromExpense ?: false
+    }
+
+    fun observeExcluded(merchant: String): kotlinx.coroutines.flow.Flow<Boolean> =
+        dao.observeByKey(keyFor(merchant)).map { it?.excludedFromExpense ?: false }
 
     /** Tags previously remembered for this merchant, or null. */
     suspend fun tagsFor(merchant: String): String? {
@@ -66,9 +98,33 @@ class MerchantRepository(
 
     private suspend fun save(key: String, display: String, source: String): String {
         // Preserve any user tags already remembered for this merchant across re-resolution.
-        val existingTags = dao.getByKey(key)?.tags
-        dao.upsert(MerchantAliasEntity(rawKey = key, displayName = display, source = source, tags = existingTags))
+        val existing = dao.getByKey(key)
+        val existingTags = existing?.tags
+        val existingLogo = existing?.logoEmoji
+        dao.upsert(MerchantAliasEntity(rawKey = key, displayName = display, source = source, tags = existingTags, logoEmoji = existingLogo, excludedFromExpense = existing?.excludedFromExpense ?: false))
         cache[key] = display
         return display
     }
+
+    suspend fun setMerchantEmoji(merchant: String, emoji: String?) {
+        val key = keyFor(merchant)
+        val existing = dao.getByKey(key)
+        dao.upsert(
+            MerchantAliasEntity(
+                rawKey = key,
+                displayName = existing?.displayName ?: merchant.trim(),
+                source = existing?.source ?: "USER",
+                tags = existing?.tags,
+                logoEmoji = emoji,
+                excludedFromExpense = existing?.excludedFromExpense ?: false,
+            )
+        )
+    }
+
+    suspend fun getMerchantEmoji(merchant: String): String? {
+        val key = keyFor(merchant)
+        return dao.getByKey(key)?.logoEmoji
+    }
+
+    fun observeAll(): kotlinx.coroutines.flow.Flow<List<MerchantAliasEntity>> = dao.observeAll()
 }

@@ -43,6 +43,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import com.spendlens.app.ai.AiBridgeHelper
+import com.spendlens.app.ai.PromptGenerator
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
@@ -72,6 +77,7 @@ fun TransactionDetailSheet(
     var showCreate by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var pendingScope by remember { mutableStateOf<PendingScopeEdit?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     LaunchedEffect(txn.id) { smsBody = vm.smsBody(txn.rawSmsId) }
 
     val pickReceipt = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -182,7 +188,25 @@ fun TransactionDetailSheet(
 
             smsBody?.let { body ->
                 Spacer(Modifier.height(16.dp))
-                Text("Original SMS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Original SMS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    TextButton(onClick = {
+                        coroutineScope.launch {
+                            val raw = vm.rawSms(current.rawSmsId)
+                            if (raw != null) {
+                                val prompt = vm.generatePrompt(listOf(raw))
+                                AiBridgeHelper.copyAndLaunch(context, prompt)
+                            }
+                        }
+                    }) {
+                        Text("🤖 Teach with AI", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(12.dp),

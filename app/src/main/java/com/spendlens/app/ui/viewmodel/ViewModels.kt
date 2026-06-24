@@ -9,6 +9,12 @@ import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.data.repository.MerchantRepository
+import com.spendlens.app.data.repository.CategoryRepository
+import com.spendlens.app.data.repository.TransactionRepository
+import com.spendlens.app.data.repository.PatternRepository
+import com.spendlens.app.data.repository.BudgetRepository
+import com.spendlens.app.data.repository.BillRepository
 import com.spendlens.app.data.prefs.AppearancePrefs
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.di.AppContainer
@@ -28,6 +34,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.YearMonth
@@ -47,6 +54,7 @@ data class DashboardUiState(
     val categories: Map<Long, CategoryEntity> = emptyMap(),
     val selectedMonth: YearMonth = YearMonth.now(),
     val monthOptions: List<YearMonth> = emptyList(),
+    val merchantEmojis: Map<String, String> = emptyMap(),
 )
 
 enum class TxnFilter(val label: String) {
@@ -93,6 +101,7 @@ data class TransactionsUiState(
     val filters: TxnFilters = TxnFilters(),
     /** Distinct account keys present in the data, for the account filter chips. */
     val accounts: List<String> = emptyList(),
+    val merchantEmojis: Map<String, String> = emptyMap(),
 )
 
 data class MonthlyBar(val label: String, val debitMinor: Long, val creditMinor: Long)
@@ -170,7 +179,15 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
             repo.observeBetween(from, to - 1),
             repo.observeCategoryTotals(from, to - 1),
             container.categoryRepository.observeCategories(),
-        ) { spend, income, monthTxns, cats, categories ->
+            container.merchantRepository.observeAll(),
+        ) { array: Array<Any?> ->
+            val spend = array[0] as Long
+            val income = array[1] as Long
+            val monthTxns = array[2] as List<TransactionEntity>
+            val cats = array[3] as List<com.spendlens.app.data.db.CategoryTotal>
+            val categories = array[4] as List<CategoryEntity>
+            val merchants = array[5] as List<com.spendlens.app.data.db.MerchantAliasEntity>
+
             val map = categories.associateBy { it.id }
             val slices = cats.mapNotNull { ct ->
                 if (ct.categoryId == null) {
@@ -179,6 +196,9 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
                     map[ct.categoryId]?.let { CategorySlice(it.name, Color(it.color), ct.total) }
                 }
             }
+            val merchantEmojis = merchants.mapNotNull { m ->
+                m.logoEmoji?.let { m.displayName to it }
+            }.toMap()
             DashboardUiState(
                 spendMinor = spend,
                 incomeMinor = income,
@@ -189,15 +209,32 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
                 categories = map,
                 selectedMonth = month,
                 monthOptions = monthOptions,
+                merchantEmojis = merchantEmojis,
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState(monthOptions = monthOptions))
 }
 
-class TransactionsViewModel(container: AppContainer) : ViewModel() {
+class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
     private val repo = container.transactionRepository
     private val query = MutableStateFlow("")
     private val filters = MutableStateFlow(TxnFilters())
+
+    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
+        val categories = container.categoryRepository.all()
+        val categorizer = container.categoryRepository.categorizer()
+        val merchants = container.merchantRepository.observeAll().first()
+        val knownMerchants = merchants.take(150).map { m ->
+            val catId = categorizer.categorize(m.displayName)
+            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
+            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
+                name = m.displayName,
+                emoji = m.logoEmoji,
+                categoryName = catName
+            )
+        }
+        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
+    }
 
     companion object {
         /** Sentinel category id meaning "transactions with no category" (txn.categoryId == null). */
@@ -217,9 +254,10 @@ class TransactionsViewModel(container: AppContainer) : ViewModel() {
     val state: StateFlow<TransactionsUiState> = combine(
         repo.observeAll(),
         container.categoryRepository.observeCategories(),
+        container.merchantRepository.observeAll(),
         query,
         filters,
-    ) { all, categories, q, f ->
+    ) { all, categories, merchants, q, f ->
         val (from, to) = dateBounds(f.dateRange)
         val filtered = all.filter { txn ->
             (when (f.direction) {
@@ -238,7 +276,10 @@ class TransactionsViewModel(container: AppContainer) : ViewModel() {
                 matchesQuery(txn, q)
         }
         val accounts = all.map { it.accountKey }.distinct().sorted()
-        TransactionsUiState(filtered, categories.associateBy { it.id }, q, f, accounts)
+        val merchantEmojis = merchants.mapNotNull { m ->
+            m.logoEmoji?.let { m.displayName to it }
+        }.toMap()
+        TransactionsUiState(filtered, categories.associateBy { it.id }, q, f, accounts, merchantEmojis)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState())
 
     private fun matchesQuery(txn: TransactionEntity, q: String): Boolean {
@@ -461,10 +502,181 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
         container.rawSmsDao.updateStatus(raw.id, RawStatus.IGNORED, null)
     }
 
-    /** Re-run filter + patterns over the UNPARSED backlog (e.g. after new builtin patterns ship). */
+    /** Re-run filter + patterns over the UNPARSED and PARSED backlog to apply newly added patterns. */
     fun reprocessUnparsed() = viewModelScope.launch {
-        container.smsProcessor.reprocessUnparsed()
+        container.smsProcessor.reprocessAllSms()
     }
+
+    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
+        val categories = container.categoryRepository.all()
+        val categorizer = container.categoryRepository.categorizer()
+        val merchants = container.merchantRepository.observeAll().first()
+        val knownMerchants = merchants.take(150).map { m ->
+            val catId = categorizer.categorize(m.displayName)
+            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
+            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
+                name = m.displayName,
+                emoji = m.logoEmoji,
+                categoryName = catName
+            )
+        }
+        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
+    }
+
+    private fun extractJson(input: String): String? {
+        val firstBracket = input.indexOf('[')
+        val firstBrace = input.indexOf('{')
+        
+        if (firstBracket == -1 && firstBrace == -1) return null
+        
+        return if (firstBracket != -1 && (firstBrace == -1 || firstBracket < firstBrace)) {
+            val lastBracket = input.lastIndexOf(']')
+            if (lastBracket != -1 && lastBracket > firstBracket) {
+                input.substring(firstBracket, lastBracket + 1)
+            } else null
+        } else {
+            val lastBrace = input.lastIndexOf('}')
+            if (lastBrace != -1 && lastBrace > firstBrace) {
+                input.substring(firstBrace, lastBrace + 1)
+            } else null
+        }
+    }
+
+    private fun cleanSenderRegex(raw: String?): String? {
+        if (raw == null || raw.isBlank() || raw == "null") return null
+        val trimmed = raw.trim()
+        val match = Regex("^[A-Za-z]{2}-(.+)$").find(trimmed)
+        val extracted = if (match != null) {
+            match.groupValues[1].replace(Regex("-[A-Za-z]$"), "")
+        } else {
+            trimmed.replace(Regex("-[A-Za-z]$"), "")
+        }
+        return "(?i)$extracted"
+    }
+
+    suspend fun saveAiPattern(
+        name: String,
+        bodyRegex: String,
+        senderRegex: String?,
+        cleanMerchant: String,
+        logoEmoji: String?,
+        categoryName: String,
+        cachedRawSmsList: List<RawSmsEntity>? = null
+    ): Boolean {
+        // Validate regex compiles
+        val cleanedSender = cleanSenderRegex(senderRegex)
+        val compiledBody = runCatching { Regex(bodyRegex) }.getOrNull() ?: return false
+        val compiledSender = cleanedSender?.let { runCatching { Regex(it) }.getOrNull() }
+
+        // Find the category ID from the category name
+        val categories = container.categoryRepository.all()
+        val categoryId = categories.firstOrNull { it.name.equals(categoryName, ignoreCase = true) }?.id
+            ?: categories.firstOrNull()?.id // fallback to first category if name mismatch
+
+        // Save SMS pattern
+        val patternId = container.patternRepository.savePattern(
+            SmsPatternEntity(
+                name = name,
+                senderRegex = cleanedSender,
+                bodyRegex = bodyRegex,
+                priority = 60, // LEARNED_PRIORITY
+                source = com.spendlens.app.data.db.PatternSource.USER,
+            )
+        )
+
+        // Map raw captured party tokens in matched SMS to clean merchant
+        val rawSmsList = cachedRawSmsList ?: (container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED))
+        val matchedParties = mutableSetOf<String>()
+        for (raw in rawSmsList) {
+            if (compiledSender != null && !compiledSender.containsMatchIn(raw.sender)) {
+                continue
+            }
+            val match = compiledBody.find(raw.body)
+            if (match != null) {
+                val party = runCatching { match.groups["party"]?.value }.getOrNull()?.trim()
+                if (!party.isNullOrBlank()) {
+                    matchedParties.add(party)
+                }
+            }
+        }
+        for (party in matchedParties) {
+            container.merchantRepository.setUserName(party, cleanMerchant)
+        }
+
+        // Save merchant alias and emoji
+        container.merchantRepository.setUserName(cleanMerchant, cleanMerchant)
+        if (logoEmoji != null) {
+            container.merchantRepository.setMerchantEmoji(cleanMerchant, logoEmoji)
+        }
+
+        // Add category rule
+        if (categoryId != null) {
+            container.categoryRepository.addUserRule(cleanMerchant, categoryId)
+        }
+
+        return true
+    }
+
+    suspend fun applyAiPatterns(jsonString: String): Int = withContext(Dispatchers.IO) {
+        var count = 0
+        var updatedCount = 0
+        try {
+            val extracted = extractJson(jsonString) ?: return@withContext 0
+            val rawSmsList = container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED)
+            if (extracted.startsWith("[")) {
+                val array = org.json.JSONArray(extracted)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val bodyRegex = obj.optString("bodyRegex")
+                    if (bodyRegex.isNullOrBlank()) continue
+                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
+                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
+                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
+                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
+                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
+
+                    val success = saveAiPattern(
+                        name = name,
+                        bodyRegex = bodyRegex,
+                        senderRegex = senderRegex,
+                        cleanMerchant = cleanMerchant,
+                        logoEmoji = logoEmoji,
+                        categoryName = categoryName,
+                        cachedRawSmsList = rawSmsList
+                    )
+                    if (success) count++
+                }
+            } else if (extracted.startsWith("{")) {
+                val obj = org.json.JSONObject(extracted)
+                val bodyRegex = obj.optString("bodyRegex")
+                if (!bodyRegex.isNullOrBlank()) {
+                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
+                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
+                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
+                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
+                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
+
+                    val success = saveAiPattern(
+                        name = name,
+                        bodyRegex = bodyRegex,
+                        senderRegex = senderRegex,
+                        cleanMerchant = cleanMerchant,
+                        logoEmoji = logoEmoji,
+                        categoryName = categoryName,
+                        cachedRawSmsList = rawSmsList
+                    )
+                    if (success) count++
+                }
+            }
+            if (count > 0) {
+                updatedCount = container.smsProcessor.reprocessAllSms()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return@withContext updatedCount
+    }
+
 }
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -776,6 +988,26 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
 
     suspend fun smsBody(rawSmsId: Long?): String? =
         rawSmsId?.let { container.rawSmsDao.getById(it)?.body }
+
+    suspend fun rawSms(rawSmsId: Long?): RawSmsEntity? =
+        rawSmsId?.let { container.rawSmsDao.getById(it) }
+
+    /** Build the "Teach with AI" prompt for a raw SMS, seeded with known categories/merchants. */
+    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
+        val categories = container.categoryRepository.all()
+        val categorizer = container.categoryRepository.categorizer()
+        val merchants = container.merchantRepository.observeAll().first()
+        val knownMerchants = merchants.take(150).map { m ->
+            val catId = categorizer.categorize(m.displayName)
+            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
+            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
+                name = m.displayName,
+                emoji = m.logoEmoji,
+                categoryName = catName,
+            )
+        }
+        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
+    }
 
     /** Copy a picked image into encrypted storage and link it to the transaction. */
     fun attachReceipt(txn: TransactionEntity, uri: android.net.Uri, onDone: (TransactionEntity) -> Unit) =

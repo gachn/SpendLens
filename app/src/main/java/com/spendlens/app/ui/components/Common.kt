@@ -72,9 +72,11 @@ fun TransactionRow(
     txn: TransactionEntity,
     categories: Map<Long, CategoryEntity>,
     modifier: Modifier = Modifier,
+    merchantEmojis: Map<String, String> = emptyMap(),
     onClick: (() -> Unit)? = null,
 ) {
     val category = txn.categoryId?.let { categories[it] }
+    val logoEmoji = merchantEmojis[txn.counterparty] ?: category?.icon ?: "💳"
     val isDebit = txn.direction == "DEBIT"
     val amountAlpha = if (txn.excludedFromExpense) 0.4f else 1f
     val amountColor = if (isDebit) SpendLensTheme.colors.debit else SpendLensTheme.colors.credit
@@ -103,7 +105,7 @@ fun TransactionRow(
             modifier = Modifier.size(48.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(category?.icon ?: "💳", style = MaterialTheme.typography.titleMedium)
+                Text(logoEmoji, style = MaterialTheme.typography.titleMedium)
             }
         }
 

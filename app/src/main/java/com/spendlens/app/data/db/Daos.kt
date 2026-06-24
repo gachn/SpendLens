@@ -51,6 +51,12 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("DELETE FROM transactions WHERE rawSmsId = :rawSmsId")
+    suspend fun deleteByRawSmsId(rawSmsId: Long)
+
+    @Query("SELECT * FROM transactions WHERE rawSmsId = :rawSmsId LIMIT 1")
+    suspend fun getByRawSmsId(rawSmsId: Long): TransactionEntity?
+
     @Query("SELECT * FROM transactions WHERE isDuplicate = 0 ORDER BY occurredAt DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
@@ -143,6 +149,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET tags = :tags WHERE counterparty = :name")
     suspend fun setTagsForCounterparty(name: String, tags: String?)
 
+    @Query("UPDATE transactions SET excludedFromExpense = :excluded WHERE counterparty = :name")
+    suspend fun setExcludedForCounterparty(name: String, excluded: Boolean)
+
     /** Latest non-null balance per account, newest first. Used by the Accounts overview. */
     @Query(
         "SELECT accountKey AS accountKey, balanceMinor AS balanceMinor, occurredAt AS updatedAt " +
@@ -163,6 +172,10 @@ interface TransactionDao {
     /** All non-duplicate transactions, newest first — used by debug export. */
     @Query("SELECT * FROM transactions WHERE isDuplicate = 0 ORDER BY occurredAt DESC")
     suspend fun allTransactions(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllTransactions(): List<TransactionEntity>
+
 
     @Query(
         "SELECT COUNT(*) FROM transactions " +
@@ -224,6 +237,15 @@ interface MerchantDao {
 
     @Query("SELECT * FROM merchant_aliases WHERE rawKey = :key")
     suspend fun getByKey(key: String): MerchantAliasEntity?
+
+    @Query("SELECT * FROM merchant_aliases WHERE rawKey = :key")
+    fun observeByKey(key: String): kotlinx.coroutines.flow.Flow<MerchantAliasEntity?>
+
+    @Query("SELECT * FROM merchant_aliases")
+    suspend fun getAll(): List<MerchantAliasEntity>
+
+    @Query("SELECT * FROM merchant_aliases")
+    fun observeAll(): kotlinx.coroutines.flow.Flow<List<MerchantAliasEntity>>
 }
 
 @Dao

@@ -139,6 +139,9 @@ data class MerchantAliasEntity(
     val source: String,    // DICTIONARY | WEB | NORMALIZED | USER
     /** User tags remembered for this merchant; applied to future parsed transactions. Comma-joined. */
     val tags: String? = null,
+    val logoEmoji: String? = null,
+    /** User excluded this merchant from spend/income totals; applied to future parsed transactions. */
+    val excludedFromExpense: Boolean = false,
 )
 
 /** A user-set monthly spending limit for one category. One row per category (categoryId = PK). */
