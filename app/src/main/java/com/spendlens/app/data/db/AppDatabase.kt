@@ -24,8 +24,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         BudgetEntity::class,
         BillEntity::class,
         CardBillEntity::class,
+        TransactionSplitEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
     abstract fun billDao(): BillDao
     abstract fun cardBillDao(): CardBillDao
+    abstract fun transactionSplitDao(): TransactionSplitDao
 
     companion object {
         private const val DB_NAME = "spendlens.db"
@@ -187,6 +189,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v11 → v12: split a transaction across categories (issue #11). Adds the isSplit flag and
+         * the transaction_splits child table. Additive — existing rows keep their data.
+         */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN isSplit INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS transaction_splits (" +
+                        "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, parentId INTEGER NOT NULL, " +
+                        "categoryId INTEGER, amountMinor INTEGER NOT NULL, amountBaseMinor INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_splits_parentId ON transaction_splits(parentId)")
+            }
+        }
+
         fun create(context: Context, keyManager: DatabaseKeyManager): AppDatabase {
             // Load SQLCipher native libs. The SupportOpenHelperFactory also triggers this;
             // guarded so a double-load (or already-linked lib) can't crash startup.
@@ -196,7 +214,7 @@ abstract class AppDatabase : RoomDatabase() {
                 .openHelperFactory(factory)
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
                 )
                 .fallbackToDestructiveMigration() // safety net for older dev builds
                 .build()

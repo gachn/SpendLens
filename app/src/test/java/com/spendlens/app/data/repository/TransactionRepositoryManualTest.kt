@@ -23,6 +23,7 @@ class TransactionRepositoryManualTest {
     private class Capture {
         val methods = mutableListOf<String>()
         var lastEntity: TransactionEntity? = null
+        var splits: List<com.spendlens.app.data.db.TransactionSplitEntity>? = null
     }
 
     private fun repoWith(capture: Capture): TransactionRepository {
@@ -43,7 +44,18 @@ class TransactionRepositoryManualTest {
                 else -> null
             }
         } as TransactionDao
-        return TransactionRepository(dao)
+        val splitDao = Proxy.newProxyInstance(
+            com.spendlens.app.data.db.TransactionSplitDao::class.java.classLoader,
+            arrayOf(com.spendlens.app.data.db.TransactionSplitDao::class.java),
+        ) { _, method, args ->
+            capture.methods += method.name
+            if (method.name == "insertAll") {
+                @Suppress("UNCHECKED_CAST")
+                capture.splits = args?.get(0) as? List<com.spendlens.app.data.db.TransactionSplitEntity>
+            }
+            null
+        } as com.spendlens.app.data.db.TransactionSplitDao
+        return TransactionRepository(dao, splitDao)
     }
 
     @Test
@@ -61,6 +73,40 @@ class TransactionRepositoryManualTest {
         assertTrue(e.userVerified)
         assertFalse(e.isDuplicate)
         assertEquals(50000L, e.amountMinor)
+    }
+
+    @Test
+    fun `splitTransaction distributes base minor with remainder on the last part`() = runTest {
+        val capture = Capture()
+        val parent = TransactionEntity(
+            id = 7L, rawSmsId = null, amountMinor = 1000L, currency = "INR", amountBaseMinor = 1000L,
+            direction = "DEBIT", accountKey = "A", counterparty = "Shop", occurredAt = 0L, channel = "X",
+        )
+        repoWith(capture).splitTransaction(parent, listOf(1L to 333L, 2L to 333L, 3L to 334L))
+
+        val splits = requireNotNull(capture.splits)
+        assertEquals(3, splits.size)
+        // Base shares sum exactly to the parent base total (no lost/created paise).
+        assertEquals(1000L, splits.sumOf { it.amountBaseMinor })
+        assertEquals(listOf(333L, 333L, 334L), splits.map { it.amountBaseMinor })
+        assertTrue("parent flagged as split", requireNotNull(capture.lastEntity).isSplit)
+        assertTrue(capture.methods.contains("deleteForParent"))
+    }
+
+    @Test
+    fun `splitTransaction rejects parts that do not sum to the total`() = runTest {
+        val capture = Capture()
+        val parent = TransactionEntity(
+            id = 7L, rawSmsId = null, amountMinor = 1000L, currency = "INR", amountBaseMinor = 1000L,
+            direction = "DEBIT", accountKey = "A", counterparty = "Shop", occurredAt = 0L, channel = "X",
+        )
+        var threw = false
+        try {
+            repoWith(capture).splitTransaction(parent, listOf(1L to 400L, 2L to 400L))
+        } catch (e: IllegalArgumentException) {
+            threw = true
+        }
+        assertTrue("must reject parts that don't sum to total", threw)
     }
 
     @Test

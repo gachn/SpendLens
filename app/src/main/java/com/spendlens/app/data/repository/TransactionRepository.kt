@@ -6,10 +6,15 @@ import com.spendlens.app.data.db.MerchantTotal
 import com.spendlens.app.data.db.TransactionChannel
 import com.spendlens.app.data.db.TransactionDao
 import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.data.db.TransactionSplitDao
+import com.spendlens.app.data.db.TransactionSplitEntity
 import com.spendlens.app.parser.CurrencyConverter
 import kotlinx.coroutines.flow.Flow
 
-class TransactionRepository(private val dao: TransactionDao) {
+class TransactionRepository(
+    private val dao: TransactionDao,
+    private val splitDao: TransactionSplitDao,
+) {
 
     fun observeRecent(limit: Int = 20): Flow<List<TransactionEntity>> = dao.observeRecent(limit)
     fun observeAll(): Flow<List<TransactionEntity>> = dao.observeAll()
@@ -138,5 +143,53 @@ class TransactionRepository(private val dao: TransactionDao) {
 
     suspend fun hasHistoricalIncome(counterparty: String, incomeCategoryId: Long): Boolean {
         return dao.countIncomeTransactions(counterparty, incomeCategoryId) > 0
+    }
+
+    // ── Transaction splits (issue #11) ──────────────────────────────────────────
+
+    fun observeSplits(parentId: Long): Flow<List<TransactionSplitEntity>> =
+        splitDao.observeForParent(parentId)
+
+    fun observeAllSplits(): Flow<List<TransactionSplitEntity>> = splitDao.observeAll()
+
+    /**
+     * Split [parent] across categories. [parts] are (categoryId, displayAmountMinor) pairs that must
+     * sum to the parent's [TransactionEntity.amountMinor]. The base-currency share of each part is
+     * derived proportionally from the parent's [amountBaseMinor] (last part absorbs the rounding
+     * remainder so the children sum exactly to the parent). The parent is flagged [isSplit] = true,
+     * which removes it from category totals while keeping it in lists and account/spend totals.
+     */
+    suspend fun splitTransaction(parent: TransactionEntity, parts: List<Pair<Long?, Long>>) {
+        require(parts.isNotEmpty()) { "A split needs at least one part" }
+        val displayTotal = parts.sumOf { it.second }
+        require(displayTotal == parent.amountMinor) {
+            "Split parts ($displayTotal) must sum to the transaction total (${parent.amountMinor})"
+        }
+        val baseTotal = parent.amountBaseMinor
+        var baseAssigned = 0L
+        val splits = parts.mapIndexed { i, (categoryId, displayMinor) ->
+            val baseMinor = if (i == parts.lastIndex) {
+                baseTotal - baseAssigned
+            } else {
+                val share = if (displayTotal == 0L) 0L else baseTotal * displayMinor / displayTotal
+                baseAssigned += share
+                share
+            }
+            TransactionSplitEntity(
+                parentId = parent.id,
+                categoryId = categoryId,
+                amountMinor = displayMinor,
+                amountBaseMinor = baseMinor,
+            )
+        }
+        splitDao.deleteForParent(parent.id)
+        splitDao.insertAll(splits)
+        dao.update(parent.copy(isSplit = true))
+    }
+
+    /** Undo a split: drop the child rows and clear the parent's [isSplit] flag. */
+    suspend fun clearSplit(parent: TransactionEntity) {
+        splitDao.deleteForParent(parent.id)
+        dao.update(parent.copy(isSplit = false))
     }
 }

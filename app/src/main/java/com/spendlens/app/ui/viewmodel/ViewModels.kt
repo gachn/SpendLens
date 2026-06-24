@@ -472,10 +472,12 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
     val state: StateFlow<AnalyticsUiState> = combine(
         repo.observeAll(),
         container.categoryRepository.observeCategories(),
+        repo.observeAllSplits(),
         selectedMonth,
         activeTab,
-    ) { txns, categories, breakdownMonth, tab ->
+    ) { txns, categories, splits, breakdownMonth, tab ->
         val map = categories.associateBy { it.id }
+        val splitsByParent = splits.groupBy { it.parentId }
         val currency = "INR" // base currency for all totals
 
         // Last 6 months, oldest → newest.
@@ -495,9 +497,19 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
         val inMonthDebits = spendable.filter {
             YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == breakdownMonth && it.direction == "DEBIT"
         }
-        val slices = inMonthDebits.groupBy { it.categoryId }
-            .mapNotNull { (catId, list) ->
-                val total = list.sumOf { t -> t.amountBaseMinor }
+        // Category totals: split parents contribute via their children's categories, not their own.
+        val totalByCat = HashMap<Long?, Long>()
+        inMonthDebits.forEach { t ->
+            if (t.isSplit) {
+                splitsByParent[t.id].orEmpty().forEach { s ->
+                    totalByCat[s.categoryId] = (totalByCat[s.categoryId] ?: 0L) + s.amountBaseMinor
+                }
+            } else {
+                totalByCat[t.categoryId] = (totalByCat[t.categoryId] ?: 0L) + t.amountBaseMinor
+            }
+        }
+        val slices = totalByCat
+            .mapNotNull { (catId, total) ->
                 if (catId == null) {
                     CategorySlice("Uncategorized", Color(0xFF9E9E9EL), total, categoryId = TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID)
                 } else {
@@ -1118,6 +1130,28 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
             container.transactionRepository.setTagsForCounterparty(txn.counterparty, txn.tags)
             container.merchantRepository.setUserTags(txn.counterparty, txn.tags)
         }
+    }
+
+    /** Observe the split children of [parentId] (issue #11). Empty when the txn isn't split. */
+    fun splitsFlow(parentId: Long): kotlinx.coroutines.flow.Flow<List<com.spendlens.app.data.db.TransactionSplitEntity>> =
+        container.transactionRepository.observeSplits(parentId)
+
+    /**
+     * Split [parent] across categories. [parts] are (categoryId, displayAmountMinor) pairs summing
+     * to the parent total. [onDone] receives the parent with [isSplit] set so the sheet can refresh.
+     */
+    fun splitTransaction(
+        parent: TransactionEntity,
+        parts: List<Pair<Long?, Long>>,
+        onDone: (TransactionEntity) -> Unit = {},
+    ) = viewModelScope.launch {
+        container.transactionRepository.splitTransaction(parent, parts)
+        onDone(parent.copy(isSplit = true))
+    }
+
+    fun clearSplit(parent: TransactionEntity, onDone: (TransactionEntity) -> Unit = {}) = viewModelScope.launch {
+        container.transactionRepository.clearSplit(parent)
+        onDone(parent.copy(isSplit = false))
     }
 
     suspend fun smsBody(rawSmsId: Long?): String? =

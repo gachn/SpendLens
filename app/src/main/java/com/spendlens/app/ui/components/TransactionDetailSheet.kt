@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,12 +19,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -39,10 +44,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.rememberCoroutineScope
 import com.spendlens.app.ai.AiBridgeHelper
 import com.spendlens.app.ai.PromptGenerator
@@ -56,7 +64,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
+import com.spendlens.app.data.db.TransactionSplitEntity
 import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
@@ -77,8 +87,11 @@ fun TransactionDetailSheet(
     var smsBody by remember(txn.id) { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
+    var showSplit by remember { mutableStateOf(false) }
     var pendingScope by remember { mutableStateOf<PendingScopeEdit?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val splits by remember(current.id) { vm.splitsFlow(current.id) }
+        .collectAsState(initial = emptyList<TransactionSplitEntity>())
     LaunchedEffect(txn.id) { smsBody = vm.smsBody(txn.rawSmsId) }
 
     val pickReceipt = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -167,6 +180,17 @@ fun TransactionDetailSheet(
                 )
             }
 
+            if (isDebit) {
+                Spacer(Modifier.height(16.dp))
+                SplitSection(
+                    splits = splits,
+                    currency = current.currency,
+                    categories = categories,
+                    onEdit = { showSplit = true },
+                    onClear = { vm.clearSplit(current) { current = it } },
+                )
+            }
+
             Spacer(Modifier.height(16.dp))
             NotesAndTags(
                 note = current.note.orEmpty(),
@@ -228,6 +252,19 @@ fun TransactionDetailSheet(
                     current = current.copy(categoryId = newId)
                     vm.update(current)
                 }
+            },
+        )
+    }
+
+    if (showSplit) {
+        SplitDialog(
+            txn = current,
+            existing = splits,
+            categories = categories,
+            onDismiss = { showSplit = false },
+            onSave = { parts ->
+                showSplit = false
+                vm.splitTransaction(current, parts) { current = it }
             },
         )
     }
@@ -488,6 +525,154 @@ fun CategoryCreateDialog(
             }
         },
     )
+}
+
+// ── Split transaction across categories (issue #11) ─────────────────────────
+
+private fun splitAmountToMinor(text: String): Long =
+    ((text.trim().toDoubleOrNull() ?: 0.0) * 100).toLong()
+
+private fun minorToSplitField(minor: Long): String =
+    if (minor % 100 == 0L) (minor / 100).toString() else (minor / 100.0).toString()
+
+@Composable
+private fun SplitSection(
+    splits: List<TransactionSplitEntity>,
+    currency: String,
+    categories: List<CategoryEntity>,
+    onEdit: () -> Unit,
+    onClear: () -> Unit,
+) {
+    fun catLabel(id: Long?): String =
+        categories.firstOrNull { it.id == id }?.let { "${it.icon} ${it.name}" } ?: "Uncategorized"
+
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Split across categories", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        if (splits.isEmpty()) {
+            TextButton(onClick = onEdit) { Text("Split") }
+        } else {
+            TextButton(onClick = onEdit) { Text("Edit") }
+            TextButton(onClick = onClear) { Text("Remove") }
+        }
+    }
+    if (splits.isEmpty()) {
+        Text(
+            "Divide this transaction into category portions. Analytics and budgets count the portions.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else {
+        Spacer(Modifier.height(6.dp))
+        splits.forEach { s ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(catLabel(s.categoryId), style = MaterialTheme.typography.bodyMedium)
+                Text(Money.format(s.amountMinor, currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SplitDialog(
+    txn: TransactionEntity,
+    existing: List<TransactionSplitEntity>,
+    categories: List<CategoryEntity>,
+    onDismiss: () -> Unit,
+    onSave: (List<Pair<Long?, Long>>) -> Unit,
+) {
+    // Each row: selected categoryId + amount text (major units, in the txn's display currency).
+    val rows = remember {
+        mutableStateListOf<Pair<Long?, String>>().apply {
+            if (existing.isNotEmpty()) {
+                existing.forEach { add(it.categoryId to minorToSplitField(it.amountMinor)) }
+            } else {
+                add(txn.categoryId to "")
+                add((null as Long?) to "")
+            }
+        }
+    }
+    val totalMinor = txn.amountMinor
+    val enteredMinor = rows.sumOf { splitAmountToMinor(it.second) }
+    val remaining = totalMinor - enteredMinor
+    val valid = remaining == 0L && rows.size >= 2 && rows.all { it.second.isNotBlank() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = { onSave(rows.map { it.first to splitAmountToMinor(it.second) }) },
+            ) { Text("Save", color = MaterialTheme.colorScheme.primary) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        title = { Text("Split ${Money.format(totalMinor, txn.currency)}") },
+        text = {
+            Column {
+                Text(
+                    if (remaining == 0L) "Allocated in full."
+                    else if (remaining > 0L) "Remaining ${Money.format(remaining, txn.currency)}"
+                    else "Over by ${Money.format(-remaining, txn.currency)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (remaining == 0L) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit,
+                )
+                Spacer(Modifier.height(8.dp))
+                rows.forEachIndexed { i, row ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SplitCategoryPicker(
+                            categories = categories,
+                            selectedId = row.first,
+                            onSelect = { rows[i] = it to row.second },
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = row.second,
+                            onValueChange = { new -> rows[i] = row.first to new.filter { it.isDigit() || it == '.' } },
+                            singleLine = true,
+                            label = { Text(txn.currency) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(96.dp),
+                        )
+                        if (rows.size > 2) {
+                            TextButton(onClick = { rows.removeAt(i) }) { Text("✕") }
+                        }
+                    }
+                }
+                TextButton(onClick = { rows.add((null as Long?) to "") }) { Text("➕ Add category") }
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SplitCategoryPicker(
+    categories: List<CategoryEntity>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = categories.firstOrNull { it.id == selectedId }?.let { "${it.icon} ${it.name}" } ?: "Uncategorized"
+    Box(modifier) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("Uncategorized") }, onClick = { onSelect(null); expanded = false })
+            categories.forEach { cat ->
+                DropdownMenuItem(
+                    text = { Text("${cat.icon} ${cat.name}") },
+                    onClick = { onSelect(cat.id); expanded = false },
+                )
+            }
+        }
+    }
 }
 
 private val EMOJIS = listOf(

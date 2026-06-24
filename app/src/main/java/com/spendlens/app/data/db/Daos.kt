@@ -124,18 +124,36 @@ interface TransactionDao {
     )
     fun observeFlaggedDuplicates(): Flow<List<TransactionEntity>>
 
+    /**
+     * Per-category debit totals for a window. Split parents (isSplit = 1) are excluded and their
+     * [transaction_splits] children are counted under their own categories instead (issue #11).
+     */
     @Query(
-        "SELECT categoryId AS categoryId, SUM(amountBaseMinor) AS total FROM transactions " +
-            "WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' " +
-            "AND occurredAt BETWEEN :from AND :to GROUP BY categoryId ORDER BY total DESC",
+        "SELECT categoryId AS categoryId, SUM(total) AS total FROM (" +
+            "SELECT categoryId AS categoryId, SUM(amountBaseMinor) AS total FROM transactions " +
+            "WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' AND isSplit = 0 " +
+            "AND occurredAt BETWEEN :from AND :to GROUP BY categoryId " +
+            "UNION ALL " +
+            "SELECT s.categoryId AS categoryId, SUM(s.amountBaseMinor) AS total FROM transaction_splits s " +
+            "JOIN transactions t ON t.id = s.parentId " +
+            "WHERE t.isDuplicate = 0 AND t.excludedFromExpense = 0 AND t.direction = 'DEBIT' " +
+            "AND t.occurredAt BETWEEN :from AND :to GROUP BY s.categoryId" +
+            ") GROUP BY categoryId ORDER BY total DESC",
     )
     fun observeCategoryTotals(from: Long, to: Long): Flow<List<CategoryTotal>>
 
-    /** One-shot category spend totals for a window — used by the velocity-alert worker. */
+    /** One-shot, split-aware category spend totals for a window — used by the velocity-alert worker. */
     @Query(
-        "SELECT categoryId AS categoryId, SUM(amountBaseMinor) AS total FROM transactions " +
-            "WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' " +
-            "AND occurredAt BETWEEN :from AND :to GROUP BY categoryId",
+        "SELECT categoryId AS categoryId, SUM(total) AS total FROM (" +
+            "SELECT categoryId AS categoryId, SUM(amountBaseMinor) AS total FROM transactions " +
+            "WHERE isDuplicate = 0 AND excludedFromExpense = 0 AND direction = 'DEBIT' AND isSplit = 0 " +
+            "AND occurredAt BETWEEN :from AND :to GROUP BY categoryId " +
+            "UNION ALL " +
+            "SELECT s.categoryId AS categoryId, SUM(s.amountBaseMinor) AS total FROM transaction_splits s " +
+            "JOIN transactions t ON t.id = s.parentId " +
+            "WHERE t.isDuplicate = 0 AND t.excludedFromExpense = 0 AND t.direction = 'DEBIT' " +
+            "AND t.occurredAt BETWEEN :from AND :to GROUP BY s.categoryId" +
+            ") GROUP BY categoryId",
     )
     suspend fun categoryTotalsBetween(from: Long, to: Long): List<CategoryTotal>
 
@@ -219,6 +237,24 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets")
     suspend fun clear()
+}
+
+@Dao
+interface TransactionSplitDao {
+    @Insert
+    suspend fun insertAll(splits: List<TransactionSplitEntity>)
+
+    @Query("SELECT * FROM transaction_splits WHERE parentId = :parentId")
+    fun observeForParent(parentId: Long): Flow<List<TransactionSplitEntity>>
+
+    @Query("SELECT * FROM transaction_splits")
+    fun observeAll(): Flow<List<TransactionSplitEntity>>
+
+    @Query("SELECT * FROM transaction_splits WHERE parentId = :parentId")
+    suspend fun forParent(parentId: Long): List<TransactionSplitEntity>
+
+    @Query("DELETE FROM transaction_splits WHERE parentId = :parentId")
+    suspend fun deleteForParent(parentId: Long)
 }
 
 @Dao

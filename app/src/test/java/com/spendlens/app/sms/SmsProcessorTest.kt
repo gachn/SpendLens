@@ -61,7 +61,12 @@ class SmsProcessorTest {
             }
         } as TransactionDao
 
-        val repo = TransactionRepository(fakeDao)
+        val fakeSplitDao = Proxy.newProxyInstance(
+            com.spendlens.app.data.db.TransactionSplitDao::class.java.classLoader,
+            arrayOf(com.spendlens.app.data.db.TransactionSplitDao::class.java),
+        ) { _, _, _ -> null } as com.spendlens.app.data.db.TransactionSplitDao
+
+        val repo = TransactionRepository(fakeDao, fakeSplitDao)
         assertTrue(repo.hasHistoricalIncome("ACME CORP", 9L))
         assertFalse(repo.hasHistoricalIncome("OTHER CORP", 9L))
     }

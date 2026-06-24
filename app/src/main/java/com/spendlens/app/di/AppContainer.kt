@@ -39,7 +39,7 @@ class AppContainer(context: Context) {
     val velocityAlertStore by lazy { VelocityAlertStore(appContext) }
 
     val patternRepository by lazy { PatternRepository(database.patternDao()) }
-    val transactionRepository by lazy { TransactionRepository(database.transactionDao()) }
+    val transactionRepository by lazy { TransactionRepository(database.transactionDao(), database.transactionSplitDao()) }
     val categoryRepository by lazy { CategoryRepository(database.categoryDao()) }
     val budgetRepository by lazy { BudgetRepository(database.budgetDao()) }
     val billRepository by lazy { BillRepository(database.billDao()) }

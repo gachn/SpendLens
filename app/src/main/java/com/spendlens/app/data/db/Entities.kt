@@ -73,6 +73,26 @@ data class TransactionEntity(
     val tags: String? = null,
     /** Local file path (app-private storage) of an attached receipt image, if any. */
     val receiptUri: String? = null,
+    /**
+     * True when this transaction has been split across multiple categories. The split children
+     * live in [TransactionSplitEntity]; a split parent is excluded from category totals (its
+     * children are counted instead), but still appears in lists and account/spend totals.
+     */
+    val isSplit: Boolean = false,
+)
+
+/**
+ * One slice of a transaction that the user split across categories (issue #11). The slices of a
+ * parent always sum to the parent's amount. [amountMinor] is in the parent's display currency;
+ * [amountBaseMinor] is the base-currency (INR) equivalent and is what category totals aggregate.
+ */
+@Entity(tableName = "transaction_splits", indices = [Index("parentId")])
+data class TransactionSplitEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val parentId: Long,
+    val categoryId: Long? = null,
+    val amountMinor: Long,
+    val amountBaseMinor: Long,
 )
 
 /**
