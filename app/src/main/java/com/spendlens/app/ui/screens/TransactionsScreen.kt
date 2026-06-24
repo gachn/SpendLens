@@ -93,7 +93,7 @@ fun TransactionsScreen(
 
     // Group by display-day label
     val grouped = state.items
-        .groupBy { Dates.day(it.occurredAt) }
+        .groupBy { Dates.date(it.occurredAt) }
         .entries.toList()
 
     Column(Modifier.fillMaxSize()) {

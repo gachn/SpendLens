@@ -106,6 +106,13 @@ class TransactionRepository(private val dao: TransactionDao) {
         to: Long,
     ): List<TransactionEntity> = dao.findCandidates(amount, account, direction, from, to)
 
+    suspend fun findByAmountDirection(
+        amount: Long,
+        direction: String,
+        from: Long,
+        to: Long,
+    ): List<TransactionEntity> = dao.findByAmountDirection(amount, direction, from, to)
+
     suspend fun findTransferCounterpart(
         amount: Long,
         oppositeDirection: String,

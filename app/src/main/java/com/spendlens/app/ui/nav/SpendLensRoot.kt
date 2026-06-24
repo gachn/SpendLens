@@ -9,6 +9,8 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
@@ -145,6 +149,16 @@ fun SpendLensRoot(
     var detectedPatternSingle by remember { mutableStateOf<DetectedPatternSingle?>(null) }
     var detectedPatternBulk by remember { mutableStateOf<List<DetectedPatternSingle>?>(null) }
 
+    val processingProgress by container.smsProcessor.progress.collectAsState()
+    var showProgressPopup by remember { mutableStateOf(false) }
+
+    LaunchedEffect(processingProgress.isProcessing) {
+        if (processingProgress.isProcessing) {
+            showProgressPopup = true
+        }
+    }
+
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -159,7 +173,8 @@ fun SpendLensRoot(
                     } else null
                 } else null
 
-                if (clipText != null && clipText != lastProcessedClip) {
+                if (clipText != null && clipText != lastProcessedClip &&
+                    clipText != com.spendlens.app.ai.AiBridgeHelper.lastCopiedPrompt) {
                     val extracted = extractJson(clipText)
                     if (extracted != null) {
                         try {
@@ -349,14 +364,81 @@ fun SpendLensRoot(
     }
 
     PermissionGate {
-        MainScaffold(
-            container = container,
-            factory = factory,
-            selected = selected,
-            onSelectedChanged = { selected = it },
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            MainScaffold(
+                container = container,
+                factory = factory,
+                selected = selected,
+                onSelectedChanged = { selected = it },
+            )
+
+            // Reprocessing Progress Popup
+            if (showProgressPopup && processingProgress.isProcessing) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 90.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth(0.9f),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 6.dp,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Processing transaction updates...",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${processingProgress.current}/${processingProgress.total}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            val fraction = if (processingProgress.total > 0) {
+                                processingProgress.current.toFloat() / processingProgress.total.toFloat()
+                            } else 0f
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        }
+                        IconButton(
+                            onClick = { showProgressPopup = false },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
+
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable

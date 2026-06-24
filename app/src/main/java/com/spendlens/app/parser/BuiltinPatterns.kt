@@ -21,7 +21,7 @@ object BuiltinPatterns {
             name = "UPI sent",
             senderRegex = null,
             priority = 40,
-            bodyRegex = "(?i).*?(?<curr>inr|rs\\.?|[₹$])\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
+            bodyRegex = "(?i).*?(?<curr>${Normalize.CURRENCY_TOKEN})\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
                 "(?<dir>sent|paid|debited)\\b.*?\\b(?:to|vpa)\\s+(?<party>[A-Za-z0-9@._\\-]{2,40})" +
                 ".*?(?:upi|vpa).*?(?:(?:ref|rrn|utr|txn)[^A-Za-z0-9]{0,4}(?<ref>[A-Za-z0-9]{4,}))?",
         ),
@@ -30,7 +30,7 @@ object BuiltinPatterns {
             name = "UPI received",
             senderRegex = null,
             priority = 40,
-            bodyRegex = "(?i).*?(?<curr>inr|rs\\.?|[₹$])\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
+            bodyRegex = "(?i).*?(?<curr>${Normalize.CURRENCY_TOKEN})\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
                 "(?<dir>received|credited)\\b.*?\\bfrom\\s+(?<party>[A-Za-z0-9@._\\-]{2,40})" +
                 ".*?(?:upi|vpa).*?(?:(?:ref|rrn|utr)[^A-Za-z0-9]{0,4}(?<ref>[A-Za-z0-9]{4,}))?",
         ),
@@ -40,7 +40,7 @@ object BuiltinPatterns {
             senderRegex = null,
             priority = 40,
             // Party allows * so aggregator-prefixed names ("CAS*Swiggy") are captured whole.
-            bodyRegex = "(?i).*?(?<dir>spent|charged|debited)\\s+(?<curr>inr|rs\\.?|usd|[₹$])\\s?" +
+            bodyRegex = "(?i).*?(?<dir>spent|charged|debited)\\s+(?<curr>${Normalize.CURRENCY_TOKEN})\\s?" +
                 "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\b.*?card[^\\dxX*]{0,8}(?<account>[xX*]*\\d{3,})" +
                 ".*?\\b(?:at|@|on)\\s+(?<party>[A-Za-z0-9@.*_\\-]{2,40})",
         ),
@@ -49,7 +49,7 @@ object BuiltinPatterns {
             name = "ATM withdrawal",
             senderRegex = null,
             priority = 40,
-            bodyRegex = "(?i).*?(?<curr>inr|rs\\.?|[₹$])\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
+            bodyRegex = "(?i).*?(?<curr>${Normalize.CURRENCY_TOKEN})\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
                 "(?<dir>withdrawn|debited)\\b.*?atm.*?(?:a/c|ac|card)[^\\dxX*]{0,8}" +
                 "(?<account>[xX*]*\\d{3,})?",
         ),
@@ -96,7 +96,7 @@ object BuiltinPatterns {
             name = "Generic debit/credit",
             senderRegex = null,
             priority = 10,
-            bodyRegex = "(?i).*?(?<curr>inr|rs\\.?|usd|eur|gbp|aed|[₹$€£])\\s?" +
+            bodyRegex = "(?i).*?(?<curr>${Normalize.CURRENCY_TOKEN})\\s?" +
                 "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+" +
                 "(?<dir>debited|credited|spent|withdrawn|deposited|received|paid|sent|charged)\\b" +
                 ".*?(?:(?:a/c|ac|acct|account|card)[^\\dxX*]{0,8}(?<account>[xX*]*\\d{3,}))?" +

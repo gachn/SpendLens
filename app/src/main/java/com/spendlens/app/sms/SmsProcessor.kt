@@ -22,6 +22,7 @@ import com.spendlens.app.data.repository.TransactionRepository
 import com.spendlens.app.parser.AccountExtractor
 import com.spendlens.app.parser.DuplicateDetector
 import com.spendlens.app.parser.FinancialSmsFilter
+import com.spendlens.app.parser.MerchantEchoDetector
 import com.spendlens.app.parser.MerchantExtractor
 import com.spendlens.app.parser.PatternEngine
 import com.spendlens.app.parser.SelfTransferDetector
@@ -29,6 +30,16 @@ import com.spendlens.app.parser.model.CompiledPattern
 import com.spendlens.app.parser.model.MatchResult
 import com.spendlens.app.parser.model.SmsMessage
 import com.spendlens.app.parser.model.TxnDirection
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+data class SmsProcessingProgress(
+    val current: Int = 0,
+    val total: Int = 0,
+    val isProcessing: Boolean = false
+)
+
 
 /**
  * Orchestrates the full pipeline for one SMS: idempotent insert → financial filter →
@@ -47,6 +58,10 @@ class SmsProcessor(
     private val generator: PatternGenerator,
     private val engine: PatternEngine = PatternEngine(),
 ) {
+
+    private val _progress = MutableStateFlow(SmsProcessingProgress())
+    val progress: StateFlow<SmsProcessingProgress> = _progress.asStateFlow()
+
 
     suspend fun process(msg: SmsMessage): TransactionEntity? {
         val hash = Hashing.contentHash(msg.sender, msg.body)
@@ -123,12 +138,15 @@ class SmsProcessor(
         var changed = 0
         val rawMessages = rawDao.listByStatus(RawStatus.UNPARSED) + rawDao.listByStatus(RawStatus.PARSED)
         
+        _progress.value = SmsProcessingProgress(current = 0, total = rawMessages.size, isProcessing = true)
+
         // Fetch all transactions once and build a rawSmsId-to-transaction lookup map
         val existingTxnsMap = txnRepo.getAllTransactions()
             .filter { it.rawSmsId != null }
             .associateBy { it.rawSmsId!! }
 
-        for (raw in rawMessages) {
+        for ((index, raw) in rawMessages.withIndex()) {
+            _progress.value = SmsProcessingProgress(current = index + 1, total = rawMessages.size, isProcessing = true)
             val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
             val existing = existingTxnsMap[raw.id]
             if (!FinancialSmsFilter.isFinancial(msg)) {
@@ -177,8 +195,10 @@ class SmsProcessor(
                 }
             }
         }
+        _progress.value = SmsProcessingProgress(isProcessing = false)
         return@withContext changed
     }
+
 
 
     /** Parse a credit-card statement, if this SMS is one, keeping only the most recent per card. */
@@ -274,6 +294,21 @@ class SmsProcessor(
             )
         }
 
+        // Merchant echo: a CREDIT the user never received — the merchant (e.g. Jio) acknowledging
+        // a payment you already made. Suppress it so the real debit stands as the spend.
+        val echoedDebit = if (!isDuplicate && !isSelfTransfer && p.direction == TxnDirection.CREDIT) {
+            val recentDebits = txnRepo.findByAmountDirection(
+                amount = p.amountMinor,
+                direction = TxnDirection.DEBIT.name,
+                from = p.occurredAt - MerchantEchoDetector.WINDOW_MS,
+                to = p.occurredAt + MerchantEchoDetector.WINDOW_MS,
+            )
+            MerchantEchoDetector.echoedDebit(p, msg.body, recentDebits)
+        } else {
+            null
+        }
+        val isEcho = echoedDebit != null
+
         val isSalary = p.direction == TxnDirection.CREDIT && (
             SALARY_RE.containsMatchIn(msg.body) ||
             (p.counterparty.isNotBlank() && p.counterparty != "Unknown" && txnRepo.hasHistoricalIncome(p.counterparty, CATEGORY_INCOME))
@@ -318,9 +353,10 @@ class SmsProcessor(
             channel = p.channel.name,
             categoryId = categoryId,
             tags = merchantRepo.tagsFor(p.counterparty),
-            dupGroupId = groupId,
-            isDuplicate = isDuplicate,
-            excludedFromExpense = isSelfTransfer || isInvestment || merchantRepo.isExcluded(p.counterparty),
+            dupGroupId = groupId ?: echoedDebit?.let { it.dupGroupId ?: "grp-${it.id}" },
+            isDuplicate = isDuplicate || isEcho,
+            excludedFromExpense = isSelfTransfer || isInvestment || isEcho ||
+                merchantRepo.isExcluded(p.counterparty),
         )
         val id = txnRepo.insert(entity)
         return entity.copy(id = id)

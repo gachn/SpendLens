@@ -82,6 +82,18 @@ interface TransactionDao {
         to: Long,
     ): List<TransactionEntity>
 
+    /** Same-amount rows in one direction near a time → merchant-echo lookup (account-agnostic). */
+    @Query(
+        "SELECT * FROM transactions WHERE amountMinor = :amount AND direction = :direction " +
+            "AND isDuplicate = 0 AND occurredAt BETWEEN :from AND :to",
+    )
+    suspend fun findByAmountDirection(
+        amount: Long,
+        direction: String,
+        from: Long,
+        to: Long,
+    ): List<TransactionEntity>
+
     /** Opposite-direction match on a different account → likely the other leg of a self-transfer. */
     @Query(
         "SELECT * FROM transactions WHERE amountMinor = :amount AND direction = :oppositeDirection " +

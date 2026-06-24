@@ -31,10 +31,19 @@ class DuplicateDetectorTest {
     }
 
     @Test
-    fun `same value near in time is a probable duplicate`() {
+    fun `same party very close in time is an auto-hidden duplicate`() {
         val v = DuplicateDetector.classify(
             parsed(null, "Amazon Pay", 100_000),
-            listOf(existing(null, "AMAZONPAY", 100_000 + 60_000)),
+            listOf(existing(null, "AMAZONPAY", 100_000 + 30_000)),
+        )
+        assertTrue(v is DuplicateDetector.Verdict.Duplicate)
+    }
+
+    @Test
+    fun `same value in the wider band is a probable duplicate`() {
+        val v = DuplicateDetector.classify(
+            parsed(null, "Amazon Pay", 100_000),
+            listOf(existing(null, "AMAZONPAY", 100_000 + 150_000)),
         )
         assertTrue(v is DuplicateDetector.Verdict.Probable)
     }

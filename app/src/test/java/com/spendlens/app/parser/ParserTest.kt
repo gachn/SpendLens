@@ -66,6 +66,32 @@ class ParserTest {
     }
 
     @Test
+    fun `detects foreign currency on card spend`() {
+        val r = engine.match(sms("Spent USD 50.00 on card XX9999 at NETFLIX"), builtins)
+        assertNotNull(r)
+        assertEquals(5000L, r!!.transaction.amountMinor)
+        assertEquals("USD", r.transaction.currency)
+    }
+
+    @Test
+    fun `detects iso code currencies generically`() {
+        val sgd = engine.match(sms("SGD 120.00 debited from a/c XX1234 at GRAB"), builtins)
+        assertEquals("SGD", sgd!!.transaction.currency)
+
+        val aed = engine.match(sms("AED 75.50 spent at CARREFOUR from a/c XX9"), builtins)
+        assertEquals("AED", aed!!.transaction.currency)
+
+        val jpy = engine.match(sms("¥3000 debited from a/c XX1 at SUSHIRO"), builtins)
+        assertEquals("JPY", jpy!!.transaction.currency)
+    }
+
+    @Test
+    fun `unknown token still defaults to INR`() {
+        val r = engine.match(sms("Rs.1,250.00 debited from a/c XX1234 at AMAZON"), builtins)
+        assertEquals("INR", r!!.transaction.currency)
+    }
+
+    @Test
     fun `filter rejects otp and accepts transaction`() {
         assertTrue(!FinancialSmsFilter.isFinancial(sms("Your OTP is 123456. Do not share. Rs.500")))
         assertTrue(FinancialSmsFilter.isFinancial(sms("Rs.500 debited from a/c XX1")))

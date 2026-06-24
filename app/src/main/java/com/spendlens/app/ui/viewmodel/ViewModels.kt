@@ -617,64 +617,98 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
         return true
     }
 
+    /** A merchant/category mapping taught by the AI flow, used to update existing transactions. */
+    private data class TaughtMapping(
+        val compiledBody: Regex,
+        val compiledSender: Regex?,
+        val cleanMerchant: String,
+        val categoryId: Long?,
+    )
+
     suspend fun applyAiPatterns(jsonString: String): Int = withContext(Dispatchers.IO) {
         var count = 0
         var updatedCount = 0
+        val mappings = mutableListOf<TaughtMapping>()
         try {
             val extracted = extractJson(jsonString) ?: return@withContext 0
             val rawSmsList = container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED)
-            if (extracted.startsWith("[")) {
-                val array = org.json.JSONArray(extracted)
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val bodyRegex = obj.optString("bodyRegex")
-                    if (bodyRegex.isNullOrBlank()) continue
-                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
-                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
-                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
-                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
-                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
-
-                    val success = saveAiPattern(
-                        name = name,
-                        bodyRegex = bodyRegex,
-                        senderRegex = senderRegex,
-                        cleanMerchant = cleanMerchant,
-                        logoEmoji = logoEmoji,
-                        categoryName = categoryName,
-                        cachedRawSmsList = rawSmsList
-                    )
-                    if (success) count++
+            val objects = when {
+                extracted.startsWith("[") -> {
+                    val array = org.json.JSONArray(extracted)
+                    (0 until array.length()).map { array.getJSONObject(it) }
                 }
-            } else if (extracted.startsWith("{")) {
-                val obj = org.json.JSONObject(extracted)
+                extracted.startsWith("{") -> listOf(org.json.JSONObject(extracted))
+                else -> emptyList()
+            }
+            val categories = container.categoryRepository.all()
+            for (obj in objects) {
                 val bodyRegex = obj.optString("bodyRegex")
-                if (!bodyRegex.isNullOrBlank()) {
-                    val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
-                    val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
-                    val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
-                    val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
-                    val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
+                if (bodyRegex.isNullOrBlank()) continue
+                val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
+                val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
+                val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
+                val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
+                val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
 
-                    val success = saveAiPattern(
-                        name = name,
-                        bodyRegex = bodyRegex,
-                        senderRegex = senderRegex,
-                        cleanMerchant = cleanMerchant,
-                        logoEmoji = logoEmoji,
-                        categoryName = categoryName,
-                        cachedRawSmsList = rawSmsList
-                    )
-                    if (success) count++
-                }
+                val success = saveAiPattern(
+                    name = name,
+                    bodyRegex = bodyRegex,
+                    senderRegex = senderRegex,
+                    cleanMerchant = cleanMerchant,
+                    logoEmoji = logoEmoji,
+                    categoryName = categoryName,
+                    cachedRawSmsList = rawSmsList
+                )
+                if (!success) continue
+                count++
+
+                val compiledBody = runCatching { Regex(bodyRegex) }.getOrNull() ?: continue
+                val compiledSender = cleanSenderRegex(senderRegex)?.let { runCatching { Regex(it) }.getOrNull() }
+                val categoryId = categories.firstOrNull { it.name.equals(categoryName, ignoreCase = true) }?.id
+                mappings.add(TaughtMapping(compiledBody, compiledSender, cleanMerchant, categoryId))
             }
             if (count > 0) {
-                updatedCount = container.smsProcessor.reprocessAllSms()
+                // First let the SMS pipeline (re)parse so newly-matched UNPARSED messages become
+                // transactions. Then directly stamp the taught merchant/category onto every
+                // transaction whose raw SMS matches — this overrides the generic merchant/category
+                // enrichment so the user's correction actually sticks (and applies to all matches).
+                container.smsProcessor.reprocessAllSms()
+                updatedCount = applyTaughtMappings(mappings)
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
         return@withContext updatedCount
+    }
+
+    /**
+     * Stamp each taught merchant/category directly onto existing transactions whose raw SMS
+     * matches the pattern, marking them user-verified. Returns the number of rows updated.
+     */
+    private suspend fun applyTaughtMappings(mappings: List<TaughtMapping>): Int {
+        if (mappings.isEmpty()) return 0
+        val rawById = (container.rawSmsDao.listByStatus(RawStatus.PARSED) +
+            container.rawSmsDao.listByStatus(RawStatus.UNPARSED)).associateBy { it.id }
+        var updated = 0
+        for (txn in container.transactionRepository.getAllTransactions()) {
+            val rawId = txn.rawSmsId ?: continue
+            val raw = rawById[rawId] ?: continue
+            val mapping = mappings.firstOrNull { m ->
+                (m.compiledSender == null || m.compiledSender.containsMatchIn(raw.sender)) &&
+                    m.compiledBody.containsMatchIn(raw.body)
+            } ?: continue
+            val tags = container.merchantRepository.tagsFor(mapping.cleanMerchant)
+            container.transactionRepository.update(
+                txn.copy(
+                    counterparty = mapping.cleanMerchant,
+                    categoryId = mapping.categoryId ?: txn.categoryId,
+                    tags = tags ?: txn.tags,
+                    userVerified = true,
+                )
+            )
+            updated++
+        }
+        return updated
     }
 
 }

@@ -10,7 +10,8 @@ import java.util.Locale
 object Money {
     fun format(amountMinor: Long, currency: String): String {
         val symbol = when (currency) {
-            "INR" -> "₹"; "USD" -> "$"; "EUR" -> "€"; "GBP" -> "£"
+            "INR" -> "₹"; "USD" -> "$"; "EUR" -> "€"; "GBP" -> "£"; "JPY", "CNY" -> "¥"
+            "AUD", "CAD", "SGD", "HKD", "NZD" -> "$"; "KRW" -> "₩"; "THB" -> "฿"
             else -> "$currency "
         }
         return symbol + String.format(Locale.getDefault(), "%,.2f", amountMinor / 100.0)

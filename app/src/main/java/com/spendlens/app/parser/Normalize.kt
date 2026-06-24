@@ -6,13 +6,45 @@ import com.spendlens.app.parser.model.TxnDirection
 /** Normalisation helpers shared by the engine and generators. Pure Kotlin. */
 object Normalize {
 
-    private val currencyMap = mapOf(
-        "₹" to "INR", "RS" to "INR", "RS." to "INR", "INR" to "INR",
-        "$" to "USD", "USD" to "USD",
-        "€" to "EUR", "EUR" to "EUR",
-        "£" to "GBP", "GBP" to "GBP",
-        "AED" to "AED", "DH" to "AED",
+    /**
+     * Top-50 ISO-4217 currency codes by global usage. Single source of truth: the parser
+     * regexes (via [CURRENCY_TOKEN]) and the FX layer (WebFxProvider) both build off this.
+     */
+    val CURRENCY_CODES: List<String> = listOf(
+        "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "CHF", "CNY", "HKD", "NZD",
+        "SEK", "KRW", "SGD", "NOK", "MXN", "INR", "RUB", "ZAR", "TRY", "BRL",
+        "TWD", "DKK", "PLN", "THB", "IDR", "HUF", "CZK", "ILS", "CLP", "PHP",
+        "AED", "COP", "SAR", "MYR", "RON", "NGN", "ARS", "QAR", "KWD", "BHD",
+        "OMR", "JOD", "VND", "EGP", "PKR", "BDT", "LKR", "NPR", "KES", "GHS",
     )
+
+    private val codeSet = CURRENCY_CODES.toSet()
+
+    /** Currency symbols → ISO code. `$` defaults to USD (most common in Indian-bank SMS). */
+    private val symbolToCode = mapOf(
+        "₹" to "INR", "$" to "USD", "€" to "EUR", "£" to "GBP", "¥" to "JPY",
+        "₩" to "KRW", "₺" to "TRY", "฿" to "THB", "₪" to "ILS", "₱" to "PHP",
+        "₫" to "VND", "₨" to "PKR", "RM" to "MYR",
+    )
+
+    /** Word/abbreviation aliases that are not the ISO code itself. */
+    private val aliasMap = mapOf(
+        "RS" to "INR", "DH" to "AED", "DHS" to "AED", "AED" to "AED",
+        "US$" to "USD", "S$" to "SGD", "A$" to "AUD", "C$" to "CAD", "HK$" to "HKD",
+    )
+
+    /**
+     * Regex alternation (no capture group) matching any supported currency token: the Rs/Dh
+     * word aliases, every ISO-4217 code above, and the common symbols. Inject into pattern
+     * bodies as `(?<curr>${Normalize.CURRENCY_TOKEN})`. Used with the (?i) flag.
+     */
+    val CURRENCY_TOKEN: String = buildString {
+        append("(?:")
+        append("rs\\.?|dhs?|us\\$|[asch]\\$|hk\\$|")
+        append(CURRENCY_CODES.joinToString("|"))
+        append("|[₹\\$€£¥₩₺฿₪₱₫₨]")
+        append(")")
+    }
 
     private val debitVerbs = setOf(
         "debited", "spent", "withdrawn", "paid", "sent", "purchase", "charged", "deducted",
@@ -24,7 +56,13 @@ object Normalize {
 
     fun currency(symbol: String?): String {
         if (symbol.isNullOrBlank()) return "INR"
-        return currencyMap[symbol.trim().uppercase()] ?: "INR"
+        val t = symbol.trim()
+        symbolToCode[t]?.let { return it }
+        val key = t.trimEnd('.').uppercase()
+        symbolToCode[key]?.let { return it }
+        aliasMap[key]?.let { return it }
+        if (key in codeSet) return key
+        return "INR"
     }
 
     /** "1,234.50" → 123450 (minor units, 2 decimal places assumed). */

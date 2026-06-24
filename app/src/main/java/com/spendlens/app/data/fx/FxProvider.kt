@@ -1,5 +1,6 @@
 package com.spendlens.app.data.fx
 
+import com.spendlens.app.parser.Normalize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -48,6 +49,6 @@ class WebFxProvider : FxProvider {
 
     private companion object {
         const val ENDPOINT = "https://open.er-api.com/v6/latest/USD"
-        val SUPPORTED = listOf("USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD", "JPY")
+        val SUPPORTED = Normalize.CURRENCY_CODES
     }
 }
