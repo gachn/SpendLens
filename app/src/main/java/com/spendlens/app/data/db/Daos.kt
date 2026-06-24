@@ -208,6 +208,9 @@ interface BudgetDao {
     @Query("DELETE FROM budgets WHERE categoryId = :categoryId")
     suspend fun delete(categoryId: Long)
 
+    @Query("SELECT * FROM budgets WHERE categoryId = :categoryId")
+    suspend fun get(categoryId: Long): BudgetEntity?
+
     @Query("SELECT * FROM budgets")
     fun observeAll(): Flow<List<BudgetEntity>>
 

@@ -149,6 +149,8 @@ data class MerchantAliasEntity(
 data class BudgetEntity(
     @PrimaryKey val categoryId: Long,
     val monthlyLimitMinor: Long,
+    /** When set, unspent budget from the previous month is carried into this month's effective limit. */
+    val rolloverEnabled: Boolean = false,
 )
 
 /**

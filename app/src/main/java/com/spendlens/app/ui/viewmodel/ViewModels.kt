@@ -162,7 +162,12 @@ data class BudgetRow(
     val category: CategoryEntity,
     val limitMinor: Long,   // 0 = no budget set
     val spentMinor: Long,
-)
+    val rolloverEnabled: Boolean = false,
+    val rolloverMinor: Long = 0L,   // unspent amount carried from the previous month
+) {
+    /** Base limit plus any carried-over rollover. */
+    val effectiveLimitMinor: Long get() = limitMinor + rolloverMinor
+}
 
 data class BudgetsUiState(
     val rows: List<BudgetRow> = emptyList(),
@@ -914,24 +919,35 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
 
 class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
     private val range = Dates.currentMonth()
+    private val prevRange = Dates.monthRange(YearMonth.now(ZoneId.systemDefault()).minusMonths(1))
     private val zone: ZoneId = ZoneId.systemDefault()
 
     val state: StateFlow<BudgetsUiState> = combine(
         container.budgetRepository.observeAll(),
         container.categoryRepository.observeCategories(),
         container.transactionRepository.observeCategoryTotals(range.first, range.second),
-    ) { budgets, categories, totals ->
+        container.transactionRepository.observeCategoryTotals(prevRange.first, prevRange.second),
+    ) { budgets, categories, totals, prevTotals ->
         val spentByCat = totals.associate { it.categoryId to it.total }
-        val limitByCat = budgets.associate { it.categoryId to it.monthlyLimitMinor }
+        val prevSpentByCat = prevTotals.associate { it.categoryId to it.total }
+        val budgetByCat = budgets.associate { it.categoryId to it }
         val rows = categories
-            .map { cat -> BudgetRow(cat, limitByCat[cat.id] ?: 0L, spentByCat[cat.id] ?: 0L) }
+            .map { cat ->
+                val budget = budgetByCat[cat.id]
+                val limit = budget?.monthlyLimitMinor ?: 0L
+                val rolloverEnabled = budget?.rolloverEnabled == true
+                val rollover = if (rolloverEnabled && limit > 0L) {
+                    container.budgetRepository.rolloverAmount(limit, prevSpentByCat[cat.id] ?: 0L)
+                } else 0L
+                BudgetRow(cat, limit, spentByCat[cat.id] ?: 0L, rolloverEnabled, rollover)
+            }
             // Budgeted categories first, then by spend.
             .sortedWith(compareByDescending<BudgetRow> { it.limitMinor > 0 }.thenByDescending { it.spentMinor })
         BudgetsUiState(rows = rows, currency = "INR")
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetsUiState())
 
-    fun setBudget(categoryId: Long, limitMinor: Long) = viewModelScope.launch {
-        container.budgetRepository.setBudget(categoryId, limitMinor)
+    fun setBudget(categoryId: Long, limitMinor: Long, rolloverEnabled: Boolean? = null) = viewModelScope.launch {
+        container.budgetRepository.setBudget(categoryId, limitMinor, rolloverEnabled)
     }
 
     /** Tracks the predict-budgets action so the screen can show progress / a result. */

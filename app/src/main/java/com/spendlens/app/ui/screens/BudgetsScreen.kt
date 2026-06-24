@@ -29,6 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -96,7 +98,7 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
     }
 
     val budgeted  = state.rows.filter { it.limitMinor > 0 }
-    val totalLimit = budgeted.sumOf { it.limitMinor }
+    val totalLimit = budgeted.sumOf { it.effectiveLimitMinor }
     val totalSpent = budgeted.sumOf { it.spentMinor }
     val budgetPct  = if (totalLimit > 0) (totalSpent.toFloat() / totalLimit.toFloat()).coerceIn(0f, 1f) else 0f
     val isOnTrack  = budgetPct < 0.9f
@@ -327,8 +329,8 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
             row = row,
             currency = state.currency,
             onDismiss = { editing = null },
-            onSave = { limitMinor ->
-                vm.setBudget(row.category.id, limitMinor)
+            onSave = { limitMinor, rolloverEnabled ->
+                vm.setBudget(row.category.id, limitMinor, rolloverEnabled)
                 editing = null
             },
         )
@@ -338,9 +340,11 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
 @Composable
 private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> Unit) {
     val hasBudget = row.limitMinor > 0
+    val effectiveLimit = row.effectiveLimitMinor
     val catColor = Color(row.category.color)
-    val fraction = if (hasBudget) (row.spentMinor.toFloat() / row.limitMinor.toFloat()).coerceIn(0f, 1f) else 0f
-    val overBudget = hasBudget && row.spentMinor > row.limitMinor
+    val fraction = if (hasBudget) (row.spentMinor.toFloat() / effectiveLimit.toFloat()).coerceIn(0f, 1f) else 0f
+    val overBudget = hasBudget && row.spentMinor > effectiveLimit
+    val showRollover = hasBudget && row.rolloverEnabled && row.rolloverMinor > 0
     val ringColor = when {
         overBudget -> SpendLensTheme.colors.debit
         fraction > 0.8f -> SpendLensTheme.colors.debit.copy(alpha = 0.7f)
@@ -401,13 +405,26 @@ private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> 
                 ) {
                     Text(
                         if (hasBudget)
-                            "${Money.format(row.spentMinor, currency)} / ${Money.format(row.limitMinor, currency)}"
+                            "${Money.format(row.spentMinor, currency)} / ${Money.format(effectiveLimit, currency)}"
                         else
                             "${Money.format(row.spentMinor, currency)} spent · no limit",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (overBudget) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (!hasBudget) {
+                    if (showRollover) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        ) {
+                            Text(
+                                "+${Money.format(row.rolloverMinor, currency)} ROLLOVER",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 0.4.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
+                    } else if (!hasBudget) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color.Transparent,
@@ -442,14 +459,15 @@ private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> 
 }
 
 @Composable
-private fun SetBudgetDialog(row: BudgetRow, currency: String, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
+private fun SetBudgetDialog(row: BudgetRow, currency: String, onDismiss: () -> Unit, onSave: (Long, Boolean) -> Unit) {
     var text by remember { mutableStateOf(if (row.limitMinor > 0) (row.limitMinor / 100).toString() else "") }
+    var rollover by remember { mutableStateOf(row.rolloverEnabled) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = {
                 val amount = text.trim().toDoubleOrNull() ?: 0.0
-                onSave((amount * 100).toLong())
+                onSave((amount * 100).toLong(), rollover)
             }) { Text("Save", color = MaterialTheme.colorScheme.primary) }
         },
         dismissButton = {
@@ -473,6 +491,29 @@ private fun SetBudgetDialog(row: BudgetRow, currency: String, onDismiss: () -> U
                         focusedLabelColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable { rollover = !rollover },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Roll over unspent", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Carry last month's unused budget into this month (capped at 2× the limit).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = rollover,
+                        onCheckedChange = { rollover = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                        ),
+                    )
+                }
             }
         },
     )

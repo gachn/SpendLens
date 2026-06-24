@@ -25,7 +25,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         BillEntity::class,
         CardBillEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -178,6 +178,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v10 → v11: per-budget rollover toggle — carry unspent limit into next month. Additive. */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE budgets ADD COLUMN rolloverEnabled INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+
         fun create(context: Context, keyManager: DatabaseKeyManager): AppDatabase {
             // Load SQLCipher native libs. The SupportOpenHelperFactory also triggers this;
             // guarded so a double-load (or already-linked lib) can't crash startup.
@@ -187,7 +196,7 @@ abstract class AppDatabase : RoomDatabase() {
                 .openHelperFactory(factory)
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                 )
                 .fallbackToDestructiveMigration() // safety net for older dev builds
                 .build()
