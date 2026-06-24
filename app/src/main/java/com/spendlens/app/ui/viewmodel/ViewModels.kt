@@ -106,6 +106,8 @@ data class TransactionsUiState(
 
 data class MonthlyBar(val label: String, val debitMinor: Long, val creditMinor: Long)
 
+enum class AnalyticsTab { Spend, Income }
+
 data class AnalyticsUiState(
     val months: List<MonthlyBar> = emptyList(),
     val slices: List<CategorySlice> = emptyList(),
@@ -113,6 +115,9 @@ data class AnalyticsUiState(
     val currency: String = "INR",
     val selectedMonth: YearMonth = YearMonth.now(),
     val monthOptions: List<YearMonth> = emptyList(),
+    val activeTab: AnalyticsTab = AnalyticsTab.Spend,
+    val incomeSlices: List<CategorySlice> = emptyList(),
+    val monthlySavingsRates: List<Float> = emptyList(),
 )
 
 data class ReviewUiState(
@@ -430,14 +435,17 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
     private val zone: ZoneId = ZoneId.systemDefault()
     private val monthOptions = Dates.recentMonths(12)
     private val selectedMonth = MutableStateFlow(monthOptions.first())
+    private val activeTab = MutableStateFlow(AnalyticsTab.Spend)
 
     fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+    fun setTab(tab: AnalyticsTab) { activeTab.value = tab }
 
     val state: StateFlow<AnalyticsUiState> = combine(
         repo.observeAll(),
         container.categoryRepository.observeCategories(),
         selectedMonth,
-    ) { txns, categories, breakdownMonth ->
+        activeTab,
+    ) { txns, categories, breakdownMonth, tab ->
         val map = categories.associateBy { it.id }
         val currency = "INR" // base currency for all totals
 
@@ -454,11 +462,11 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             )
         }
 
-        // Selected-month category + merchant breakdown.
-        val inMonth = spendable.filter {
+        // Selected-month spend: category slices + top merchants.
+        val inMonthDebits = spendable.filter {
             YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zone)) == breakdownMonth && it.direction == "DEBIT"
         }
-        val slices = inMonth.groupBy { it.categoryId }
+        val slices = inMonthDebits.groupBy { it.categoryId }
             .mapNotNull { (catId, list) ->
                 val total = list.sumOf { t -> t.amountBaseMinor }
                 if (catId == null) {
@@ -467,13 +475,35 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
                     map[catId]?.let { CategorySlice(it.name, Color(it.color), total, categoryId = catId) }
                 }
             }.sortedByDescending { it.amountMinor }
-        val palette = listOf(0xFF0E7C66, 0xFF42A5F5, 0xFFEC407A, 0xFFFFB300, 0xFFAB47BC)
-        val merchants = inMonth.groupBy { it.counterparty }
+        val palette = listOf(0xFF0E7C66L, 0xFF42A5F5L, 0xFFEC407AL, 0xFFFFB300L, 0xFFAB47BCL, 0xFF26C6DAL, 0xFFEF5350L, 0xFF66BB6AL)
+        val merchants = inMonthDebits.groupBy { it.counterparty }
             .map { (name, list) -> name to list.sumOf { it.amountBaseMinor } }
             .sortedByDescending { it.second }.take(5)
             .mapIndexed { i, (name, total) -> CategorySlice(name, Color(palette[i % palette.size]), total) }
 
-        AnalyticsUiState(months, slices, merchants, currency, breakdownMonth, monthOptions)
+        // Income tab: sources breakdown + savings rates.
+        val incomeData = IncomeAnalytics.compute(
+            transactions = txns,
+            breakdownMonth = breakdownMonth,
+            months = months,
+            zone = zone,
+            categories = map.mapValues { it.value.name },
+        )
+        val incomeSlices = incomeData.sources.mapIndexed { i, src ->
+            CategorySlice(src.name, Color(palette[i % palette.size]), src.amountMinor)
+        }
+
+        AnalyticsUiState(
+            months = months,
+            slices = slices,
+            topMerchants = merchants,
+            currency = currency,
+            selectedMonth = breakdownMonth,
+            monthOptions = monthOptions,
+            activeTab = tab,
+            incomeSlices = incomeSlices,
+            monthlySavingsRates = incomeData.monthlySavingsRates,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState(monthOptions = monthOptions))
 }
 
