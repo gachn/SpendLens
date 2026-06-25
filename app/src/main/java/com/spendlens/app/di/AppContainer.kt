@@ -75,6 +75,7 @@ class AppContainer(context: Context) {
             fxRepo = fxRepository,
             cardBillDao = cardBillDao,
             generator = patternGenerator,
+            financialSendersOnly = settingsStore::financialSendersOnly,
         )
     }
 

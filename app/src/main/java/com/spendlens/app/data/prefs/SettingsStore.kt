@@ -27,6 +27,16 @@ data class SecurityPrefs(
     val gracePeriodSec: Int = 30,
 )
 
+/** SMS-parsing choices, surfaced in Settings → SMS Filtering. */
+data class SmsFilterPrefs(
+    /**
+     * When true only SMS from recognised bank / financial-service DLT senders are processed
+     * as transactions. Messages from unknown senders (promotions, OTPs, etc.) are IGNORED
+     * before any content parsing runs.
+     */
+    val financialSendersOnly: Boolean = false,
+)
+
 /**
  * Lightweight, synchronous preference store for non-sensitive UI settings.
  * Backed by plain [android.content.SharedPreferences] (no encryption needed —
@@ -43,6 +53,9 @@ class SettingsStore(context: Context) {
     private val _security = MutableStateFlow(loadSecurity())
     val security: StateFlow<SecurityPrefs> = _security.asStateFlow()
 
+    private val _smsFilter = MutableStateFlow(loadSmsFilter())
+    val smsFilter: StateFlow<SmsFilterPrefs> = _smsFilter.asStateFlow()
+
     private fun load(): AppearancePrefs {
         val mode = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
             ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -58,9 +71,16 @@ class SettingsStore(context: Context) {
         gracePeriodSec = prefs.getInt(KEY_GRACE_SEC, 30),
     )
 
+    private fun loadSmsFilter(): SmsFilterPrefs = SmsFilterPrefs(
+        financialSendersOnly = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, false),
+    )
+
     /** Synchronous read for app-launch gating (before any flow is collected). */
     fun isAppLockEnabled(): Boolean = prefs.getBoolean(KEY_APP_LOCK, false)
     fun gracePeriodSec(): Int = prefs.getInt(KEY_GRACE_SEC, 30)
+
+    /** Synchronous read used by [SmsProcessor] on the IO thread during SMS processing. */
+    fun financialSendersOnly(): Boolean = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, false)
 
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
@@ -82,6 +102,11 @@ class SettingsStore(context: Context) {
         _security.value = _security.value.copy(gracePeriodSec = seconds)
     }
 
+    fun setFinancialSendersOnly(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FINANCIAL_SENDERS_ONLY, enabled).apply()
+        _smsFilter.value = _smsFilter.value.copy(financialSendersOnly = enabled)
+    }
+
     // Backup tracking (issue #13) — drives the "last backup" label and the 30-day reminder.
     private val _lastBackupAt = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L })
     val lastBackupAt: StateFlow<Long?> = _lastBackupAt.asStateFlow()
@@ -100,5 +125,6 @@ class SettingsStore(context: Context) {
         const val KEY_APP_LOCK = "app_lock_enabled"
         const val KEY_GRACE_SEC = "app_lock_grace_sec"
         const val KEY_LAST_BACKUP = "last_backup_at"
+        const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
     }
 }

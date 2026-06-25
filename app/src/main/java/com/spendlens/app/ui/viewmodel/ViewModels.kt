@@ -889,6 +889,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setGracePeriod(seconds: Int) = container.settingsStore.setGracePeriodSec(seconds)
 
+    // ----- SMS Filtering -----
+
+    val smsFilter: StateFlow<com.spendlens.app.data.prefs.SmsFilterPrefs> = container.settingsStore.smsFilter
+
+    fun setFinancialSendersOnly(enabled: Boolean) = container.settingsStore.setFinancialSendersOnly(enabled)
+
     fun setPatternEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
         container.patternRepository.setEnabled(id, enabled)
     }

@@ -21,6 +21,7 @@ import com.spendlens.app.data.repository.PatternRepository
 import com.spendlens.app.data.repository.TransactionRepository
 import com.spendlens.app.parser.AccountExtractor
 import com.spendlens.app.parser.DuplicateDetector
+import com.spendlens.app.parser.FinancialSenderFilter
 import com.spendlens.app.parser.FinancialSmsFilter
 import com.spendlens.app.parser.MerchantEchoDetector
 import com.spendlens.app.parser.MerchantExtractor
@@ -57,6 +58,13 @@ class SmsProcessor(
     private val cardBillDao: CardBillDao,
     private val generator: PatternGenerator,
     private val engine: PatternEngine = PatternEngine(),
+    /**
+     * Supplier evaluated on every [process] call. When it returns `true` only SMS from
+     * senders recognised by [FinancialSenderFilter] are processed; all others are IGNORED.
+     * Defaults to `false` (filter disabled) so callers that don't wire the setting still
+     * behave as before.
+     */
+    private val financialSendersOnly: () -> Boolean = { false },
 ) {
 
     private val _progress = MutableStateFlow(SmsProcessingProgress())
@@ -80,6 +88,13 @@ class SmsProcessor(
         // not consume the SMS, so a payment-confirmation that also quotes a balance still parses
         // as a transaction below.
         captureCardBill(rawId, msg)
+
+        // When "Financial senders only" is enabled in Settings, reject SMS from senders that
+        // are not recognised banks or financial-service institutions before any content parsing.
+        if (financialSendersOnly() && !FinancialSenderFilter.isFinancialSender(msg)) {
+            rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
+            return null
+        }
 
         if (!FinancialSmsFilter.isFinancial(msg)) {
             rawDao.updateStatus(rawId, RawStatus.IGNORED, null)

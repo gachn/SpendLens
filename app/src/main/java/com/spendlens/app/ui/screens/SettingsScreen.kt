@@ -74,6 +74,7 @@ fun SettingsScreen(
     val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
     val security by vm.security.collectAsState()
+    val smsFilter by vm.smsFilter.collectAsState()
     val backupState by vm.backupState.collectAsState()
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
@@ -417,6 +418,44 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                         else -> {}
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("SMS Filtering") }
+        item {
+            ElevatedSurfaceCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                "Financial senders only",
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                "Only treat SMS from recognised banks and financial services " +
+                                    "as transactions. Messages from other senders are ignored.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = smsFilter.financialSendersOnly,
+                            onCheckedChange = { vm.setFinancialSendersOnly(it) },
+                        )
+                    }
+                    if (smsFilter.financialSendersOnly) {
+                        Text(
+                            "Re-scan your inbox after changing this setting to apply it to " +
+                                "previously received messages.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
