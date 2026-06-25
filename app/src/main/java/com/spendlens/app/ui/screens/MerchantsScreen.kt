@@ -55,6 +55,7 @@ import com.spendlens.app.ui.viewmodel.MerchantsViewModel
 @Composable
 fun MerchantsScreen(vm: MerchantsViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsState()
+    val displayQuery by vm.displayQuery.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -78,7 +79,7 @@ fun MerchantsScreen(vm: MerchantsViewModel, onBack: () -> Unit) {
         ) {
             item {
                 OutlinedTextField(
-                    value = state.query,
+                    value = displayQuery,
                     onValueChange = vm::setQuery,
                     singleLine = true,
                     label = { Text("Search merchants") },

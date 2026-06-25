@@ -17,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.theme.LLSurfaceBright
@@ -262,10 +261,13 @@ fun LegendDot(color: Color, label: String, value: String) {
 
 /**
  * Merchant text field with type-ahead. As the user types, [suggestions] containing the text are
- * offered in a dropdown; picking one calls [onPick] with the chosen name (caller then auto-fills
- * category/expense). [onPick] is also fired when the typed text exactly matches a known merchant.
+ * offered in a floating dropdown; picking one calls [onPick] with the chosen name (caller then
+ * auto-fills category/expense). [onPick] is also fired when the typed text exactly matches a known
+ * merchant.
+ *
+ * Uses a plain [Box] + [DropdownMenu] with [PopupProperties.focusable] = false so the suggestion
+ * overlay never hijacks the TextField's focus or triggers layout animations on the TextField itself.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MerchantSuggestField(
     value: String,
@@ -283,11 +285,7 @@ fun MerchantSuggestField(
             it.contains(value, ignoreCase = true) && !it.equals(value, ignoreCase = true)
         }.take(6)
     }
-    ExposedDropdownMenuBox(
-        expanded = expanded && filtered.isNotEmpty(),
-        onExpandedChange = { expanded = it },
-        modifier = modifier,
-    ) {
+    Box(modifier = modifier) {
         OutlinedTextField(
             value = value,
             onValueChange = { typed ->
@@ -298,11 +296,14 @@ fun MerchantSuggestField(
             },
             label = { Text(label) },
             singleLine = singleLine,
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded && filtered.isNotEmpty(),
             onDismissRequest = { expanded = false },
+            // focusable = false keeps the TextField focused while the suggestion list is visible,
+            // preventing the dropdown from stealing focus and causing TextField layout redraws.
+            properties = PopupProperties(focusable = false),
         ) {
             filtered.forEach { name ->
                 DropdownMenuItem(

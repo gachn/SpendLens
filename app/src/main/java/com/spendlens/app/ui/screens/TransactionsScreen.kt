@@ -71,6 +71,7 @@ fun TransactionsScreen(
     onInitialCategoryConsumed: () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
+    val displayQuery by vm.displayQuery.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -112,7 +113,7 @@ fun TransactionsScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     TextField(
-                        value = state.query,
+                        value = displayQuery,
                         onValueChange = vm::setQuery,
                         singleLine = true,
                         placeholder = {

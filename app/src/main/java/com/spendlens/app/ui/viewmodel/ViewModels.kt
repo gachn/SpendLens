@@ -27,11 +27,14 @@ import com.spendlens.app.work.SmsSyncWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -268,9 +271,19 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState(monthOptions = monthOptions))
 }
 
+@OptIn(FlowPreview::class)
 class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
     private val repo = container.transactionRepository
-    private val query = MutableStateFlow("")
+    private val _rawQuery = MutableStateFlow("")
+
+    /** Immediate value — used by the TextField so the UI stays responsive on each keystroke. */
+    val displayQuery: StateFlow<String> = _rawQuery.asStateFlow()
+
+    /** Debounced value — drives the list filter so the list only recomputes after the user pauses typing. */
+    private val query: StateFlow<String> = _rawQuery
+        .debounce(300L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
     private val filters = MutableStateFlow(TxnFilters())
 
     suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
@@ -294,7 +307,7 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
         const val UNCATEGORIZED_CATEGORY_ID = -1L
     }
 
-    fun setQuery(q: String) { query.value = q }
+    fun setQuery(q: String) { _rawQuery.value = q }
     fun setDirection(d: TxnFilter) { filters.update { it.copy(direction = d) } }
     fun setCategory(id: Long?) { filters.update { it.copy(categoryId = id) } }
     fun setAccount(key: String?) { filters.update { it.copy(accountKey = key) } }
@@ -1456,10 +1469,19 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
  * flag, emoji, tags and matched raw tokens, and persists edits across the alias/rule/transaction
  * tables so corrections stick and apply to past and future transactions.
  */
+@OptIn(FlowPreview::class)
 class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
-    private val query = MutableStateFlow("")
+    private val _rawQuery = MutableStateFlow("")
 
-    fun setQuery(q: String) { query.value = q }
+    /** Immediate value — used by the TextField so the UI stays responsive on each keystroke. */
+    val displayQuery: StateFlow<String> = _rawQuery.asStateFlow()
+
+    /** Debounced value — drives the merchant list filter so the list only recomputes after the user pauses. */
+    private val query: StateFlow<String> = _rawQuery
+        .debounce(300L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    fun setQuery(q: String) { _rawQuery.value = q }
 
     val state: StateFlow<MerchantsUiState> = combine(
         container.merchantRepository.observeAll(),
