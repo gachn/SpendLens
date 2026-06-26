@@ -31,7 +31,7 @@ object FinancialSenderFilter {
         "(?i)(?:" +
             // ---- Scheduled commercial banks ----
             "HDFCBK|HDFCBN|" +                         // HDFC Bank
-            "ICICIB|ICICIC|" +                          // ICICI Bank
+            "ICICIB|ICICIC|ICICIT|" +                   // ICICI Bank
             "SBIINB|SBINB|SBISMS|" +                   // State Bank of India
             "AXISBK|AXISBN|" +                          // Axis Bank
             "KOTAKB|KOTAKM|" +                          // Kotak Mahindra Bank

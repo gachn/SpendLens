@@ -114,4 +114,14 @@ class ParserTest {
         assertEquals(TxnDirection.DEBIT, r.transaction.direction)
     }
 
+    @Test
+    fun `parses ICICI UPI debit with semicolon party`() {
+        val body = "ICICI Bank Acct XX5678 debited for Rs 150.00 on 25-Jun-26; THE PET PROJECT credited. UPI:123456789012. Call 1800 for dispute."
+        val msg = sms(body, "JD-ICICIT-S")
+        val r = engine.match(msg, builtins)
+        assertNotNull("built-ins should parse ICICI UPI debit", r)
+        assertEquals(15000L, r!!.transaction.amountMinor)
+        assertEquals(TxnDirection.DEBIT, r.transaction.direction)
+        assertEquals("THE PET PROJECT", r.transaction.counterparty)
+    }
 }

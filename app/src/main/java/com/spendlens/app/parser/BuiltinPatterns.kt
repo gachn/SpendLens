@@ -91,6 +91,16 @@ object BuiltinPatterns {
             bodyRegex = "(?i).*?transaction of\\s+(?<curr>rs\\.?|inr)\\s?" +
                 "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+for your",
         ),
+        // ICICI UPI debit: "ICICI Bank Acct XX5678 debited for Rs 150.00 on …; MERCHANT credited. UPI:…"
+        PatternSeed(
+            name = "ICICI UPI debit",
+            senderRegex = null,
+            priority = 50,
+            bodyRegex = "(?i).*?(?:icici\\s+bank\\s+)?(?:a/c|ac|acct|account)\\s+(?<account>[xX*]*\\d{2,})\\s+" +
+                "(?<dir>debited)\\s+for\\s+(?<curr>rs\\.?|inr)\\s?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)" +
+                ".*?;\\s*(?<party>[A-Za-z][A-Za-z0-9 &._-]{1,38})\\s+credited" +
+                ".*?(?:upi|vpa)\\s*[:#]?\\s*(?<ref>[A-Za-z0-9]{4,})?",
+        ),
         // Generic debit/credit account alert — broad fallback
         PatternSeed(
             name = "Generic debit/credit",

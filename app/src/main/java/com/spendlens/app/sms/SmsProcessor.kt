@@ -123,6 +123,31 @@ class SmsProcessor(
     }
 
     /**
+     * Immediately re-parse a specific set of raw SMS using the current pattern set and run each
+     * through the full [persistTransaction] pipeline (merchant extractor, categoriser, duplicate
+     * detector). Used to give the user instant feedback after AI pattern teaching — the exact SMS
+     * that were submitted to the teacher update right away; the full inbox backlog is handled
+     * by the background PatternApplyWorker.
+     *
+     * Only the SMS that MATCH a pattern are updated; unmatched rows are left unchanged.
+     * Returns how many rows were updated.
+     */
+    suspend fun reprocessSpecificSms(rawList: List<RawSmsEntity>): Int = withContext(Dispatchers.IO) {
+        val patterns = patternRepo.compiled()
+        var changed = 0
+        for (raw in rawList) {
+            val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+            val result = engine.match(msg, patterns) ?: continue
+            result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
+            txnRepo.deleteByRawSmsId(raw.id)
+            persistTransaction(raw.id, msg, result)
+            rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
+            changed++
+        }
+        return@withContext changed
+    }
+
+    /**
      * Re-run the filter + pattern match over every SMS currently stuck in UNPARSED. Newly added
      * builtin patterns turn matches into transactions (→ PARSED); the tightened financial filter
      * turns non-transactions into IGNORED. Does NOT invoke the AI/heuristic generator — bulk
@@ -145,6 +170,82 @@ class SmsProcessor(
             changed++
         }
         return changed
+    }
+
+    /**
+     * Targeted reprocess triggered when one or more patterns are created or modified.
+     *
+     * Only processes two narrow sets:
+     * 1. SMS rows whose [RawSmsEntity.patternId] is in [patternIds] — these were previously parsed
+     *    by the patterns that just changed and must be re-matched against the updated regexes.
+     * 2. All [RawStatus.UNPARSED] rows — they may now match the new/updated patterns.
+     *
+     * Every other PARSED row is left untouched, making this vastly cheaper than [reprocessAllSms]
+     * when only a handful of SMS share the affected pattern.
+     *
+     * Returns the number of rows whose status or transaction data changed.
+     */
+    suspend fun reprocessForPatterns(patternIds: List<Long>): Int = withContext(Dispatchers.IO) {
+        if (patternIds.isEmpty()) return@withContext reprocessAllSms()
+
+        val patterns = patternRepo.compiled()
+        var changed = 0
+
+        val affectedByPattern: List<RawSmsEntity> = patternIds
+            .flatMap { id -> rawDao.listByPatternId(id) }
+            .distinctBy { it.id }
+
+        val unparsed: List<RawSmsEntity> = rawDao.listByStatus(RawStatus.UNPARSED)
+
+        val toProcess: List<RawSmsEntity> = (affectedByPattern + unparsed).distinctBy { it.id }
+
+        _progress.value = SmsProcessingProgress(current = 0, total = toProcess.size, isProcessing = true)
+
+        val existingTxnsMap = txnRepo.getAllTransactions()
+            .filter { it.rawSmsId != null }
+            .associateBy { it.rawSmsId!! }
+
+        for ((index, raw) in toProcess.withIndex()) {
+            _progress.value = SmsProcessingProgress(
+                current = index + 1,
+                total = toProcess.size,
+                isProcessing = true,
+            )
+            val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+            val existing = existingTxnsMap[raw.id]
+
+            if (!FinancialSmsFilter.isFinancial(msg)) {
+                if (existing != null && existing.userVerified) continue
+                if (existing != null || raw.status != RawStatus.IGNORED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                    changed++
+                }
+                continue
+            }
+
+            val result = engine.match(msg, patterns)
+            if (result != null) {
+                val matchedPattern = patterns.firstOrNull { it.id == result.patternId }
+                val isUserPattern = matchedPattern != null && matchedPattern.priority >= LEARNED_PRIORITY
+                if (existing != null && existing.userVerified && !isUserPattern) continue
+                txnRepo.deleteByRawSmsId(raw.id)
+                result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
+                persistTransaction(raw.id, msg, result)
+                rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
+                changed++
+            } else {
+                if (existing != null && existing.userVerified) continue
+                if (existing != null || raw.status != RawStatus.UNPARSED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
+                    changed++
+                }
+            }
+        }
+
+        _progress.value = SmsProcessingProgress(isProcessing = false)
+        return@withContext changed
     }
 
     suspend fun reprocessAllSms(): Int = withContext(Dispatchers.IO) {

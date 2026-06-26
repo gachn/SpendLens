@@ -19,6 +19,9 @@ class HeuristicPatternGenerator : PatternGenerator {
     private val accountRe = Regex("(?i)(?:a/c|ac|acct|account|card)\\s*(?:no\\.?)?\\s*(?<acc>[xX*]*\\d{3,})")
     private val refRe = Regex("(?i)(?:ref|utr|rrn|txn)\\s*(?:no\\.?|id)?[:#\\s]*(?<r>[A-Za-z0-9]{4,})")
     private val partyRe = Regex("(?i)(?:to|at|from|vpa)\\s+(?<p>[A-Za-z0-9@][A-Za-z0-9@.\\-_ ]{1,38})")
+    // ICICI UPI: "… debited for Rs X on …; MERCHANT credited. UPI:…"
+    private val iciciPartyRe = Regex("(?i);\\s*(?<p>[A-Za-z][A-Za-z0-9 &._-]{1,38})\\s+(?:credited|received)\\b")
+    private val upiRefRe = Regex("(?i)(?:upi|vpa)\\s*[:#]\\s*(?<r>[A-Za-z0-9]{4,})")
 
     override suspend fun generate(body: String, sender: String): GeneratedPattern? {
         val amount = moneyRe.find(body) ?: return null
@@ -30,7 +33,11 @@ class HeuristicPatternGenerator : PatternGenerator {
         spans += Span(verb.range, "(?<dir>$VERBS)")
         accountRe.find(body)?.groups?.get("acc")?.let { spans += Span(it.range, "(?<account>[xX*]*\\d{3,})") }
         refRe.find(body)?.groups?.get("r")?.let { spans += Span(it.range, "(?<ref>[A-Za-z0-9]{4,})") }
+            ?: upiRefRe.find(body)?.groups?.get("r")?.let { spans += Span(it.range, "(?<ref>[A-Za-z0-9]{4,})") }
         partyRe.find(body)?.groups?.get("p")?.let { spans += Span(it.range, "(?<party>[A-Za-z0-9@.\\-_ ]{2,40}?)") }
+            ?: iciciPartyRe.find(body)?.groups?.get("p")?.let {
+                spans += Span(it.range, "(?<party>[A-Za-z][A-Za-z0-9 &._-]{1,38})")
+            }
 
         // Order by start, drop overlaps (keep the earliest of any overlapping pair).
         val ordered = spans.sortedBy { it.range.first }

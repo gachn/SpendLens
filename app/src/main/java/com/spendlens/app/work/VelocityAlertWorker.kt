@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -15,6 +14,7 @@ import com.spendlens.app.SpendLensApp
 import com.spendlens.app.parser.SpendingVelocity
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
+import com.spendlens.app.util.NotificationHelper
 import java.util.concurrent.TimeUnit
 
 /**
@@ -30,8 +30,7 @@ class VelocityAlertWorker(
 
     override suspend fun doWork(): Result {
         val container = (applicationContext as SpendLensApp).container
-        val nm = NotificationManagerCompat.from(applicationContext)
-        if (!nm.areNotificationsEnabled()) return Result.success()
+        if (!NotificationHelper.canPost(applicationContext)) return Result.success()
 
         val now = System.currentTimeMillis()
         val (from, to) = Dates.currentMonth()
@@ -49,14 +48,13 @@ class VelocityAlertWorker(
 
             val category = categoriesById[budget.categoryId] ?: return@forEach
             val projected = SpendingVelocity.projectMonthEnd(spent, now)
-            postAlert(nm, budget.categoryId, category.icon, category.name, spent, projected, limit)
+            postAlert(budget.categoryId, category.icon, category.name, spent, projected, limit)
             store.markAlerted(budget.categoryId, now)
         }
         return Result.success()
     }
 
     private fun postAlert(
-        nm: NotificationManagerCompat,
         categoryId: Long,
         icon: String,
         name: String,
@@ -90,7 +88,7 @@ class VelocityAlertWorker(
             .setContentIntent(pending)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        runCatching { nm.notify(NOTIF_BASE + categoryId.toInt(), notification) }
+        NotificationHelper.notify(applicationContext, NOTIF_BASE + categoryId.toInt(), notification)
     }
 
     companion object {

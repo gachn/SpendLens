@@ -283,11 +283,11 @@ fun SpendLensRoot(
                     detectedPatternSingle = null
                     lastProcessedClip = rawJson
                     scope.launch {
-                        val updated = reviewVm.applyAiPatterns(rawJson)
-                        if (updated > 0) {
-                            Toast.makeText(context, "🤖 AI pattern applied! Updated $updated transactions.", Toast.LENGTH_LONG).show()
+                        val patternCount = reviewVm.applyAiPatterns(rawJson)
+                        if (patternCount > 0) {
+                            Toast.makeText(context, "🤖 Pattern saved! Applying to all SMS in background…", Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "⚠️ AI pattern saved, but matched 0 transactions.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "⚠️ No valid patterns found in the AI response.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }) {
@@ -343,11 +343,11 @@ fun SpendLensRoot(
                     detectedPatternBulk = null
                     lastProcessedClip = rawJson
                     scope.launch {
-                        val updated = reviewVm.applyAiPatterns(rawJson)
-                        if (updated > 0) {
-                            Toast.makeText(context, "🤖 AI patterns applied! Updated $updated transactions.", Toast.LENGTH_LONG).show()
+                        val patternCount = reviewVm.applyAiPatterns(rawJson)
+                        if (patternCount > 0) {
+                            Toast.makeText(context, "🤖 $patternCount pattern(s) saved! Applying to all SMS in background…", Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "⚠️ AI patterns saved, but matched 0 transactions.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "⚠️ No valid patterns found in the AI response.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }) {

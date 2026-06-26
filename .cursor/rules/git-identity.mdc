@@ -1,0 +1,37 @@
+---
+description: Use personal gachn Git identity for all git operations in this repo
+alwaysApply: true
+---
+
+# Git Identity — SpendLens (personal)
+
+This is a **personal** repo under the `gachn` GitHub account. Never use the work/Freshworks identity.
+
+## Required identity
+
+| Setting | Value |
+|---------|-------|
+| GitHub account | `gachn` |
+| Git user.name | `Gaurav Chauhan` |
+| Git user.email | `chauhangaurav101@gmail.com` |
+| Remote URL | `git@github.com-personal:gachn/SpendLens.git` |
+
+## Never use
+
+- GitHub account `gachn-freshworks` or `gchauhan_fwinc`
+- Email `gaurav.chauhan@freshworks.com`
+- SSH host `github.com` (work key) for push/fetch
+
+## Before committing or pushing
+
+1. Verify local repo config:
+   ```bash
+   git config user.email   # must be chauhangaurav101@gmail.com
+   git remote get-url origin   # must contain github.com-personal:gachn/
+   ```
+2. If `user.email` is a Freshworks address, set local config:
+   ```bash
+   git config user.name "Gaurav Chauhan"
+   git config user.email "chauhangaurav101@gmail.com"
+   ```
+3. Do **not** change global git config — only this repo's local config.

@@ -27,7 +27,11 @@ class SmsSyncWorker(
         return when (inputData.getString(KEY_MODE)) {
             MODE_IMPORT -> {
                 runCatching {
-                    container.smsImporter.importAll { done, total ->
+                    // Incremental import: only pull inbox messages received after the latest
+                    // timestamp already stored in the database. On a fresh install this is 0,
+                    // so the entire inbox is scanned exactly once.
+                    val since = container.rawSmsDao.maxReceivedAt() ?: 0L
+                    container.smsImporter.importAll(since = since) { done, total ->
                         setProgress(workDataOf(KEY_DONE to done, KEY_TOTAL to total))
                     }
                     // Refresh recurring-bill detection over the freshly-imported history.

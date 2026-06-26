@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -14,6 +13,7 @@ import com.spendlens.app.MainActivity
 import com.spendlens.app.SpendLensApp
 import com.spendlens.app.parser.BillReminders
 import com.spendlens.app.ui.util.Money
+import com.spendlens.app.util.NotificationHelper
 import java.util.concurrent.TimeUnit
 
 /**
@@ -27,8 +27,7 @@ class BillReminderWorker(
 
     override suspend fun doWork(): Result {
         val container = (applicationContext as SpendLensApp).container
-        val nm = NotificationManagerCompat.from(applicationContext)
-        if (!nm.areNotificationsEnabled()) return Result.success()
+        if (!NotificationHelper.canPost(applicationContext)) return Result.success()
 
         val now = System.currentTimeMillis()
         container.billRepository.allWithReminders().forEach { bill ->
@@ -55,7 +54,7 @@ class BillReminderWorker(
                 .setContentIntent(pending)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .build()
-            runCatching { nm.notify(NOTIF_BASE + bill.id.toInt(), notification) }
+            NotificationHelper.notify(applicationContext, NOTIF_BASE + bill.id.toInt(), notification)
         }
         return Result.success()
     }

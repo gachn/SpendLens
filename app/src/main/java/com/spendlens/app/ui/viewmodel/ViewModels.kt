@@ -286,21 +286,8 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
 
     private val filters = MutableStateFlow(TxnFilters())
 
-    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
-        val categories = container.categoryRepository.all()
-        val categorizer = container.categoryRepository.categorizer()
-        val merchants = container.merchantRepository.observeAll().first()
-        val knownMerchants = merchants.take(150).map { m ->
-            val catId = categorizer.categorize(m.displayName)
-            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
-            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
-                name = m.displayName,
-                emoji = m.logoEmoji,
-                categoryName = catName
-            )
-        }
-        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
-    }
+    fun generatePrompt(smsList: List<RawSmsEntity>): String =
+        com.spendlens.app.ai.PromptGenerator.generate(smsList)
 
     companion object {
         /** Sentinel category id meaning "transactions with no category" (txn.categoryId == null). */

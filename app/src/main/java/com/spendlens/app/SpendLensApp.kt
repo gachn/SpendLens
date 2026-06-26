@@ -52,9 +52,15 @@ class SpendLensApp : Application() {
                 getString(R.string.budgets_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply { description = getString(R.string.budgets_channel_desc) }
+            val aiPatterns = NotificationChannel(
+                CHANNEL_AI_PATTERNS,
+                "AI Pattern Updates",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "Notifies when AI-taught patterns finish applying to your SMS history" }
             manager.createNotificationChannel(transactions)
             manager.createNotificationChannel(bills)
             manager.createNotificationChannel(budgets)
+            manager.createNotificationChannel(aiPatterns)
         }
     }
 
@@ -63,5 +69,6 @@ class SpendLensApp : Application() {
         const val CHANNEL_TRANSACTIONS = "transactions_v2"
         const val CHANNEL_BILLS = "bills"
         const val CHANNEL_BUDGETS = "budgets"
+        const val CHANNEL_AI_PATTERNS = "ai_patterns"
     }
 }

@@ -56,10 +56,10 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
                         AiBridgeHelper.copyAndLaunch(context, prompt)
                     }
                     is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Applied -> {
-                        val msg = if (res.updated > 0) {
-                            "\uD83E\uDD16 AI patterns applied! Updated ${res.updated} transactions."
+                        val msg = if (res.patternCount > 0) {
+                            "\uD83E\uDD16 ${res.patternCount} pattern(s) saved! Applying to all SMS in background\u2026"
                         } else {
-                            "\uD83E\uDD16 AI patterns saved, but matched 0 transactions."
+                            "\uD83E\uDD16 AI returned no valid patterns."
                         }
                         android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                     }

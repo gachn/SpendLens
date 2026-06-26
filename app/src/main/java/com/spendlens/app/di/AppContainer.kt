@@ -31,7 +31,7 @@ import com.spendlens.app.sms.SmsProcessor
  */
 class AppContainer(context: Context) {
 
-    private val appContext = context.applicationContext
+    val appContext: Context = context.applicationContext
     private val keyManager = DatabaseKeyManager(appContext)
     val database: AppDatabase by lazy { AppDatabase.create(appContext, keyManager) }
 

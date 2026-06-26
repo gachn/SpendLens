@@ -33,6 +33,18 @@ interface RawSmsDao {
     @Query("SELECT * FROM raw_sms WHERE id = :id")
     suspend fun getById(id: Long): RawSmsEntity?
 
+    /** All raw SMS rows that were last parsed by [patternId]. Used for targeted reprocess. */
+    @Query("SELECT * FROM raw_sms WHERE patternId = :patternId ORDER BY receivedAt DESC")
+    suspend fun listByPatternId(patternId: Long): List<RawSmsEntity>
+
+    /**
+     * Latest [receivedAt] timestamp across all stored SMS, or null when the table is empty.
+     * Used by [com.spendlens.app.sms.SmsImporter] to skip inbox messages already ingested
+     * (incremental import — only pull SMS newer than this timestamp on subsequent syncs).
+     */
+    @Query("SELECT MAX(receivedAt) FROM raw_sms")
+    suspend fun maxReceivedAt(): Long?
+
     @Query("SELECT COUNT(*) FROM raw_sms")
     suspend fun count(): Int
 
