@@ -30,7 +30,7 @@ object AiBridgeHelper {
                 Toast.LENGTH_LONG,
             ).show()
         } catch (e: Exception) {
-            AppLog.e(AppLog.TAG_AI, "copyAndLaunch failed", e)
+            AppLog.e("copyAndLaunch failed", AppLog.TAG_AI, e)
             Toast.makeText(context, "Could not copy prompt", Toast.LENGTH_SHORT).show()
         }
     }

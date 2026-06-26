@@ -240,7 +240,7 @@ class AiPatternTeacher(private val container: AppContainer) {
                 updatedCount = applyTaughtMappings(mappings)
             }
         } catch (e: Exception) {
-            AppLog.e(AppLog.TAG_AI, "applyAiPatterns failed", e)
+            AppLog.e("applyAiPatterns failed", AppLog.TAG_AI, e)
         }
         return@withContext updatedCount
     }

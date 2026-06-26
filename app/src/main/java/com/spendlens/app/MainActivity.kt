@@ -123,7 +123,7 @@ class MainActivity : FragmentActivity() {
         // No secure lock configured at all — don't trap the user out of their own app.
         val canAuth = BiometricManager.from(this).canAuthenticate(authenticators)
         if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
-            AppLog.w(TAG, "canAuthenticate($authenticators) returned $canAuth — unlocking without prompt")
+            AppLog.w("canAuthenticate($authenticators) returned $canAuth — unlocking without prompt", TAG)
             locked.value = false
             return
         }
@@ -140,7 +140,7 @@ class MainActivity : FragmentActivity() {
                     // User cancelled / hardware error / lockout: keep locked so the
                     // LockScreen's Unlock button lets them retry.
                     authInProgress = false
-                    AppLog.w(TAG, "auth error $errorCode: $errString")
+                    AppLog.w("auth error $errorCode: $errString", TAG)
                 }
             },
         )

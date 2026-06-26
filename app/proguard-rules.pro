@@ -15,3 +15,8 @@
 -keepattributes SourceFile,LineNumberTable
 -keep class com.newrelic.** { *; }
 -dontwarn com.newrelic.**
+
+# Tink / security-crypto optional compile-only annotations (not bundled in release)
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn javax.annotation.concurrent.**

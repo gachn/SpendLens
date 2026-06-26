@@ -12,19 +12,15 @@ object AppLog {
     const val TAG = "SpendLens"
     const val TAG_AI = "SpendLens/AI"
 
-    fun d(tag: String = TAG, message: String) {
-        Log.d(tag, message)
-    }
+    fun d(message: String, tag: String = TAG) = Log.d(tag, message)
 
-    fun i(tag: String = TAG, message: String) {
-        Log.i(tag, message)
-    }
+    fun i(message: String, tag: String = TAG) = Log.i(tag, message)
 
-    fun w(tag: String = TAG, message: String, throwable: Throwable? = null) {
+    fun w(message: String, tag: String = TAG, throwable: Throwable? = null) {
         if (throwable != null) Log.w(tag, message, throwable) else Log.w(tag, message)
     }
 
-    fun e(tag: String = TAG, message: String, throwable: Throwable? = null) {
+    fun e(message: String, tag: String = TAG, throwable: Throwable? = null) {
         if (throwable != null) Log.e(tag, message, throwable) else Log.e(tag, message)
     }
 
