@@ -664,210 +664,24 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
         container.smsProcessor.reprocessAllSms()
     }
 
-    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
-        val categories = container.categoryRepository.all()
-        val categorizer = container.categoryRepository.categorizer()
-        val merchants = container.merchantRepository.observeAll().first()
-        val knownMerchants = merchants.take(150).map { m ->
-            val catId = categorizer.categorize(m.displayName)
-            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
-            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
-                name = m.displayName,
-                emoji = m.logoEmoji,
-                categoryName = catName
-            )
-        }
-        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
-    }
+    /** Shared AI orchestration (flag check, OpenRouter call, pattern apply). */
+    private val teacher = com.spendlens.app.ai.AiPatternTeacher(container)
 
-    private fun extractJson(input: String): String? {
-        val firstBracket = input.indexOf('[')
-        val firstBrace = input.indexOf('{')
-        
-        if (firstBracket == -1 && firstBrace == -1) return null
-        
-        return if (firstBracket != -1 && (firstBrace == -1 || firstBracket < firstBrace)) {
-            val lastBracket = input.lastIndexOf(']')
-            if (lastBracket != -1 && lastBracket > firstBracket) {
-                input.substring(firstBracket, lastBracket + 1)
-            } else null
-        } else {
-            val lastBrace = input.lastIndexOf('}')
-            if (lastBrace != -1 && lastBrace > firstBrace) {
-                input.substring(firstBrace, lastBrace + 1)
-            } else null
-        }
-    }
+    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String = teacher.generatePrompt(smsList)
 
-    private fun cleanSenderRegex(raw: String?): String? {
-        if (raw == null || raw.isBlank() || raw == "null") return null
-        val trimmed = raw.trim()
-        val match = Regex("^[A-Za-z]{2}-(.+)$").find(trimmed)
-        val extracted = if (match != null) {
-            match.groupValues[1].replace(Regex("-[A-Za-z]$"), "")
-        } else {
-            trimmed.replace(Regex("-[A-Za-z]$"), "")
-        }
-        return "(?i)$extracted"
-    }
-
-    suspend fun saveAiPattern(
-        name: String,
-        bodyRegex: String,
-        senderRegex: String?,
-        cleanMerchant: String,
-        logoEmoji: String?,
-        categoryName: String,
-        cachedRawSmsList: List<RawSmsEntity>? = null
-    ): Boolean {
-        // Validate regex compiles
-        val cleanedSender = cleanSenderRegex(senderRegex)
-        val compiledBody = runCatching { Regex(bodyRegex) }.getOrNull() ?: return false
-        val compiledSender = cleanedSender?.let { runCatching { Regex(it) }.getOrNull() }
-
-        // Find the category ID from the category name
-        val categories = container.categoryRepository.all()
-        val categoryId = categories.firstOrNull { it.name.equals(categoryName, ignoreCase = true) }?.id
-            ?: categories.firstOrNull()?.id // fallback to first category if name mismatch
-
-        // Save SMS pattern
-        val patternId = container.patternRepository.savePattern(
-            SmsPatternEntity(
-                name = name,
-                senderRegex = cleanedSender,
-                bodyRegex = bodyRegex,
-                priority = 60, // LEARNED_PRIORITY
-                source = com.spendlens.app.data.db.PatternSource.USER,
-            )
-        )
-
-        // Map raw captured party tokens in matched SMS to clean merchant
-        val rawSmsList = cachedRawSmsList ?: (container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED))
-        val matchedParties = mutableSetOf<String>()
-        for (raw in rawSmsList) {
-            if (compiledSender != null && !compiledSender.containsMatchIn(raw.sender)) {
-                continue
-            }
-            val match = compiledBody.find(raw.body)
-            if (match != null) {
-                val party = runCatching { match.groups["party"]?.value }.getOrNull()?.trim()
-                if (!party.isNullOrBlank()) {
-                    matchedParties.add(party)
-                }
-            }
-        }
-        for (party in matchedParties) {
-            container.merchantRepository.setUserName(party, cleanMerchant)
-        }
-
-        // Save merchant alias and emoji
-        container.merchantRepository.setUserName(cleanMerchant, cleanMerchant)
-        if (logoEmoji != null) {
-            container.merchantRepository.setMerchantEmoji(cleanMerchant, logoEmoji)
-        }
-
-        // Add category rule
-        if (categoryId != null) {
-            container.categoryRepository.addUserRule(cleanMerchant, categoryId)
-        }
-
-        return true
-    }
-
-    /** A merchant/category mapping taught by the AI flow, used to update existing transactions. */
-    private data class TaughtMapping(
-        val compiledBody: Regex,
-        val compiledSender: Regex?,
-        val cleanMerchant: String,
-        val categoryId: Long?,
-    )
-
-    suspend fun applyAiPatterns(jsonString: String): Int = withContext(Dispatchers.IO) {
-        var count = 0
-        var updatedCount = 0
-        val mappings = mutableListOf<TaughtMapping>()
-        try {
-            val extracted = extractJson(jsonString) ?: return@withContext 0
-            val rawSmsList = container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED)
-            val objects = when {
-                extracted.startsWith("[") -> {
-                    val array = org.json.JSONArray(extracted)
-                    (0 until array.length()).map { array.getJSONObject(it) }
-                }
-                extracted.startsWith("{") -> listOf(org.json.JSONObject(extracted))
-                else -> emptyList()
-            }
-            val categories = container.categoryRepository.all()
-            for (obj in objects) {
-                val bodyRegex = obj.optString("bodyRegex")
-                if (bodyRegex.isNullOrBlank()) continue
-                val cleanMerchant = obj.optString("cleanMerchant", obj.optString("merchant", "Unknown"))
-                val name = obj.optString("name").takeIf { it.isNotBlank() } ?: "Pattern for $cleanMerchant"
-                val categoryName = obj.optString("categoryName", obj.optString("category", "Uncategorized"))
-                val logoEmoji = obj.optString("logoEmoji").takeIf { it != "null" && it.isNotBlank() }
-                val senderRegex = obj.optString("senderRegex").takeIf { it != "null" && it.isNotBlank() }
-
-                val success = saveAiPattern(
-                    name = name,
-                    bodyRegex = bodyRegex,
-                    senderRegex = senderRegex,
-                    cleanMerchant = cleanMerchant,
-                    logoEmoji = logoEmoji,
-                    categoryName = categoryName,
-                    cachedRawSmsList = rawSmsList
-                )
-                if (!success) continue
-                count++
-
-                val compiledBody = runCatching { Regex(bodyRegex) }.getOrNull() ?: continue
-                val compiledSender = cleanSenderRegex(senderRegex)?.let { runCatching { Regex(it) }.getOrNull() }
-                val categoryId = categories.firstOrNull { it.name.equals(categoryName, ignoreCase = true) }?.id
-                mappings.add(TaughtMapping(compiledBody, compiledSender, cleanMerchant, categoryId))
-            }
-            if (count > 0) {
-                // First let the SMS pipeline (re)parse so newly-matched UNPARSED messages become
-                // transactions. Then directly stamp the taught merchant/category onto every
-                // transaction whose raw SMS matches — this overrides the generic merchant/category
-                // enrichment so the user's correction actually sticks (and applies to all matches).
-                container.smsProcessor.reprocessAllSms()
-                updatedCount = applyTaughtMappings(mappings)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return@withContext updatedCount
-    }
+    /** True when the AI flag is on and a usable key exists (so the direct API path can run). */
+    fun aiUsable(): Boolean = teacher.aiUsable()
 
     /**
-     * Stamp each taught merchant/category directly onto existing transactions whose raw SMS
-     * matches the pattern, marking them user-verified. Returns the number of rows updated.
+     * Flag-gated AI pattern generation. Delegates to [AiPatternTeacher]: when AI is enabled with a
+     * key it calls OpenRouter and applies the reply; otherwise it returns
+     * [AiPatternTeacher.TeachResult.Fallback] so the UI keeps the copy-to-clipboard flow.
      */
-    private suspend fun applyTaughtMappings(mappings: List<TaughtMapping>): Int {
-        if (mappings.isEmpty()) return 0
-        val rawById = (container.rawSmsDao.listByStatus(RawStatus.PARSED) +
-            container.rawSmsDao.listByStatus(RawStatus.UNPARSED)).associateBy { it.id }
-        var updated = 0
-        for (txn in container.transactionRepository.getAllTransactions()) {
-            val rawId = txn.rawSmsId ?: continue
-            val raw = rawById[rawId] ?: continue
-            val mapping = mappings.firstOrNull { m ->
-                (m.compiledSender == null || m.compiledSender.containsMatchIn(raw.sender)) &&
-                    m.compiledBody.containsMatchIn(raw.body)
-            } ?: continue
-            val tags = container.merchantRepository.tagsFor(mapping.cleanMerchant)
-            container.transactionRepository.update(
-                txn.copy(
-                    counterparty = mapping.cleanMerchant,
-                    categoryId = mapping.categoryId ?: txn.categoryId,
-                    tags = tags ?: txn.tags,
-                    userVerified = true,
-                )
-            )
-            updated++
-        }
-        return updated
-    }
+    suspend fun teachWithAi(smsList: List<RawSmsEntity>): com.spendlens.app.ai.AiPatternTeacher.TeachResult =
+        teacher.teach(smsList)
 
+    /** Apply AI-produced pattern JSON (used by the clipboard-reply watcher in SpendLensRoot). */
+    suspend fun applyAiPatterns(jsonString: String): Int = teacher.applyAiPatterns(jsonString)
 }
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -894,6 +708,16 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val smsFilter: StateFlow<com.spendlens.app.data.prefs.SmsFilterPrefs> = container.settingsStore.smsFilter
 
     fun setFinancialSendersOnly(enabled: Boolean) = container.settingsStore.setFinancialSendersOnly(enabled)
+
+    // ----- AI (OpenRouter) -----
+
+    val aiPrefs: StateFlow<com.spendlens.app.data.prefs.AiPrefs> = container.aiConfigStore.prefsFlow
+
+    fun setAiEnabled(enabled: Boolean) = container.aiConfigStore.setEnabled(enabled)
+
+    fun setAiModel(model: String) = container.aiConfigStore.setModel(model)
+
+    fun setAiApiKey(key: String?) = container.aiConfigStore.setApiKey(key)
 
     fun setPatternEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
         container.patternRepository.setEnabled(id, enabled)
@@ -1323,22 +1147,18 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     suspend fun rawSms(rawSmsId: Long?): RawSmsEntity? =
         rawSmsId?.let { container.rawSmsDao.getById(it) }
 
+    /** Shared AI orchestration (flag check, OpenRouter call, pattern apply). */
+    private val teacher = com.spendlens.app.ai.AiPatternTeacher(container)
+
     /** Build the "Teach with AI" prompt for a raw SMS, seeded with known categories/merchants. */
-    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String {
-        val categories = container.categoryRepository.all()
-        val categorizer = container.categoryRepository.categorizer()
-        val merchants = container.merchantRepository.observeAll().first()
-        val knownMerchants = merchants.take(150).map { m ->
-            val catId = categorizer.categorize(m.displayName)
-            val catName = catId?.let { id -> categories.firstOrNull { it.id == id }?.name }
-            com.spendlens.app.ai.PromptGenerator.KnownMerchant(
-                name = m.displayName,
-                emoji = m.logoEmoji,
-                categoryName = catName,
-            )
-        }
-        return com.spendlens.app.ai.PromptGenerator.generate(smsList, categories, knownMerchants)
-    }
+    suspend fun generatePrompt(smsList: List<RawSmsEntity>): String = teacher.generatePrompt(smsList)
+
+    /**
+     * Flag-gated AI teach for a single SMS. Returns [AiPatternTeacher.TeachResult.Fallback] when AI
+     * is off or unconfigured so the caller keeps the copy-to-clipboard flow.
+     */
+    suspend fun teachWithAi(smsList: List<RawSmsEntity>): com.spendlens.app.ai.AiPatternTeacher.TeachResult =
+        teacher.teach(smsList)
 
     /** Copy a picked image into encrypted storage and link it to the transaction. */
     fun attachReceipt(txn: TransactionEntity, uri: android.net.Uri, onDone: (TransactionEntity) -> Unit) =
@@ -1488,6 +1308,71 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     fun setQuery(q: String) { _rawQuery.value = q }
+
+    /** Progress/result of the flag-gated AI "consolidate merchant names" action. */
+    sealed interface ConsolidationState {
+        data object Idle : ConsolidationState
+        data object Running : ConsolidationState
+        /** AI is off or no API key is configured. */
+        data object Disabled : ConsolidationState
+        /** Auto-applied [merged] renames across [groups] brand groups. */
+        data class Done(val merged: Int, val groups: Int) : ConsolidationState
+        data class Error(val message: String) : ConsolidationState
+    }
+
+    private val _consolidation = MutableStateFlow<ConsolidationState>(ConsolidationState.Idle)
+    val consolidation: StateFlow<ConsolidationState> = _consolidation.asStateFlow()
+
+    /** True when the AI flag is on with a usable key (controls the consolidate button). */
+    fun aiUsable(): Boolean = container.aiConfigStore.isUsable()
+
+    /** Reset the consolidation state after the UI has shown the outcome. */
+    fun consumeConsolidation() { _consolidation.value = ConsolidationState.Idle }
+
+    /**
+     * Flag-gated AI merchant-name consolidation. Sends every known merchant name to OpenRouter, asks
+     * it to group obvious variants of the same brand, and (per the chosen "auto-apply" behavior)
+     * immediately merges each variant into its canonical name by renaming — which collapses them on
+     * this screen. When AI is off/unconfigured it reports [ConsolidationState.Disabled].
+     */
+    fun consolidateWithAi() = viewModelScope.launch {
+        val store = container.aiConfigStore
+        val key = store.effectiveKey()
+        if (!store.isEnabled() || key == null) {
+            _consolidation.value = ConsolidationState.Disabled
+            return@launch
+        }
+        _consolidation.value = ConsolidationState.Running
+        val names = container.merchantRepository.observeDisplayNames().first()
+        if (names.size < 2) {
+            _consolidation.value = ConsolidationState.Done(merged = 0, groups = 0)
+            return@launch
+        }
+        val prompt = com.spendlens.app.ai.MerchantConsolidation.buildPrompt(names)
+        when (val r = container.openRouterClient.complete(key, store.effectiveModel(), prompt)) {
+            is com.spendlens.app.ai.OpenRouterClient.Result.Failure ->
+                _consolidation.value = ConsolidationState.Error(r.message)
+            is com.spendlens.app.ai.OpenRouterClient.Result.Success -> {
+                val groups = com.spendlens.app.ai.MerchantConsolidation.parse(r.content)
+                val known = names.toMutableSet()
+                var merged = 0
+                var appliedGroups = 0
+                for (g in groups) {
+                    var groupMerged = false
+                    for (alias in g.aliases) {
+                        if (alias == g.canonical || alias !in known) continue
+                        container.merchantRepository.renameDisplay(alias, g.canonical)
+                        container.transactionRepository.renameCounterparty(alias, g.canonical)
+                        known.remove(alias)
+                        merged++
+                        groupMerged = true
+                    }
+                    if (groupMerged) appliedGroups++
+                }
+                _consolidation.value = ConsolidationState.Done(merged = merged, groups = appliedGroups)
+            }
+        }
+    }
 
     val state: StateFlow<MerchantsUiState> = combine(
         container.merchantRepository.observeAll(),

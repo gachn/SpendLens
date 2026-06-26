@@ -56,6 +56,35 @@ import com.spendlens.app.ui.viewmodel.MerchantsViewModel
 fun MerchantsScreen(vm: MerchantsViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsState()
     val displayQuery by vm.displayQuery.collectAsState()
+    val consolidation by vm.consolidation.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(consolidation) {
+        when (val c = consolidation) {
+            is MerchantsViewModel.ConsolidationState.Done -> {
+                val msg = if (c.merged > 0) {
+                    "✨ Merged ${c.merged} merchant${if (c.merged == 1) "" else "s"} into ${c.groups} brand${if (c.groups == 1) "" else "s"}."
+                } else {
+                    "✨ No merchants needed merging."
+                }
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                vm.consumeConsolidation()
+            }
+            is MerchantsViewModel.ConsolidationState.Error -> {
+                android.widget.Toast.makeText(context, "⚠️ AI failed: ${c.message}", android.widget.Toast.LENGTH_LONG).show()
+                vm.consumeConsolidation()
+            }
+            is MerchantsViewModel.ConsolidationState.Disabled -> {
+                android.widget.Toast.makeText(
+                    context,
+                    "Enable AI and set an API key in Settings → AI first.",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+                vm.consumeConsolidation()
+            }
+            else -> {}
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -85,6 +114,17 @@ fun MerchantsScreen(vm: MerchantsViewModel, onBack: () -> Unit) {
                     label = { Text("Search merchants") },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            item {
+                val running = consolidation is MerchantsViewModel.ConsolidationState.Running
+                Button(
+                    onClick = { vm.consolidateWithAi() },
+                    enabled = !running,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (running) "✨ Consolidating…" else "✨ Consolidate names with AI")
+                }
             }
 
             if (state.items.isEmpty()) {

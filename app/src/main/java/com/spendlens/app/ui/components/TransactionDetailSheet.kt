@@ -220,16 +220,41 @@ fun TransactionDetailSheet(
                 ) {
                     Text("Original SMS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val context = androidx.compose.ui.platform.LocalContext.current
-                    TextButton(onClick = {
+                    var teaching by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                    TextButton(enabled = !teaching, onClick = {
                         coroutineScope.launch {
-                            val raw = vm.rawSms(current.rawSmsId)
-                            if (raw != null) {
-                                val prompt = vm.generatePrompt(listOf(raw))
-                                AiBridgeHelper.copyAndLaunch(context, prompt)
+                            val raw = vm.rawSms(current.rawSmsId) ?: return@launch
+                            teaching = true
+                            try {
+                                when (val res = vm.teachWithAi(listOf(raw))) {
+                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Fallback -> {
+                                        val prompt = vm.generatePrompt(listOf(raw))
+                                        AiBridgeHelper.copyAndLaunch(context, prompt)
+                                    }
+                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Applied -> {
+                                        val msg = if (res.updated > 0) {
+                                            "\uD83E\uDD16 AI pattern applied! Updated ${res.updated} transactions."
+                                        } else {
+                                            "\uD83E\uDD16 AI pattern saved, but matched 0 transactions."
+                                        }
+                                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Error ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "\u26A0\uFE0F AI failed: ${res.message}",
+                                            android.widget.Toast.LENGTH_LONG,
+                                        ).show()
+                                }
+                            } finally {
+                                teaching = false
                             }
                         }
                     }) {
-                        Text("🤖 Teach with AI", style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            if (teaching) "🤖 Asking AI…" else "🤖 Teach with AI",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
                     }
                 }
                 Surface(

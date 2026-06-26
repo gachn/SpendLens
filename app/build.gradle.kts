@@ -1,8 +1,21 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+// OpenRouter API key baked from local.properties (gitignored) — used as the default when the
+// user hasn't entered their own key in Settings. Empty if absent.
+val openRouterApiKey: String = run {
+    val props = Properties()
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
+    props.getProperty("OPENROUTER_API_KEY")
+        ?: (project.findProperty("OPENROUTER_API_KEY") as? String)
+        ?: ""
 }
 
 android {
@@ -19,6 +32,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
+        buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
     }
 
     buildTypes {
@@ -91,5 +105,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.sqlite.jdbc)
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
 }
