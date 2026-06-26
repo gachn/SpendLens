@@ -75,6 +75,7 @@ fun SettingsScreen(
     val appearance by vm.appearance.collectAsState()
     val security by vm.security.collectAsState()
     val smsFilter by vm.smsFilter.collectAsState()
+    val ai by vm.aiPrefs.collectAsState()
     val backupState by vm.backupState.collectAsState()
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
@@ -456,6 +457,82 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader("AI") }
+        item {
+            ElevatedSurfaceCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("Use AI (OpenRouter)", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Generate SMS parsing patterns and consolidate merchant names with an " +
+                                    "AI model. When off, SpendLens uses the on-device / copy-to-clipboard " +
+                                    "flow. Sends SMS templates and merchant names to OpenRouter.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = ai.enabled,
+                            onCheckedChange = { vm.setAiEnabled(it) },
+                        )
+                    }
+
+                    if (ai.enabled) {
+                        var model by remember(ai.model) { mutableStateOf(ai.model) }
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = { model = it; vm.setAiModel(it) },
+                            singleLine = true,
+                            label = { Text("Model") },
+                            placeholder = { Text("provider/model-slug") },
+                            supportingText = {
+                                Text("Any OpenRouter model slug, e.g. openai/gpt-latest or a :free model.")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        var apiKey by remember { mutableStateOf("") }
+                        OutlinedTextField(
+                            value = apiKey,
+                            onValueChange = { apiKey = it },
+                            singleLine = true,
+                            label = { Text("API key") },
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                            ),
+                            supportingText = {
+                                Text(
+                                    when {
+                                        ai.hasOverrideKey -> "Using your saved key. Type a new one to replace, or clear it below."
+                                        ai.buildKeyPresent -> "Using the built-in key. Enter your own to override it."
+                                        else -> "No key set. Enter your OpenRouter API key to enable AI calls."
+                                    },
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { vm.setAiApiKey(apiKey); apiKey = "" },
+                                enabled = apiKey.isNotBlank(),
+                            ) { Text("Save key") }
+                            if (ai.hasOverrideKey) {
+                                OutlinedButton(onClick = { vm.setAiApiKey(null); apiKey = "" }) {
+                                    Text("Clear key")
+                                }
+                            }
+                        }
                     }
                 }
             }

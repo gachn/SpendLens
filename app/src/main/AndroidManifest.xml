@@ -16,6 +16,8 @@
       full SMS. Results are cached locally (merchant_aliases). See docs/DESIGN.md §7.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- New Relic agent: upload telemetry and logs -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".SpendLensApp"

@@ -19,6 +19,8 @@ coroutines = "1.8.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 sqliteJdbc = "3.46.1.0"
+json = "20240303"
+newrelic = "7.7.6"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -56,9 +58,14 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqliteJdbc" }
+# Real org.json impl for JVM unit tests (android.jar's stub throws "not mocked").
+json = { group = "org.json", name = "json", version.ref = "json" }
+
+newrelic-android-agent = { group = "com.newrelic.agent.android", name = "android-agent", version.ref = "newrelic" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+newrelic = { id = "com.newrelic.agent.android", version.ref = "newrelic" }

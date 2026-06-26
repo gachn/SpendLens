@@ -39,8 +39,43 @@ import kotlinx.coroutines.launch
 fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) -> Unit = {}) {
     val state by vm.state.collectAsState()
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var teaching by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // Run the AI "Teach" action: use the direct OpenRouter path when the flag + key allow it,
+    // otherwise fall back to the existing copy-prompt-to-clipboard flow.
+    fun teach(toTeach: List<com.spendlens.app.data.db.RawSmsEntity>) {
+        if (toTeach.isEmpty()) return
+        coroutineScope.launch {
+            teaching = true
+            try {
+                when (val res = vm.teachWithAi(toTeach)) {
+                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Fallback -> {
+                        val prompt = vm.generatePrompt(toTeach)
+                        AiBridgeHelper.copyAndLaunch(context, prompt)
+                    }
+                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Applied -> {
+                        val msg = if (res.updated > 0) {
+                            "\uD83E\uDD16 AI patterns applied! Updated ${res.updated} transactions."
+                        } else {
+                            "\uD83E\uDD16 AI patterns saved, but matched 0 transactions."
+                        }
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Error -> {
+                        android.widget.Toast.makeText(
+                            context,
+                            "\u26A0\uFE0F AI failed: ${res.message}",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            } finally {
+                teaching = false
+            }
+        }
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -69,18 +104,24 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
                 if (state.unparsed.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val selectedCount = selectedIds.size
-                        OutlinedButton(onClick = {
-                            coroutineScope.launch {
+                        OutlinedButton(
+                            enabled = !teaching,
+                            onClick = {
                                 val toTeach = if (selectedIds.isEmpty()) {
                                     state.unparsed
                                 } else {
                                     state.unparsed.filter { it.id in selectedIds }
                                 }
-                                val prompt = vm.generatePrompt(toTeach)
-                                AiBridgeHelper.copyAndLaunch(context, prompt)
-                            }
-                        }) {
-                            Text(if (selectedCount > 0) "🤖 Teach Selected ($selectedCount)" else "🤖 Teach All")
+                                teach(toTeach)
+                            },
+                        ) {
+                            Text(
+                                when {
+                                    teaching -> "🤖 Asking AI…"
+                                    selectedCount > 0 -> "🤖 Teach Selected ($selectedCount)"
+                                    else -> "🤖 Teach All"
+                                },
+                            )
                         }
                         OutlinedButton(onClick = { vm.reprocessUnparsed() }) { Text("Reprocess") }
                     }
@@ -119,13 +160,8 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(onClick = {
-                                coroutineScope.launch {
-                                    val prompt = vm.generatePrompt(listOf(raw))
-                                    AiBridgeHelper.copyAndLaunch(context, prompt)
-                                }
-                            }) {
-                                Text("🤖 Teach with AI")
+                            TextButton(enabled = !teaching, onClick = { teach(listOf(raw)) }) {
+                                Text(if (teaching) "🤖 Asking AI…" else "🤖 Teach with AI")
                             }
                             Spacer(Modifier.width(8.dp))
                             TextButton(onClick = { vm.ignoreSms(raw) }) { Text("Not a transaction") }

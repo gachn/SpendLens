@@ -1,8 +1,32 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.newrelic)
+}
+
+// OpenRouter API key baked from local.properties (gitignored) — used as the default when the
+// user hasn't entered their own key in Settings. Empty if absent.
+val openRouterApiKey: String = run {
+    val props = Properties()
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
+    props.getProperty("OPENROUTER_API_KEY")
+        ?: (project.findProperty("OPENROUTER_API_KEY") as? String)
+        ?: ""
+}
+
+// New Relic mobile app token from local.properties (gitignored) — no-op when absent.
+val newRelicAppToken: String = run {
+    val props = Properties()
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
+    props.getProperty("NEW_RELIC_APP_TOKEN")
+        ?: (project.findProperty("NEW_RELIC_APP_TOKEN") as? String)
+        ?: ""
 }
 
 android {
@@ -19,6 +43,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
+        buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
+        buildConfigField("String", "NEW_RELIC_APP_TOKEN", "\"$newRelicAppToken\"")
     }
 
     buildTypes {
@@ -53,7 +79,16 @@ android {
     }
 }
 
+// Token file consumed by the New Relic Gradle plugin for release ProGuard map upload.
+// Generated from local.properties / -PNEW_RELIC_APP_TOKEN — never commit the file.
+if (newRelicAppToken.isNotBlank()) {
+    file("newrelic.properties").writeText(
+        "com.newrelic.application_token=$newRelicAppToken\n",
+    )
+}
+
 dependencies {
+    implementation(libs.newrelic.android.agent)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -91,5 +126,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.sqlite.jdbc)
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
 }

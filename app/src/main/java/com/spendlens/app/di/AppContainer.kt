@@ -3,8 +3,10 @@ package com.spendlens.app.di
 import android.content.Context
 import com.spendlens.app.ai.HeuristicPatternGenerator
 import com.spendlens.app.ai.MerchantResolver
+import com.spendlens.app.ai.OpenRouterClient
 import com.spendlens.app.ai.PatternGenerator
 import com.spendlens.app.ai.WebMerchantResolver
+import com.spendlens.app.data.prefs.AiConfigStore
 import com.spendlens.app.data.ReceiptStore
 import com.spendlens.app.data.crypto.DatabaseKeyManager
 import com.spendlens.app.data.db.AppDatabase
@@ -35,6 +37,12 @@ class AppContainer(context: Context) {
 
     /** Non-sensitive UI preferences (theme mode, dynamic colour). */
     val settingsStore by lazy { SettingsStore(appContext) }
+
+    /** AI flag, model slug and (encrypted) API-key override for the OpenRouter-backed flows. */
+    val aiConfigStore by lazy { AiConfigStore(appContext) }
+
+    /** OpenRouter client — single OpenAI-compatible endpoint reaching any configured model. */
+    val openRouterClient by lazy { OpenRouterClient() }
 
     /** Per-category throttle for spending-velocity alerts (issue #3). */
     val velocityAlertStore by lazy { VelocityAlertStore(appContext) }
