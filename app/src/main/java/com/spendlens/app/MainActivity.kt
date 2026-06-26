@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
-import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager
@@ -34,9 +33,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.newrelic.agent.android.NewRelic
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.nav.SpendLensRoot
 import com.spendlens.app.ui.theme.SpendLensTheme
+import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : FragmentActivity() {
@@ -51,6 +52,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (BuildConfig.NEW_RELIC_APP_TOKEN.isNotBlank()) {
+            NewRelic.withApplicationToken(BuildConfig.NEW_RELIC_APP_TOKEN)
+                .start(applicationContext)
+            AppLog.i("New Relic agent started build=${BuildConfig.BUILD_TYPE} version=${BuildConfig.VERSION_NAME}")
+        } else {
+            AppLog.w("New Relic agent skipped — NEW_RELIC_APP_TOKEN not configured")
+        }
         enableEdgeToEdge()
         pendingTxnId.value = intent.getLongExtra(EXTRA_TXN_ID, -1L).takeIf { it != -1L }
         // Cold start: lock immediately if the feature is on.
@@ -115,7 +123,7 @@ class MainActivity : FragmentActivity() {
         // No secure lock configured at all — don't trap the user out of their own app.
         val canAuth = BiometricManager.from(this).canAuthenticate(authenticators)
         if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
-            Log.w(TAG, "canAuthenticate($authenticators) returned $canAuth — unlocking without prompt")
+            AppLog.w(TAG, "canAuthenticate($authenticators) returned $canAuth — unlocking without prompt")
             locked.value = false
             return
         }
@@ -132,7 +140,7 @@ class MainActivity : FragmentActivity() {
                     // User cancelled / hardware error / lockout: keep locked so the
                     // LockScreen's Unlock button lets them retry.
                     authInProgress = false
-                    Log.w(TAG, "auth error $errorCode: $errString")
+                    AppLog.w(TAG, "auth error $errorCode: $errString")
                 }
             },
         )

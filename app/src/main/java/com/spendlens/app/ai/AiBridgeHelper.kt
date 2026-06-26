@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import com.spendlens.app.util.AppLog
 
 object AiBridgeHelper {
     /**
@@ -21,13 +22,15 @@ object AiBridgeHelper {
             val clip = ClipData.newPlainText("SpendLens AI Prompt", promptText)
             clipboard.setPrimaryClip(clip)
             lastCopiedPrompt = promptText
+            AppLog.aiPrompt("clipboard_teach", "manual", promptText)
+            AppLog.aiSkipped("pattern_teach", "clipboard_fallback_user_will_paste_response")
             Toast.makeText(
                 context,
                 "Prompt copied! Paste it into your AI app, then copy the reply back here.",
                 Toast.LENGTH_LONG,
             ).show()
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLog.e(AppLog.TAG_AI, "copyAndLaunch failed", e)
             Toast.makeText(context, "Could not copy prompt", Toast.LENGTH_SHORT).show()
         }
     }

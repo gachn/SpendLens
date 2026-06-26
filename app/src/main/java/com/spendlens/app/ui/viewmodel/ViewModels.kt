@@ -1339,17 +1339,26 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
         val store = container.aiConfigStore
         val key = store.effectiveKey()
         if (!store.isEnabled() || key == null) {
+            com.spendlens.app.util.AppLog.aiSkipped("merchant_consolidation", "ai_disabled_or_no_key")
             _consolidation.value = ConsolidationState.Disabled
             return@launch
         }
         _consolidation.value = ConsolidationState.Running
         val names = container.merchantRepository.observeDisplayNames().first()
         if (names.size < 2) {
+            com.spendlens.app.util.AppLog.aiSkipped("merchant_consolidation", "fewer_than_two_merchants")
             _consolidation.value = ConsolidationState.Done(merged = 0, groups = 0)
             return@launch
         }
         val prompt = com.spendlens.app.ai.MerchantConsolidation.buildPrompt(names)
-        when (val r = container.openRouterClient.complete(key, store.effectiveModel(), prompt)) {
+        when (
+            val r = container.openRouterClient.complete(
+                key,
+                store.effectiveModel(),
+                prompt,
+                operation = "merchant_consolidation",
+            )
+        ) {
             is com.spendlens.app.ai.OpenRouterClient.Result.Failure ->
                 _consolidation.value = ConsolidationState.Error(r.message)
             is com.spendlens.app.ai.OpenRouterClient.Result.Success -> {
@@ -1369,6 +1378,10 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
                     }
                     if (groupMerged) appliedGroups++
                 }
+                com.spendlens.app.util.AppLog.aiApplied(
+                    "merchant_consolidation",
+                    "merged=$merged groups=$appliedGroups parsed_groups=${groups.size}",
+                )
                 _consolidation.value = ConsolidationState.Done(merged = merged, groups = appliedGroups)
             }
         }

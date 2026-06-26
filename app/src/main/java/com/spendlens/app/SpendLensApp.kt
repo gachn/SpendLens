@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.spendlens.app.di.AppContainer
+import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +20,7 @@ class SpendLensApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppLog.i("SpendLensApp starting version=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         container = AppContainer(this)
         createNotificationChannels()
         com.spendlens.app.work.BillReminderWorker.schedule(this)

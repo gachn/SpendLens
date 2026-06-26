@@ -5,6 +5,7 @@ import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.di.AppContainer
+import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -58,10 +59,26 @@ class AiPatternTeacher(private val container: AppContainer) {
     suspend fun teach(smsList: List<RawSmsEntity>): TeachResult {
         val store = container.aiConfigStore
         val key = store.effectiveKey()
-        if (!store.isEnabled() || key == null) return TeachResult.Fallback
+        if (!store.isEnabled() || key == null) {
+            AppLog.aiSkipped("pattern_teach", "ai_disabled_or_no_key")
+            return TeachResult.Fallback
+        }
+        AppLog.aiProcessing("pattern_teach", "generating_prompt", mapOf("sms_count" to smsList.size))
         val prompt = generatePrompt(smsList)
-        return when (val r = container.openRouterClient.complete(key, store.effectiveModel(), prompt)) {
-            is OpenRouterClient.Result.Success -> TeachResult.Applied(applyAiPatterns(r.content))
+        return when (
+            val r = container.openRouterClient.complete(
+                key,
+                store.effectiveModel(),
+                prompt,
+                operation = "pattern_teach",
+            )
+        ) {
+            is OpenRouterClient.Result.Success -> {
+                AppLog.aiProcessing("pattern_teach", "applying_patterns")
+                val updated = applyAiPatterns(r.content)
+                AppLog.aiApplied("pattern_teach", "patterns_saved transactions_updated=$updated")
+                TeachResult.Applied(updated)
+            }
             is OpenRouterClient.Result.Failure -> TeachResult.Error(r.message)
         }
     }
@@ -174,7 +191,10 @@ class AiPatternTeacher(private val container: AppContainer) {
         var updatedCount = 0
         val mappings = mutableListOf<TaughtMapping>()
         try {
-            val extracted = extractJson(jsonString) ?: return@withContext 0
+            val extracted = extractJson(jsonString) ?: run {
+                AppLog.aiFailure("pattern_teach", "n/a", null, "No JSON found in model response", 0)
+                return@withContext 0
+            }
             val rawSmsList = container.rawSmsDao.listByStatus(RawStatus.UNPARSED) + container.rawSmsDao.listByStatus(RawStatus.PARSED)
             val objects = when {
                 extracted.startsWith("[") -> {
@@ -220,7 +240,7 @@ class AiPatternTeacher(private val container: AppContainer) {
                 updatedCount = applyTaughtMappings(mappings)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLog.e(AppLog.TAG_AI, "applyAiPatterns failed", e)
         }
         return@withContext updatedCount
     }

@@ -10,3 +10,8 @@
 
 # Kotlin metadata
 -keepattributes *Annotation*, Signature, InnerClasses
+
+# New Relic — line numbers for crash/log deobfuscation (agent plugin also injects rules)
+-keepattributes SourceFile,LineNumberTable
+-keep class com.newrelic.** { *; }
+-dontwarn com.newrelic.**
