@@ -38,6 +38,7 @@ import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.nav.SpendLensRoot
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.util.AppLog
+import com.spendlens.app.work.AiCategorizeWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : FragmentActivity() {
@@ -64,6 +65,9 @@ class MainActivity : FragmentActivity() {
         // Cold start: lock immediately if the feature is on.
         locked.value = settingsStore.isAppLockEnabled()
         val container = (application as SpendLensApp).container
+        // AI auto-categorisation runs only on app launch (never from background SMS workers), and is
+        // itself throttled + capped, so opening the app spends at most one off-device call per minute.
+        AiCategorizeWorker.enqueue(applicationContext)
         setContent {
             val appearance by container.settingsStore.appearance.collectAsState()
             val darkTheme = when (appearance.themeMode) {

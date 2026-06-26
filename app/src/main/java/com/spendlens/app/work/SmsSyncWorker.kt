@@ -39,7 +39,16 @@ class SmsSyncWorker(
                         container.transactionRepository.allDebits(),
                     )
                     container.billRepository.syncDetected(detected)
-                }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
+                }.fold(
+                    onSuccess = {
+                        // Whole inbox parsed — classify any new senders. AI auto-categorisation is
+                        // NOT kicked off here: it runs only when the user opens the app (see
+                        // MainActivity), so background syncs never spend off-device calls.
+                        SenderClassifyWorker.enqueue(applicationContext)
+                        Result.success()
+                    },
+                    onFailure = { Result.retry() },
+                )
             }
             else -> {
                 val sender = inputData.getString(KEY_SENDER) ?: return Result.success()
@@ -52,6 +61,9 @@ class SmsSyncWorker(
                             container.savingsGoalRepository.onCreditCommitted(applicationContext, it)
                         }
                         WidgetRefreshWorker.enqueue(applicationContext)
+                        // Classify the new sender if unknown. AI auto-categorisation is deferred to
+                        // the next app launch (MainActivity) so background SMS never spend AI calls.
+                        SenderClassifyWorker.enqueue(applicationContext)
                     }
                     .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
             }

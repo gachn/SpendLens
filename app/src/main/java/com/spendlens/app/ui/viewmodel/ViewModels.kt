@@ -214,7 +214,7 @@ data class BillsUiState(
 
 // ---------- ViewModels ----------
 
-class DashboardViewModel(container: AppContainer) : ViewModel() {
+class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     private val repo = container.transactionRepository
     private val monthOptions = Dates.recentMonths(12)
     private val selectedMonth = MutableStateFlow(monthOptions.first())
@@ -269,6 +269,32 @@ class DashboardViewModel(container: AppContainer) : ViewModel() {
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState(monthOptions = monthOptions))
+
+    /**
+     * Generate a spending summary for the selected month.
+     * Returns natural language description of spending patterns.
+     */
+    suspend fun generateSpendingSummary(): String? {
+        val allTxns = repo.observeAll().first()
+        val cats = container.categoryRepository.all()
+        val metrics = com.spendlens.app.ai.SpendingSummaryGenerator.calculateMetrics(
+            allTxns,
+            cats,
+            daysBack = 30,
+        )
+        return metrics.takeIf { it.transactionCount > 0 }?.let {
+            com.spendlens.app.ai.SpendingSummaryGenerator.buildPrompt(it, cats, "this month")
+        }
+    }
+
+    /**
+     * Detect recurring transactions in the current data.
+     * Returns subscriptions and regular payments sorted by confidence.
+     */
+    suspend fun detectRecurringTransactions(): List<com.spendlens.app.ai.RecurringPattern> {
+        val allTxns = repo.observeAll().first()
+        return com.spendlens.app.ai.RecurringDetector.detectRecurring(allTxns, minOccurrences = 3)
+    }
 }
 
 @OptIn(FlowPreview::class)
@@ -288,6 +314,27 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun generatePrompt(smsList: List<RawSmsEntity>): String =
         com.spendlens.app.ai.PromptGenerator.generate(smsList)
+
+    /**
+     * Score a transaction for anomalies compared to user's baseline.
+     * Returns score info or null if not anomalous.
+     */
+    suspend fun scoreTransactionAnomaly(transactionId: Long): com.spendlens.app.ai.AnomalyScore? {
+        val txn = repo.getById(transactionId) ?: return null
+        val allTxns = repo.observeAll().first()
+        val cats = container.categoryRepository.all()
+        return com.spendlens.app.ai.AnomalyDetector.scoreAnomaly(txn, allTxns, cats)
+    }
+
+    /**
+     * Detect all anomalous transactions in user's data.
+     * Returns sorted by anomaly score (highest first).
+     */
+    suspend fun detectAnomalies(): List<com.spendlens.app.ai.AnomalyScore> {
+        val allTxns = repo.observeAll().first()
+        val cats = container.categoryRepository.all()
+        return com.spendlens.app.ai.AnomalyDetector.detectAnomalies(allTxns, cats)
+    }
 
     companion object {
         /** Sentinel category id meaning "transactions with no category" (txn.categoryId == null). */
@@ -696,6 +743,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setFinancialSendersOnly(enabled: Boolean) = container.settingsStore.setFinancialSendersOnly(enabled)
 
+    fun setMerchantPrediction(enabled: Boolean) = container.settingsStore.setMerchantPredictionEnabled(enabled)
+
     // ----- AI (OpenRouter) -----
 
     val aiPrefs: StateFlow<com.spendlens.app.data.prefs.AiPrefs> = container.aiConfigStore.prefsFlow
@@ -705,6 +754,19 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setAiModel(model: String) = container.aiConfigStore.setModel(model)
 
     fun setAiApiKey(key: String?) = container.aiConfigStore.setApiKey(key)
+
+    /** OpenRouter model slugs for autocompleting the Model field; empty until [loadAiModels] runs. */
+    private val _aiModels = MutableStateFlow<List<String>>(emptyList())
+    val aiModels: StateFlow<List<String>> = _aiModels.asStateFlow()
+
+    /** Fetch the model catalogue once (no-op if already loaded). Failures leave the list empty. */
+    fun loadAiModels() {
+        if (_aiModels.value.isNotEmpty()) return
+        viewModelScope.launch {
+            val models = container.openRouterClient.listModels(container.aiConfigStore.effectiveKey())
+            if (models.isNotEmpty()) _aiModels.value = models
+        }
+    }
 
     fun setPatternEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
         container.patternRepository.setEnabled(id, enabled)
@@ -734,6 +796,18 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
 
     fun reimport(context: android.content.Context) = SmsSyncWorker.enqueueImport(context)
+
+    /** True when AI is on with a usable key — gates the "auto-categorise" controls. */
+    fun aiUsable(): Boolean = container.aiConfigStore.isUsable()
+
+    /**
+     * User-requested AI re-categorisation. Clears the attempted flag on still-uncategorised rows so
+     * transactions the AI previously couldn't classify are reconsidered, then runs the categoriser.
+     */
+    fun recategorizeWithAi(context: android.content.Context) = viewModelScope.launch {
+        container.aiCategorizer.resetAttempts()
+        com.spendlens.app.work.AiCategorizeWorker.enqueueReplace(context)
+    }
 
     /** Clears parsed transactions, raw SMS and derived bills, leaving learned patterns/categories. */
     fun clearTransactions() = viewModelScope.launch {
@@ -984,6 +1058,28 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
             }
         }
         _predictState.value = PredictState.Done(updated)
+    }
+
+    /**
+     * Generate AI-based budget alerts for all categories.
+     * Shows current status and whether user is on track to exceed budget.
+     */
+    suspend fun generateBudgetAlerts(): List<com.spendlens.app.ai.BudgetAlert> {
+        val allTxns = container.transactionRepository.observeAll().first()
+        val categories = container.categoryRepository.all().associateBy { it.id }
+        val budgets = container.budgetRepository.all().associate { budget ->
+            val catName = categories[budget.categoryId]?.name ?: "Unknown"
+            budget.categoryId to (catName to budget.monthlyLimitMinor)
+        }
+        return com.spendlens.app.ai.BudgetPredictor.generateAllAlerts(budgets, allTxns)
+    }
+
+    /**
+     * Predict whether a category will exceed budget before month ends.
+     */
+    suspend fun predictCategoryBudgetStatus(categoryId: Long, categoryName: String, budgetMinor: Long): com.spendlens.app.ai.BudgetPrediction {
+        val allTxns = container.transactionRepository.observeAll().first()
+        return com.spendlens.app.ai.BudgetPredictor.predictBudgetStatus(categoryId, categoryName, budgetMinor, allTxns)
     }
 }
 
@@ -1270,6 +1366,16 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
     fun delete(id: Long, onDone: () -> Unit) = viewModelScope.launch {
         container.transactionRepository.delete(id)
         onDone()
+    }
+
+    /**
+     * Get category suggestions for a merchant name.
+     * Returns top 3 suggestions sorted by confidence, using local pattern matching.
+     */
+    suspend fun suggestCategoriesForMerchant(merchantName: String): List<com.spendlens.app.ai.CategorySuggestion> {
+        val recentTxns = container.transactionRepository.allTransactions().takeLast(100)
+        val cats = container.categoryRepository.all()
+        return com.spendlens.app.ai.ManualEntryCategorySuggester.suggestLocally(merchantName, recentTxns, cats)
     }
 
     companion object {

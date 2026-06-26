@@ -9,6 +9,7 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +41,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.SectionHeader
@@ -76,6 +83,7 @@ fun SettingsScreen(
     val security by vm.security.collectAsState()
     val smsFilter by vm.smsFilter.collectAsState()
     val ai by vm.aiPrefs.collectAsState()
+    val aiModels by vm.aiModels.collectAsState()
     val backupState by vm.backupState.collectAsState()
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
@@ -458,6 +466,32 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+
+                    HorizontalDivider()
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                "Predict merchant names",
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                "Look up unknown merchants against an online company directory to " +
+                                    "guess a brand name. Off by default — it can invent names with no " +
+                                    "reference in the SMS. Sends the merchant token off-device.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = smsFilter.merchantPredictionEnabled,
+                            onCheckedChange = { vm.setMerchantPrediction(it) },
+                        )
+                    }
                 }
             }
         }
@@ -488,18 +522,57 @@ fun SettingsScreen(
                     }
 
                     if (ai.enabled) {
+                        // Pull the catalogue once so the Model field can autocomplete slugs.
+                        LaunchedEffect(Unit) { vm.loadAiModels() }
+
                         var model by remember(ai.model) { mutableStateOf(ai.model) }
-                        OutlinedTextField(
-                            value = model,
-                            onValueChange = { model = it; vm.setAiModel(it) },
-                            singleLine = true,
-                            label = { Text("Model") },
-                            placeholder = { Text("provider/model-slug") },
-                            supportingText = {
-                                Text("Any OpenRouter model slug, e.g. openai/gpt-latest or a :free model.")
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        var modelExpanded by remember { mutableStateOf(false) }
+                        // Suggest slugs containing what the user typed; cap so the menu stays usable.
+                        val modelSuggestions by remember(model, aiModels) {
+                            derivedStateOf {
+                                val q = model.trim()
+                                aiModels.filter {
+                                    it.contains(q, ignoreCase = true) && !it.equals(q, ignoreCase = true)
+                                }.take(8)
+                            }
+                        }
+                        // Plain Box + DropdownMenu with focusable = false (same as MerchantSuggestField):
+                        // the suggestion overlay never steals the TextField's focus, so typing stays smooth.
+                        Box {
+                            OutlinedTextField(
+                                value = model,
+                                onValueChange = { model = it; vm.setAiModel(it); modelExpanded = true },
+                                singleLine = true,
+                                label = { Text("Model") },
+                                placeholder = { Text("provider/model-slug") },
+                                supportingText = {
+                                    Text(
+                                        if (aiModels.isEmpty()) {
+                                            "Any OpenRouter model slug, e.g. openai/gpt-latest or a :free model."
+                                        } else {
+                                            "Type to search ${aiModels.size} OpenRouter models, or enter any slug."
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            DropdownMenu(
+                                expanded = modelExpanded && modelSuggestions.isNotEmpty(),
+                                onDismissRequest = { modelExpanded = false },
+                                properties = PopupProperties(focusable = false),
+                            ) {
+                                modelSuggestions.forEach { slug ->
+                                    DropdownMenuItem(
+                                        text = { Text(slug) },
+                                        onClick = {
+                                            model = slug
+                                            vm.setAiModel(slug)
+                                            modelExpanded = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
 
                         var apiKey by remember { mutableStateOf("") }
                         OutlinedTextField(
@@ -533,6 +606,28 @@ fun SettingsScreen(
                                 }
                             }
                         }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Auto-categorise with AI", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "AI assigns a category to transactions no keyword rule could classify. " +
+                                    "Runs automatically after SMS are parsed; each transaction is tried once. " +
+                                    "Tap to re-run over everything still uncategorised. Sends only merchant names.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                vm.recategorizeWithAi(context)
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Auto-categorising uncategorised transactions…",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Auto-categorise now") }
                     }
                 }
             }

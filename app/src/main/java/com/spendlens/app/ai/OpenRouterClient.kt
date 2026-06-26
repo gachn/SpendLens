@@ -87,6 +87,34 @@ class OpenRouterClient {
         }
     }
 
+    /**
+     * Fetch the slugs of every model OpenRouter currently fronts, for model-field autocomplete.
+     * The `/models` catalogue is public, so [apiKey] is optional (sent only for attribution when
+     * present). Never throws; any failure maps to an empty list.
+     */
+    suspend fun listModels(apiKey: String? = null): List<String> = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            conn = (URL(OpenRouter.MODELS_URL).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                setRequestProperty("Accept", "application/json")
+                apiKey?.takeIf { it.isNotBlank() }?.let { setRequestProperty("Authorization", "Bearer $it") }
+                setRequestProperty("HTTP-Referer", "https://spendlens.app")
+                setRequestProperty("X-Title", "SpendLens")
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) return@withContext emptyList()
+            val text = conn.inputStream?.bufferedReader()?.use { it.readText() }
+            OpenRouter.parseModels(text)
+        } catch (_: Exception) {
+            emptyList()
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
     private fun OpenRouterErrorMessage(body: String?): String? {
         if (body.isNullOrBlank()) return null
         return try {

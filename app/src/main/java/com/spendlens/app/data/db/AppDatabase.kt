@@ -26,8 +26,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         CardBillEntity::class,
         TransactionSplitEntity::class,
         SavingsGoalEntity::class,
+        SenderClassificationEntity::class,
     ],
-    version = 13,
+    version = 15,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -41,6 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cardBillDao(): CardBillDao
     abstract fun transactionSplitDao(): TransactionSplitDao
     abstract fun savingsGoalDao(): SavingsGoalDao
+    abstract fun senderClassificationDao(): SenderClassificationDao
 
     companion object {
         private const val DB_NAME = "spendlens.db"
@@ -220,6 +222,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v13 → v14: add the aiCategorizeAttempted flag — guards the AI auto-categoriser so an
+         * uncategorised transaction the AI couldn't classify is not re-sent on every sync. Additive.
+         */
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN aiCategorizeAttempted INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+
+        /**
+         * v14 → v15: add the sender_classifications cache so SMS senders are classified as
+         * financial or non-financial once (via static filter or AI) and the result is reused on
+         * every subsequent SMS from that sender, avoiding repeat AI calls.
+         */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS sender_classifications (" +
+                        "sender TEXT NOT NULL PRIMARY KEY, " +
+                        "isFinancial INTEGER NOT NULL, " +
+                        "source TEXT NOT NULL, " +
+                        "classifiedAt INTEGER NOT NULL)",
+                )
+            }
+        }
+
         fun create(context: Context, keyManager: DatabaseKeyManager): AppDatabase {
             // Load SQLCipher native libs. The SupportOpenHelperFactory also triggers this;
             // guarded so a double-load (or already-linked lib) can't crash startup.
@@ -230,7 +261,7 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                     MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                    MIGRATION_12_13,
+                    MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                 )
                 .fallbackToDestructiveMigration() // safety net for older dev builds
                 .build()

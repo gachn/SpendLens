@@ -48,6 +48,14 @@ interface RawSmsDao {
     @Query("SELECT COUNT(*) FROM raw_sms")
     suspend fun count(): Int
 
+    /** Mark every SMS from [sender] as IGNORED — called when AI classifies sender as non-financial. */
+    @Query("UPDATE raw_sms SET status = 'IGNORED', patternId = NULL WHERE sender = :sender AND status != 'IGNORED'")
+    suspend fun ignoreAllForSender(sender: String)
+
+    /** All IGNORED SMS from [sender] — used to re-process if AI later classifies sender as financial. */
+    @Query("SELECT * FROM raw_sms WHERE sender = :sender AND status = 'IGNORED'")
+    suspend fun listIgnoredForSender(sender: String): List<RawSmsEntity>
+
     @Query("DELETE FROM raw_sms")
     suspend fun clear()
 }
@@ -195,6 +203,31 @@ interface TransactionDao {
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE counterparty = :name")
     suspend fun setCategoryForCounterparty(name: String, categoryId: Long?)
 
+    // ── AI auto-categorisation (uncategorised fallback) ──────────────────────────
+
+    /**
+     * Transactions the AI auto-categoriser should consider: no category yet, not already attempted,
+     * and not a noise row (duplicate / split parent). Newest first so a partial run still helps the
+     * rows the user is most likely looking at.
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE categoryId IS NULL AND aiCategorizeAttempted = 0 " +
+            "AND isDuplicate = 0 AND isSplit = 0 ORDER BY occurredAt DESC",
+    )
+    suspend fun listForAiCategorize(): List<TransactionEntity>
+
+    /** Assign [categoryId] and mark attempted in one write — the AI classified this row. */
+    @Query("UPDATE transactions SET categoryId = :categoryId, aiCategorizeAttempted = 1 WHERE id = :id")
+    suspend fun setCategoryAndAiAttempted(id: Long, categoryId: Long)
+
+    /** Mark these rows attempted without changing the category — the AI couldn't classify them. */
+    @Query("UPDATE transactions SET aiCategorizeAttempted = 1 WHERE id IN (:ids)")
+    suspend fun markAiCategorizeAttempted(ids: List<Long>)
+
+    /** Clear the attempted flag on still-uncategorised rows so a user-requested re-run reconsiders them. */
+    @Query("UPDATE transactions SET aiCategorizeAttempted = 0 WHERE categoryId IS NULL")
+    suspend fun resetAiCategorizeAttempted(): Int
+
     @Query("UPDATE transactions SET tags = :tags WHERE counterparty = :name")
     suspend fun setTagsForCounterparty(name: String, tags: String?)
 
@@ -235,6 +268,10 @@ interface TransactionDao {
             "AND direction = 'CREDIT' AND isDuplicate = 0",
     )
     suspend fun countIncomeTransactions(counterparty: String, incomeCategoryId: Long): Int
+
+    /** Delete all transactions whose source SMS came from [sender] — cleanup for non-financial senders. */
+    @Query("DELETE FROM transactions WHERE rawSmsId IN (SELECT id FROM raw_sms WHERE sender = :sender)")
+    suspend fun deleteAllForSender(sender: String)
 
     @Query("DELETE FROM transactions")
     suspend fun clear()
@@ -450,5 +487,26 @@ interface CardBillDao {
     fun observeAll(): Flow<List<CardBillEntity>>
 
     @Query("DELETE FROM card_bills")
+    suspend fun clear()
+}
+
+@Dao
+interface SenderClassificationDao {
+    /** Insert only if sender not already classified (first classification wins). */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entry: SenderClassificationEntity)
+
+    @Query("SELECT * FROM sender_classifications WHERE sender = :sender")
+    suspend fun get(sender: String): SenderClassificationEntity?
+
+    /** Distinct senders in raw_sms that have no classification entry yet — AI batch candidates. */
+    @Query("SELECT DISTINCT sender FROM raw_sms WHERE sender NOT IN (SELECT sender FROM sender_classifications)")
+    suspend fun unclassifiedSenders(): List<String>
+
+    /** Senders the AI labelled non-financial — used to enumerate cleanup targets. */
+    @Query("SELECT sender FROM sender_classifications WHERE isFinancial = 0")
+    suspend fun nonFinancialSenders(): List<String>
+
+    @Query("DELETE FROM sender_classifications")
     suspend fun clear()
 }

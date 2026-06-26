@@ -16,6 +16,9 @@ object OpenRouter {
 
     const val BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+    /** Public catalogue of every model OpenRouter fronts; used to autocomplete the model slug. */
+    const val MODELS_URL = "https://openrouter.ai/api/v1/models"
+
     /** Build the chat-completions request body for [model] with a single user [prompt]. */
     fun buildRequestBody(model: String, prompt: String): String {
         val message = JSONObject()
@@ -43,6 +46,24 @@ object OpenRouter {
             message.optString("content").takeIf { it.isNotBlank() }
         } catch (_: JSONException) {
             null
+        }
+    }
+
+    /**
+     * Extract the model slugs (the `id` field of each entry in `data`) from a `/models` response,
+     * sorted for stable autocomplete order. Returns an empty list if the payload is missing /
+     * malformed. Never throws.
+     */
+    fun parseModels(responseJson: String?): List<String> {
+        if (responseJson.isNullOrBlank()) return emptyList()
+        return try {
+            val data = JSONObject(responseJson).optJSONArray("data") ?: return emptyList()
+            (0 until data.length())
+                .mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
+                .distinct()
+                .sorted()
+        } catch (_: JSONException) {
+            emptyList()
         }
     }
 }

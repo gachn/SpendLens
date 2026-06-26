@@ -9,6 +9,9 @@ import com.spendlens.app.data.db.CardBillEntity
 import com.spendlens.app.data.db.RawSmsDao
 import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.data.db.RawStatus
+import com.spendlens.app.data.db.SenderClassificationDao
+import com.spendlens.app.data.db.SenderClassificationEntity
+import com.spendlens.app.data.db.SenderSource
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.fx.FxRepository
@@ -57,14 +60,15 @@ class SmsProcessor(
     private val fxRepo: FxRepository,
     private val cardBillDao: CardBillDao,
     private val generator: PatternGenerator,
+    private val senderClassificationDao: SenderClassificationDao,
     private val engine: PatternEngine = PatternEngine(),
     /**
-     * Supplier evaluated on every [process] call. When it returns `true` only SMS from
-     * senders recognised by [FinancialSenderFilter] are processed; all others are IGNORED.
-     * Defaults to `false` (filter disabled) so callers that don't wire the setting still
-     * behave as before.
+     * When true, SMS from senders not yet in the classification DB and not matching the
+     * built-in static list are IGNORED immediately. They will be re-evaluated once
+     * [com.spendlens.app.work.SenderClassifyWorker] runs and may be recovered if the AI
+     * confirms the sender is financial. Defaults to true.
      */
-    private val financialSendersOnly: () -> Boolean = { false },
+    private val financialSendersOnly: () -> Boolean = { true },
 ) {
 
     private val _progress = MutableStateFlow(SmsProcessingProgress())
@@ -89,11 +93,31 @@ class SmsProcessor(
         // as a transaction below.
         captureCardBill(rawId, msg)
 
-        // When "Financial senders only" is enabled in Settings, reject SMS from senders that
-        // are not recognised banks or financial-service institutions before any content parsing.
-        if (financialSendersOnly() && !FinancialSenderFilter.isFinancialSender(msg)) {
-            rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
-            return null
+        // Sender classification gate — always checked, never skipped.
+        //  • Known non-financial (DB): IGNORE immediately.
+        //  • Known financial (DB): pass through.
+        //  • Unknown, matches static list: save as STATIC financial and pass.
+        //  • Unknown, not in static list: if financialSendersOnly=true → IGNORE (SenderClassifyWorker
+        //    will classify via AI and recover the SMS if the sender turns out to be financial);
+        //    otherwise pass through permissively.
+        val senderClass = senderClassificationDao.get(msg.sender)
+        when {
+            senderClass?.isFinancial == false -> {
+                rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
+                return null
+            }
+            senderClass == null -> {
+                val knownFinancial = FinancialSenderFilter.isFinancialSender(msg)
+                if (knownFinancial) {
+                    senderClassificationDao.insertIgnore(
+                        SenderClassificationEntity(msg.sender, true, SenderSource.STATIC, System.currentTimeMillis()),
+                    )
+                } else if (financialSendersOnly()) {
+                    rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
+                    return null
+                }
+            }
+            // senderClass.isFinancial == true → fall through
         }
 
         if (!FinancialSmsFilter.isFinancial(msg)) {
@@ -316,6 +340,34 @@ class SmsProcessor(
     }
 
 
+
+    /**
+     * Re-run the full pipeline (body filter → pattern match → persist) for IGNORED raw SMS whose
+     * senders were just confirmed as financial by the AI classifier. Skips the sender-classification
+     * gate (the caller has already saved them as financial). Returns the count of rows recovered.
+     */
+    suspend fun reprocessIgnoredForSenders(senderNames: List<String>): Int = withContext(Dispatchers.IO) {
+        val patterns = patternRepo.compiled()
+        var recovered = 0
+        for (senderName in senderNames) {
+            for (raw in rawDao.listIgnoredForSender(senderName)) {
+                val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+                if (!FinancialSmsFilter.isFinancial(msg)) continue
+                val result = engine.match(msg, patterns)
+                if (result != null) {
+                    result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    persistTransaction(raw.id, msg, result)
+                    rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
+                    recovered++
+                } else {
+                    rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
+                    recovered++
+                }
+            }
+        }
+        return@withContext recovered
+    }
 
     /** Parse a credit-card statement, if this SMS is one, keeping only the most recent per card. */
     private suspend fun captureCardBill(rawId: Long, msg: SmsMessage) {

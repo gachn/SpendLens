@@ -73,6 +73,13 @@ class AiConfigStore(context: Context) {
 
     private fun overrideKey(): String? = securePrefs.getString(KEY_API_KEY, null)
 
+    /** Epoch millis of the last auto-categorise AI call attempt — backs the per-minute throttle. */
+    fun lastAutoCategorizeAt(): Long = prefs.getLong(KEY_LAST_AUTO_CATEGORIZE, 0L)
+
+    fun setLastAutoCategorizeAt(at: Long) {
+        prefs.edit().putLong(KEY_LAST_AUTO_CATEGORIZE, at).apply()
+    }
+
     fun setEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
         _prefs.value = _prefs.value.copy(enabled = enabled)
@@ -97,5 +104,6 @@ class AiConfigStore(context: Context) {
         const val KEY_ENABLED = "ai_enabled"
         const val KEY_MODEL = "ai_model"
         const val KEY_API_KEY = "ai_api_key"
+        const val KEY_LAST_AUTO_CATEGORIZE = "ai_last_auto_categorize_at"
     }
 }

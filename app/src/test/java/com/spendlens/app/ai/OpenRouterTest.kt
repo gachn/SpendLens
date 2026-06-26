@@ -3,6 +3,7 @@ package com.spendlens.app.ai
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Unit tests for [OpenRouter] request building and response parsing. */
@@ -48,5 +49,22 @@ class OpenRouterTest {
         assertNull(OpenRouter.parseContent("not json"))
         assertNull(OpenRouter.parseContent(""))
         assertNull(OpenRouter.parseContent(null))
+    }
+
+    @Test fun `parseModels extracts sorted distinct slugs from data ids`() {
+        val resp = """{"data":[{"id":"openai/gpt-latest"},{"id":"deepseek/chat:free"},{"id":"openai/gpt-latest"}]}"""
+        assertEquals(listOf("deepseek/chat:free", "openai/gpt-latest"), OpenRouter.parseModels(resp))
+    }
+
+    @Test fun `parseModels skips blank ids`() {
+        val resp = """{"data":[{"id":""},{"id":"a/b"},{"name":"no id here"}]}"""
+        assertEquals(listOf("a/b"), OpenRouter.parseModels(resp))
+    }
+
+    @Test fun `parseModels returns empty for malformed or missing data`() {
+        assertTrue(OpenRouter.parseModels("not json").isEmpty())
+        assertTrue(OpenRouter.parseModels("""{"foo":1}""").isEmpty())
+        assertTrue(OpenRouter.parseModels("").isEmpty())
+        assertTrue(OpenRouter.parseModels(null).isEmpty())
     }
 }

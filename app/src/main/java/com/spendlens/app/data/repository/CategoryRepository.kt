@@ -31,6 +31,17 @@ class CategoryRepository(private val dao: CategoryDao) {
         )
     }
 
+    /**
+     * Remember an AI-suggested merchant→category mapping as a rule so future transactions from the
+     * same merchant categorise offline (no repeat AI call). Inserted with IGNORE on conflict, so a
+     * pre-existing rule for this matcher (BUILTIN or USER) always wins.
+     */
+    suspend fun addAiRule(matcher: String, categoryId: Long) {
+        dao.insertRule(
+            CategoryRuleEntity(matcher = matcher.lowercase().trim(), categoryId = categoryId, source = "AI"),
+        )
+    }
+
     /** Create a user category; returns its new id. */
     suspend fun createCategory(name: String, icon: String, color: Long): Long =
         dao.insertCategory(CategoryEntity(name = name.trim(), icon = icon, color = color))

@@ -51,6 +51,7 @@ class TransactionRepository(
     suspend fun update(txn: TransactionEntity) = dao.update(txn)
     suspend fun delete(id: Long) = dao.delete(id)
     suspend fun deleteByRawSmsId(rawSmsId: Long) = dao.deleteByRawSmsId(rawSmsId)
+    suspend fun deleteAllForSender(sender: String) = dao.deleteAllForSender(sender)
     suspend fun getByRawSmsId(rawSmsId: Long): TransactionEntity? = dao.getByRawSmsId(rawSmsId)
 
     /**
@@ -134,6 +135,18 @@ class TransactionRepository(
 
     suspend fun setCategoryForCounterparty(name: String, categoryId: Long?) =
         dao.setCategoryForCounterparty(name, categoryId)
+
+    // ── AI auto-categorisation (uncategorised fallback) ──────────────────────────
+
+    suspend fun listForAiCategorize(): List<TransactionEntity> = dao.listForAiCategorize()
+
+    suspend fun setCategoryAndAiAttempted(id: Long, categoryId: Long) =
+        dao.setCategoryAndAiAttempted(id, categoryId)
+
+    suspend fun markAiCategorizeAttempted(ids: List<Long>) = dao.markAiCategorizeAttempted(ids)
+
+    /** Clear the AI-attempted flag on still-uncategorised rows; returns how many were reset. */
+    suspend fun resetAiCategorizeAttempted(): Int = dao.resetAiCategorizeAttempted()
 
     suspend fun setTagsForCounterparty(name: String, tags: String?) =
         dao.setTagsForCounterparty(name, tags)

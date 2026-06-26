@@ -79,6 +79,13 @@ data class TransactionEntity(
      * children are counted instead), but still appears in lists and account/spend totals.
      */
     val isSplit: Boolean = false,
+    /**
+     * True once this transaction has been run through the AI auto-categoriser (see
+     * [com.spendlens.app.ai.AiCategorizer]). Set whether or not the AI managed to assign a
+     * category, so an SMS the AI couldn't classify is not sent off-device again on every sync.
+     * Cleared in bulk only when the user explicitly asks for a re-run.
+     */
+    val aiCategorizeAttempted: Boolean = false,
 )
 
 /**
@@ -172,6 +179,25 @@ data class BudgetEntity(
     /** When set, unspent budget from the previous month is carried into this month's effective limit. */
     val rolloverEnabled: Boolean = false,
 )
+
+/**
+ * Cached result of AI or static-filter sender classification.
+ * Keyed by raw sender address (e.g. "VK-HDFCBK"). Both financial and non-financial senders are
+ * stored so we never repeat an AI call for a known sender.
+ */
+@Entity(tableName = "sender_classifications")
+data class SenderClassificationEntity(
+    @PrimaryKey val sender: String,
+    /** True = bank / payment / NBFC that sends transaction alerts; false = marketing / govt / info. */
+    val isFinancial: Boolean,
+    val source: String,        // SenderSource.STATIC | SenderSource.AI
+    val classifiedAt: Long,
+)
+
+object SenderSource {
+    const val STATIC = "STATIC"   // matched the built-in FinancialSenderFilter list
+    const val AI = "AI"           // classified by the language model
+}
 
 /**
  * A user savings goal (issue #12) — e.g. a vacation or emergency fund. SpendLens never moves money;

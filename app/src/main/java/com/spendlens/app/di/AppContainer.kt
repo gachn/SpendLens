@@ -2,9 +2,11 @@ package com.spendlens.app.di
 
 import android.content.Context
 import com.spendlens.app.ai.HeuristicPatternGenerator
+import com.spendlens.app.ai.GatedMerchantResolver
 import com.spendlens.app.ai.MerchantResolver
 import com.spendlens.app.ai.OpenRouterClient
 import com.spendlens.app.ai.PatternGenerator
+import com.spendlens.app.ai.SenderClassifier
 import com.spendlens.app.ai.WebMerchantResolver
 import com.spendlens.app.data.prefs.AiConfigStore
 import com.spendlens.app.data.ReceiptStore
@@ -58,6 +60,10 @@ class AppContainer(context: Context) {
     val backupManager by lazy { com.spendlens.app.data.backup.BackupManager(database) }
     val rawSmsDao get() = database.rawSmsDao()
     val cardBillDao get() = database.cardBillDao()
+    val senderClassificationDao get() = database.senderClassificationDao()
+
+    /** AI-backed sender classifier — classifies SMS senders as financial or non-financial. */
+    val senderClassifier by lazy { SenderClassifier(openRouterClient, aiConfigStore) }
 
     /** Encrypted on-device store for receipt images attached to transactions. */
     val receiptStore by lazy { ReceiptStore(appContext) }
@@ -65,8 +71,15 @@ class AppContainer(context: Context) {
     /** On-device, no-network heuristic pattern learner for unrecognised SMS formats. */
     val patternGenerator: PatternGenerator by lazy { HeuristicPatternGenerator() }
 
-    /** Merchant-name resolver. Web-backed (Clearbit) per the user's choice; cached as metadata. */
-    val merchantResolver: MerchantResolver = WebMerchantResolver()
+    /**
+     * Merchant-name resolver. The web-backed (Clearbit) resolver is gated behind the
+     * "Predict merchant names" Settings toggle (off by default) because its company autocomplete
+     * guessed brands with no reference in the SMS (e.g. "gaurav" → "Gaurav Photography"). When the
+     * toggle is off the resolver is a no-op: the bundled [com.spendlens.app.data.MerchantDictionary]
+     * still resolves popular brands and unknown merchants keep their normalized display name.
+     */
+    val merchantResolver: MerchantResolver =
+        GatedMerchantResolver(WebMerchantResolver(), settingsStore::merchantPredictionEnabled)
     val merchantRepository by lazy { MerchantRepository(database.merchantDao(), merchantResolver) }
 
     /** FX rates for converting foreign-currency spend into the base currency (INR). */
@@ -83,11 +96,15 @@ class AppContainer(context: Context) {
             fxRepo = fxRepository,
             cardBillDao = cardBillDao,
             generator = patternGenerator,
+            senderClassificationDao = senderClassificationDao,
             financialSendersOnly = settingsStore::financialSendersOnly,
         )
     }
 
     val smsImporter: SmsImporter by lazy { SmsImporter(appContext, smsProcessor) }
+
+    /** AI fallback that categorises transactions no keyword rule could classify. */
+    val aiCategorizer: com.spendlens.app.ai.AiCategorizer by lazy { com.spendlens.app.ai.AiCategorizer(this) }
 
     /** Seeds built-in patterns and categories. Safe to call repeatedly. */
     suspend fun seed() {

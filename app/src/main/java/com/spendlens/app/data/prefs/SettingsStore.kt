@@ -30,11 +30,17 @@ data class SecurityPrefs(
 /** SMS-parsing choices, surfaced in Settings → SMS Filtering. */
 data class SmsFilterPrefs(
     /**
-     * When true only SMS from recognised bank / financial-service DLT senders are processed
-     * as transactions. Messages from unknown senders (promotions, OTPs, etc.) are IGNORED
-     * before any content parsing runs.
+     * When true (default), only SMS from recognised financial-institution senders are processed.
+     * Unknown senders are IGNORED pending AI classification by [SenderClassifyWorker]; once
+     * confirmed financial they are recovered. Set false only to permit all senders (debug mode).
      */
-    val financialSendersOnly: Boolean = false,
+    val financialSendersOnly: Boolean = true,
+    /**
+     * When true, unknown merchant tokens are looked up against an online company directory
+     * (Clearbit) to predict a canonical brand name. Off by default: the autocomplete guesses
+     * brands with no reference in the SMS (e.g. "gaurav" → "Gaurav Photography").
+     */
+    val merchantPredictionEnabled: Boolean = false,
 )
 
 /**
@@ -72,7 +78,8 @@ class SettingsStore(context: Context) {
     )
 
     private fun loadSmsFilter(): SmsFilterPrefs = SmsFilterPrefs(
-        financialSendersOnly = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, false),
+        financialSendersOnly = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, true),
+        merchantPredictionEnabled = prefs.getBoolean(KEY_MERCHANT_PREDICTION, false),
     )
 
     /** Synchronous read for app-launch gating (before any flow is collected). */
@@ -80,7 +87,10 @@ class SettingsStore(context: Context) {
     fun gracePeriodSec(): Int = prefs.getInt(KEY_GRACE_SEC, 30)
 
     /** Synchronous read used by [SmsProcessor] on the IO thread during SMS processing. */
-    fun financialSendersOnly(): Boolean = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, false)
+    fun financialSendersOnly(): Boolean = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, true)
+
+    /** Synchronous read used by the gated merchant resolver on the IO thread. */
+    fun merchantPredictionEnabled(): Boolean = prefs.getBoolean(KEY_MERCHANT_PREDICTION, false)
 
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
@@ -107,6 +117,11 @@ class SettingsStore(context: Context) {
         _smsFilter.value = _smsFilter.value.copy(financialSendersOnly = enabled)
     }
 
+    fun setMerchantPredictionEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MERCHANT_PREDICTION, enabled).apply()
+        _smsFilter.value = _smsFilter.value.copy(merchantPredictionEnabled = enabled)
+    }
+
     // Backup tracking (issue #13) — drives the "last backup" label and the 30-day reminder.
     private val _lastBackupAt = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L })
     val lastBackupAt: StateFlow<Long?> = _lastBackupAt.asStateFlow()
@@ -126,5 +141,6 @@ class SettingsStore(context: Context) {
         const val KEY_GRACE_SEC = "app_lock_grace_sec"
         const val KEY_LAST_BACKUP = "last_backup_at"
         const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
+        const val KEY_MERCHANT_PREDICTION = "merchant_prediction_enabled"
     }
 }
