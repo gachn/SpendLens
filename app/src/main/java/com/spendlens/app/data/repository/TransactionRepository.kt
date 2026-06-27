@@ -1,6 +1,7 @@
 package com.spendlens.app.data.repository
 
 import com.spendlens.app.data.db.AccountBalance
+import com.spendlens.app.data.db.AccountSender
 import com.spendlens.app.data.db.CategoryTotal
 import com.spendlens.app.data.db.MerchantTotal
 import com.spendlens.app.data.db.TransactionChannel
@@ -40,6 +41,8 @@ class TransactionRepository(
         dao.observeByCounterparty(name)
 
     fun observeAccountBalances(): Flow<List<AccountBalance>> = dao.observeAccountBalances()
+
+    suspend fun topSenderPerAccount(): List<AccountSender> = dao.topSenderPerAccount()
 
     suspend fun allDebits(): List<TransactionEntity> = dao.allDebits()
 

@@ -3,6 +3,9 @@ package com.spendlens.app.ai
 import com.spendlens.app.di.AppContainer
 import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -24,6 +27,10 @@ class AiCategorizer(private val container: AppContainer) {
 
     /** Outcome of one [run] pass. [throttled] means the per-minute auto-run gate skipped the call. */
     data class Outcome(val categorized: Int, val attempted: Int, val throttled: Boolean = false)
+
+    /** True while an off-device categorisation call is in flight — drives the UI "analysing" banner. */
+    private val _running = MutableStateFlow(false)
+    val running: StateFlow<Boolean> = _running.asStateFlow()
 
     /** True when the AI flag is on and a usable key exists. */
     fun aiUsable(): Boolean = container.aiConfigStore.isUsable()
@@ -93,45 +100,50 @@ class AiCategorizer(private val container: AppContainer) {
         // failures can't hammer the endpoint faster than the interval.
         store.setLastAutoCategorizeAt(System.currentTimeMillis())
 
-        val content = when (
-            val r = container.openRouterClient.complete(key, store.effectiveModel(), prompt, "auto_categorize")
-        ) {
-            is OpenRouterClient.Result.Failure -> {
-                // Don't mark attempted on a transient failure — let a later pass retry.
-                return@withContext Outcome(0, 0)
-            }
-            is OpenRouterClient.Result.Success -> r.content
-        }
-
-        val assignments = CategorySuggester.parse(content, validIds)
-        // Case-insensitive lookup so a minor casing drift in the model's echo still matches.
-        val byMerchant = assignments.associateBy { it.merchant.lowercase() }
-
-        var categorized = 0
-        val attemptedOnly = mutableListOf<Long>()
-        val rulesAdded = mutableSetOf<String>()
-
-        for (txn in batch) {
-            val assignment = byMerchant[txn.counterparty.lowercase()]
-            if (assignment != null) {
-                container.transactionRepository.setCategoryAndAiAttempted(txn.id, assignment.categoryId)
-                categorized++
-                if (rulesAdded.add(txn.counterparty.lowercase())) {
-                    container.categoryRepository.addAiRule(txn.counterparty, assignment.categoryId)
+        _running.value = true
+        try {
+            val content = when (
+                val r = container.openRouterClient.complete(key, store.effectiveModel(), prompt, "auto_categorize")
+            ) {
+                is OpenRouterClient.Result.Failure -> {
+                    // Don't mark attempted on a transient failure — let a later pass retry.
+                    return@withContext Outcome(0, 0)
                 }
-            } else {
-                attemptedOnly += txn.id
+                is OpenRouterClient.Result.Success -> r.content
             }
-        }
-        if (attemptedOnly.isNotEmpty()) {
-            container.transactionRepository.markAiCategorizeAttempted(attemptedOnly)
-        }
 
-        AppLog.aiApplied(
-            "auto_categorize",
-            "categorized=$categorized attempted=${batch.size} merchants=${merchants.size} rules=${rulesAdded.size}",
-        )
-        return@withContext Outcome(categorized, batch.size)
+            val assignments = CategorySuggester.parse(content, validIds)
+            // Case-insensitive lookup so a minor casing drift in the model's echo still matches.
+            val byMerchant = assignments.associateBy { it.merchant.lowercase() }
+
+            var categorized = 0
+            val attemptedOnly = mutableListOf<Long>()
+            val rulesAdded = mutableSetOf<String>()
+
+            for (txn in batch) {
+                val assignment = byMerchant[txn.counterparty.lowercase()]
+                if (assignment != null) {
+                    container.transactionRepository.setCategoryAndAiAttempted(txn.id, assignment.categoryId)
+                    categorized++
+                    if (rulesAdded.add(txn.counterparty.lowercase())) {
+                        container.categoryRepository.addAiRule(txn.counterparty, assignment.categoryId)
+                    }
+                } else {
+                    attemptedOnly += txn.id
+                }
+            }
+            if (attemptedOnly.isNotEmpty()) {
+                container.transactionRepository.markAiCategorizeAttempted(attemptedOnly)
+            }
+
+            AppLog.aiApplied(
+                "auto_categorize",
+                "categorized=$categorized attempted=${batch.size} merchants=${merchants.size} rules=${rulesAdded.size}",
+            )
+            return@withContext Outcome(categorized, batch.size)
+        } finally {
+            _running.value = false
+        }
     }
 
     /**

@@ -15,6 +15,9 @@ data class MerchantTotal(val counterparty: String, val total: Long, val txns: In
 /** Latest known balance for an account, for the Accounts overview. */
 data class AccountBalance(val accountKey: String, val balanceMinor: Long, val updatedAt: Long)
 
+/** Most common SMS sender address for each accountKey — used for bank brand detection. */
+data class AccountSender(val accountKey: String, val sender: String)
+
 @Dao
 interface RawSmsDao {
     /** Insert ignoring duplicates (unique contentHash). Returns rowId, or -1 if already present. */
@@ -243,6 +246,18 @@ interface TransactionDao {
             "GROUP BY accountKey ORDER BY updatedAt DESC",
     )
     fun observeAccountBalances(): Flow<List<AccountBalance>>
+
+    /**
+     * Returns one sender address per accountKey (the most frequent one wins via COUNT DESC).
+     * Used to extract bank brand from telecom sender codes like "VK-HDFCBK".
+     */
+    @Query(
+        "SELECT t.accountKey AS accountKey, r.sender AS sender " +
+            "FROM transactions t INNER JOIN raw_sms r ON r.id = t.rawSmsId " +
+            "WHERE t.rawSmsId IS NOT NULL AND t.isDuplicate = 0 " +
+            "GROUP BY t.accountKey, r.sender ORDER BY t.accountKey, COUNT(*) DESC",
+    )
+    suspend fun topSenderPerAccount(): List<AccountSender>
 
     /** All non-duplicate debits, oldest first — used by recurring-bill detection. */
     @Query(
@@ -487,6 +502,18 @@ interface CardBillDao {
     fun observeAll(): Flow<List<CardBillEntity>>
 
     @Query("DELETE FROM card_bills")
+    suspend fun clear()
+}
+
+@Dao
+interface PromotionalExclusionDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(entity: PromotionalExclusionEntity): Long
+
+    @Query("SELECT * FROM promotional_exclusions ORDER BY createdAt DESC")
+    suspend fun getAll(): List<PromotionalExclusionEntity>
+
+    @Query("DELETE FROM promotional_exclusions")
     suspend fun clear()
 }
 

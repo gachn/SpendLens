@@ -18,6 +18,7 @@ import com.spendlens.app.data.repository.BudgetRepository
 import com.spendlens.app.data.repository.BillRepository
 import com.spendlens.app.data.prefs.AppearancePrefs
 import com.spendlens.app.data.prefs.ThemeMode
+import com.spendlens.app.ui.theme.BankBranding
 import com.spendlens.app.di.AppContainer
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -459,6 +460,12 @@ data class AccountSummary(
     val billTotalDueMinor: Long? = null,
     val billMinDueMinor: Long? = null,
     val billDueDate: Long? = null,
+    /** SMS sender address for the most common sender on this account, e.g. "VK-HDFCBK". */
+    val topSender: String? = null,
+    /** Human-readable bank name auto-detected from [topSender], e.g. "Axis Bank". */
+    val detectedBankName: String? = null,
+    /** User-set display name overriding the raw accountKey in the UI. */
+    val customName: String? = null,
 ) {
     /** Active in the selected month, or a card carrying an outstanding bill. */
     val hasActivity: Boolean get() = txnCount > 0 || billTotalDueMinor != null
@@ -472,23 +479,46 @@ data class AccountsUiState(
     val months: List<YearMonth> = emptyList(),
 )
 
-class AccountsViewModel(container: AppContainer) : ViewModel() {
+class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     private val repo = container.transactionRepository
     private val monthOptions = Dates.recentMonths(12)
     private val selectedMonth = MutableStateFlow(monthOptions.first())
 
+    // Top SMS sender per accountKey — loaded once; stable (bank doesn't change per account).
+    private val _senders = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    init {
+        viewModelScope.launch {
+            _senders.value = repo.topSenderPerAccount()
+                .distinctBy { it.accountKey }
+                .associate { it.accountKey to it.sender }
+        }
+    }
+
     fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
+
+    fun setAccountName(accountKey: String, name: String?) =
+        container.settingsStore.setAccountName(accountKey, name)
 
     val state: StateFlow<AccountsUiState> = combine(
         repo.observeAll(),
         repo.observeAccountBalances(),
         container.categoryRepository.observeCategories(),
-        container.cardBillDao.observeAll(),
-        selectedMonth,
-    ) { txns, balances, cats, bills, month ->
-        val (start, end) = Dates.monthRange(month)
+        combine(
+            container.cardBillDao.observeAll(),
+            selectedMonth,
+            _senders,
+            container.settingsStore.accountNames,
+        ) { bills, month, senders, names ->
+            object {
+                val bills = bills; val month = month
+                val senders = senders; val names = names
+            }
+        },
+    ) { txns, balances, cats, bag ->
+        val (start, end) = Dates.monthRange(bag.month)
         val balanceByKey = balances.associateBy { it.accountKey }
-        val billByCard = bills.associateBy { it.cardKey }
+        val billByCard = bag.bills.associateBy { it.cardKey }
         // Group across all history so every account stays visible; scope totals to the month.
         val summaries = txns
             .filter { !it.isDuplicate }
@@ -515,6 +545,9 @@ class AccountsViewModel(container: AppContainer) : ViewModel() {
                     billTotalDueMinor = bill?.totalDueMinor,
                     billMinDueMinor = bill?.minDueMinor,
                     billDueDate = bill?.dueDate,
+                    topSender = bag.senders[key],
+                    detectedBankName = BankBranding.detectedBankName(bag.senders[key]),
+                    customName = bag.names[key],
                 )
             }
             .sortedByDescending { it.lastActivityAt }
@@ -522,7 +555,7 @@ class AccountsViewModel(container: AppContainer) : ViewModel() {
             bankAccounts = summaries.filter { !it.isCard },
             cards = summaries.filter { it.isCard },
             categories = cats.associateBy { it.id },
-            selectedMonth = month,
+            selectedMonth = bag.month,
             months = monthOptions,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
@@ -730,6 +763,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setThemeMode(mode: ThemeMode) = container.settingsStore.setThemeMode(mode)
 
     fun setDynamicColor(enabled: Boolean) = container.settingsStore.setDynamicColor(enabled)
+
+    fun setAiBannerEnabled(enabled: Boolean) = container.settingsStore.setAiBannerEnabled(enabled)
+
+    fun setDebugInfoEnabled(enabled: Boolean) = container.settingsStore.setDebugInfoEnabled(enabled)
 
     val security: StateFlow<com.spendlens.app.data.prefs.SecurityPrefs> = container.settingsStore.security
 
@@ -1125,10 +1162,58 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
         container.categoryRepository.observeCategories()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val _senderMap = MutableStateFlow<Map<String, String>>(emptyMap())
+    val senderMap: StateFlow<Map<String, String>> = _senderMap.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _senderMap.value = container.transactionRepository.topSenderPerAccount()
+                .distinctBy { it.accountKey }
+                .associate { it.accountKey to it.sender }
+        }
+    }
+
     /** Known merchant names for the rename type-ahead. */
     val merchantNames: StateFlow<List<String>> =
         container.merchantRepository.observeDisplayNames()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Gates the per-transaction AI debug section. Off by default (developer aid). */
+    val debugInfoEnabled: StateFlow<Boolean> =
+        container.settingsStore.appearance
+            .map { it.debugInfoEnabled }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Snapshot of how a transaction relates to the AI auto-categoriser, for the debug section. */
+    data class AiDebugInfo(
+        val analysed: Boolean,
+        val outcome: String,
+        val categoryName: String?,
+        val viaAiRule: Boolean,
+        val model: String,
+    )
+
+    /**
+     * Derive the AI debug state from the transaction's stored flags. The auto-categoriser only ever
+     * runs on rows with no category, so an attempted row that now has a category was set by AI.
+     */
+    suspend fun aiDebug(txn: TransactionEntity): AiDebugInfo {
+        val cats = container.categoryRepository.all()
+        val categoryName = txn.categoryId?.let { id -> cats.firstOrNull { it.id == id }?.name }
+        val viaAiRule = container.categoryRepository.aiRuleCategory(txn.counterparty) != null
+        val outcome = when {
+            !txn.aiCategorizeAttempted -> "Not analysed by AI (rule/manual or still pending)"
+            txn.categoryId != null -> "AI assigned a category"
+            else -> "AI analysed but could not categorise"
+        }
+        return AiDebugInfo(
+            analysed = txn.aiCategorizeAttempted,
+            outcome = outcome,
+            categoryName = categoryName,
+            viaAiRule = viaAiRule,
+            model = container.aiConfigStore.effectiveModel(),
+        )
+    }
 
     /** Remembered category + expense flag for [name], or null if it isn't a known merchant. */
     private suspend fun matchFor(name: String): MerchantMatch? {

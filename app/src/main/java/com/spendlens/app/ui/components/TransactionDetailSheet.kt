@@ -68,6 +68,7 @@ import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.db.TransactionSplitEntity
 import com.spendlens.app.data.db.RawSmsEntity
+import com.spendlens.app.ui.theme.BankBranding
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
@@ -93,6 +94,17 @@ fun TransactionDetailSheet(
     val splits by remember(current.id) { vm.splitsFlow(current.id) }
         .collectAsState(initial = emptyList<TransactionSplitEntity>())
     LaunchedEffect(txn.id) { smsBody = vm.smsBody(txn.rawSmsId) }
+
+    val senderMap by vm.senderMap.collectAsState()
+    val bankName = remember(current.accountKey, senderMap) {
+        BankBranding.detectedBankName(senderMap[current.accountKey])
+    }
+
+    val debugEnabled by vm.debugInfoEnabled.collectAsState()
+    var aiDebug by remember(txn.id) { mutableStateOf<TransactionDetailViewModel.AiDebugInfo?>(null) }
+    LaunchedEffect(current.id, current.categoryId, current.aiCategorizeAttempted, debugEnabled) {
+        aiDebug = if (debugEnabled) vm.aiDebug(current) else null
+    }
 
     val pickReceipt = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) vm.attachReceipt(current, uri) { current = it }
@@ -136,6 +148,7 @@ fun TransactionDetailSheet(
             if (current.currency != "INR" && current.amountBaseMinor > 0) {
                 DetailLine("In INR", Money.format(current.amountBaseMinor, "INR"))
             }
+            bankName?.let { DetailLine("Bank", it) }
             DetailLine("Account", current.accountKey)
             DetailLine("Channel", current.channel)
             current.referenceId?.let { DetailLine("Reference", it) }
@@ -263,6 +276,25 @@ fun TransactionDetailSheet(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 ) {
                     Text(body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
+                }
+            }
+
+            if (debugEnabled) {
+                aiDebug?.let { dbg ->
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "🐞 Debug — AI categorisation",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    DetailLine("AI analysed", if (dbg.analysed) "Yes" else "No")
+                    DetailLine("Outcome", dbg.outcome)
+                    DetailLine("Current category", dbg.categoryName ?: "Uncategorised")
+                    DetailLine("Category id", current.categoryId?.toString() ?: "null")
+                    DetailLine("Via AI rule", if (dbg.viaAiRule) "Yes" else "No")
+                    DetailLine("Model", dbg.model)
                 }
             }
         }

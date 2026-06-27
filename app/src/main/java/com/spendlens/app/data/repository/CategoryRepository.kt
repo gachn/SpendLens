@@ -42,6 +42,12 @@ class CategoryRepository(private val dao: CategoryDao) {
         )
     }
 
+    /** The category id of an AI-sourced rule for [matcher], or null if none — used by the debug view. */
+    suspend fun aiRuleCategory(matcher: String): Long? {
+        val m = matcher.lowercase().trim()
+        return dao.allRules().firstOrNull { it.source == "AI" && it.matcher == m }?.categoryId
+    }
+
     /** Create a user category; returns its new id. */
     suspend fun createCategory(name: String, icon: String, color: Long): Long =
         dao.insertCategory(CategoryEntity(name = name.trim(), icon = icon, color = color))

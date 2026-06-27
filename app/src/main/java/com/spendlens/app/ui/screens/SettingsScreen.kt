@@ -628,6 +628,45 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Auto-categorise now") }
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text("Show analysis banner", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "Display a small banner while AI is categorising your transactions.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = appearance.aiBannerEnabled,
+                                onCheckedChange = { vm.setAiBannerEnabled(it) },
+                            )
+                        }
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text("Show debug info", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "Add an AI-categorisation debug section to each transaction. " +
+                                        "Developer aid — keep off in normal use.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = appearance.debugInfoEnabled,
+                                onCheckedChange = { vm.setDebugInfoEnabled(it) },
+                            )
+                        }
                     }
                 }
             }

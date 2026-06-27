@@ -17,6 +17,13 @@ data class AppearancePrefs(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** Use Android 12+ wallpaper-derived "Material You" colours instead of the brand palette. */
     val dynamicColor: Boolean = false,
+    /** Show the small "AI is analysing…" banner while auto-categorisation runs. On by default. */
+    val aiBannerEnabled: Boolean = true,
+    /**
+     * Show the per-transaction AI debug section (whether it was AI-analysed and how it was
+     * categorised). Off by default — a developer aid that stays hidden in real use.
+     */
+    val debugInfoEnabled: Boolean = false,
 )
 
 /** App-lock choices, surfaced in Settings → Security. */
@@ -69,6 +76,8 @@ class SettingsStore(context: Context) {
         return AppearancePrefs(
             themeMode = mode,
             dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, false),
+            aiBannerEnabled = prefs.getBoolean(KEY_AI_BANNER, true),
+            debugInfoEnabled = prefs.getBoolean(KEY_DEBUG_INFO, false),
         )
     }
 
@@ -102,6 +111,16 @@ class SettingsStore(context: Context) {
         _appearance.value = _appearance.value.copy(dynamicColor = enabled)
     }
 
+    fun setAiBannerEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AI_BANNER, enabled).apply()
+        _appearance.value = _appearance.value.copy(aiBannerEnabled = enabled)
+    }
+
+    fun setDebugInfoEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEBUG_INFO, enabled).apply()
+        _appearance.value = _appearance.value.copy(debugInfoEnabled = enabled)
+    }
+
     fun setAppLockEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_APP_LOCK, enabled).apply()
         _security.value = _security.value.copy(appLockEnabled = enabled)
@@ -122,6 +141,27 @@ class SettingsStore(context: Context) {
         _smsFilter.value = _smsFilter.value.copy(merchantPredictionEnabled = enabled)
     }
 
+    // Account display-name overrides — user can rename "••••9496" to "HDFC Credit" etc.
+    private fun loadAccountNames(): Map<String, String> =
+        prefs.all.entries
+            .filter { it.key.startsWith(KEY_ACCT_NAME_PREFIX) }
+            .mapNotNull { e -> (e.value as? String)?.let { e.key.removePrefix(KEY_ACCT_NAME_PREFIX) to it } }
+            .toMap()
+
+    private val _accountNames = MutableStateFlow(loadAccountNames())
+    val accountNames: StateFlow<Map<String, String>> = _accountNames.asStateFlow()
+
+    fun setAccountName(accountKey: String, name: String?) {
+        val prefKey = KEY_ACCT_NAME_PREFIX + accountKey
+        if (name.isNullOrBlank()) {
+            prefs.edit().remove(prefKey).apply()
+            _accountNames.value = _accountNames.value - accountKey
+        } else {
+            prefs.edit().putString(prefKey, name.trim()).apply()
+            _accountNames.value = _accountNames.value + (accountKey to name.trim())
+        }
+    }
+
     // Backup tracking (issue #13) — drives the "last backup" label and the 30-day reminder.
     private val _lastBackupAt = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L })
     val lastBackupAt: StateFlow<Long?> = _lastBackupAt.asStateFlow()
@@ -137,10 +177,13 @@ class SettingsStore(context: Context) {
     private companion object {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
+        const val KEY_AI_BANNER = "ai_banner_enabled"
+        const val KEY_DEBUG_INFO = "debug_info_enabled"
         const val KEY_APP_LOCK = "app_lock_enabled"
         const val KEY_GRACE_SEC = "app_lock_grace_sec"
         const val KEY_LAST_BACKUP = "last_backup_at"
         const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
         const val KEY_MERCHANT_PREDICTION = "merchant_prediction_enabled"
+        const val KEY_ACCT_NAME_PREFIX = "acct_name_"
     }
 }

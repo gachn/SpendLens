@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -159,6 +160,11 @@ fun SpendLensRoot(
 
     val processingProgress by container.smsProcessor.progress.collectAsState()
     var showProgressPopup by remember { mutableStateOf(false) }
+
+    // "AI is analysing…" banner: shown while auto-categorisation runs, unless the user turned it off.
+    val aiRunning by container.aiCategorizer.running.collectAsState()
+    val appearance by container.settingsStore.appearance.collectAsState()
+    val showAiBanner = aiRunning && appearance.aiBannerEnabled
 
     LaunchedEffect(processingProgress.isProcessing) {
         if (processingProgress.isProcessing) {
@@ -379,6 +385,38 @@ fun SpendLensRoot(
                 selected = selected,
                 onSelectedChanged = { selected = it },
             )
+
+            // AI auto-categorisation banner (top, below the app bar).
+            if (showAiBanner) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 72.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth(0.9f),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 4.dp,
+                    shadowElevation = 6.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        Text(
+                            text = "AI is analysing your transactions…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            }
 
             // Reprocessing Progress Popup
             if (showProgressPopup && processingProgress.isProcessing) {
