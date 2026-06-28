@@ -24,6 +24,7 @@ class SpendLensApp : Application() {
         container = AppContainer(this)
         createNotificationChannels()
         com.spendlens.app.work.BillReminderWorker.schedule(this)
+        com.spendlens.app.work.CardPaymentReminderWorker.schedule(this)
         com.spendlens.app.work.VelocityAlertWorker.schedule(this)
         com.spendlens.app.work.WidgetRefreshWorker.schedule(this)
         appScope.launch {

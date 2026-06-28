@@ -49,14 +49,7 @@ import java.time.YearMonth
 
 @Composable
 fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-    ) {
-        Box(Modifier.padding(16.dp)) { content() }
-    }
+    ProGlassCard(modifier = modifier, content = content)
 }
 
 // Keep for backward compat — maps to GlassCard

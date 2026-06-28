@@ -22,6 +22,8 @@ data class RawSmsEntity(
     val contentHash: String,
     val status: String,        // RawStatus
     val patternId: Long? = null,
+    /** True once PromotionalCheckWorker has evaluated this row so it is never re-sent to the AI. */
+    val promoChecked: Boolean = false,
 )
 
 object RawStatus {
@@ -118,6 +120,26 @@ data class CardBillEntity(
     val statementAt: Long,
     val rawSmsId: Long,
     val updatedAt: Long,
+    /** Day of month (1-31) on which this card's statement is generated, derived from [statementAt]. */
+    val statementCycleDay: Int? = null,
+    /** Epoch millis when a payment was auto-detected from an SMS, null if none detected yet. */
+    val paidAt: Long? = null,
+    /** Amount paid in minor units. */
+    val paidAmountMinor: Long? = null,
+)
+
+/**
+ * Latest balance snapshot per account/card from a standalone balance-notification SMS
+ * (no transaction amount). Upserted so only the most recent observation is kept.
+ * Backed by [BalanceUpdateParser].
+ */
+@Entity(tableName = "balance_snapshots")
+data class BalanceSnapshotEntity(
+    @PrimaryKey val accountKey: String,
+    val balanceMinor: Long,
+    val isCard: Boolean = false,
+    val currency: String = "INR",
+    val observedAt: Long,
 )
 
 /** A learnable SMS pattern (built-in seed, AI/heuristic-generated, or user-defined). */
@@ -198,6 +220,19 @@ object SenderSource {
     const val STATIC = "STATIC"   // matched the built-in FinancialSenderFilter list
     const val AI = "AI"           // classified by the language model
 }
+
+/**
+ * A body-regex exclusion pattern learned when the AI confirms a message is promotional
+ * (e.g. a loan offer) rather than a real transaction. Future messages matching this regex
+ * are ignored without any AI call.
+ */
+@Entity(tableName = "promotional_exclusions")
+data class PromotionalExclusionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val bodyRegex: String,
+    val sampleSms: String? = null,
+    val createdAt: Long,
+)
 
 /**
  * A user savings goal (issue #12) — e.g. a vacation or emergency fund. SpendLens never moves money;

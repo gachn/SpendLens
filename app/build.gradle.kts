@@ -124,6 +124,7 @@ dependencies {
     implementation(libs.androidx.fragment)
 
     testImplementation(libs.junit)
+    testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.json)

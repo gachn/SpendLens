@@ -27,8 +27,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         TransactionSplitEntity::class,
         SavingsGoalEntity::class,
         SenderClassificationEntity::class,
+        PromotionalExclusionEntity::class,
+        BalanceSnapshotEntity::class,
     ],
-    version = 15,
+    version = 18,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,12 +39,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun patternDao(): PatternDao
     abstract fun categoryDao(): CategoryDao
     abstract fun merchantDao(): MerchantDao
+    abstract fun balanceSnapshotDao(): BalanceSnapshotDao
     abstract fun budgetDao(): BudgetDao
     abstract fun billDao(): BillDao
     abstract fun cardBillDao(): CardBillDao
     abstract fun transactionSplitDao(): TransactionSplitDao
     abstract fun savingsGoalDao(): SavingsGoalDao
     abstract fun senderClassificationDao(): SenderClassificationDao
+    abstract fun promotionalExclusionDao(): PromotionalExclusionDao
 
     companion object {
         private const val DB_NAME = "spendlens.db"
@@ -251,6 +255,55 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v15 → v16: add the promotional_exclusions table. Body-regex patterns saved when the AI
+         * confirms a message is promotional (e.g. a loan offer). Future messages matching these
+         * patterns are discarded without a network call.
+         */
+        /**
+         * v16 → v17: add promoChecked flag to raw_sms. Set to 0 (false) for all existing rows
+         * so PromotionalCheckWorker re-evaluates the backlog once on upgrade.
+         */
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE raw_sms ADD COLUMN promoChecked INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+
+        /**
+         * v17 → v18: add statement-cycle, payment tracking to card_bills; add balance_snapshots
+         * table for standalone balance-notification SMS.
+         */
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE card_bills ADD COLUMN statementCycleDay INTEGER")
+                db.execSQL("ALTER TABLE card_bills ADD COLUMN paidAt INTEGER")
+                db.execSQL("ALTER TABLE card_bills ADD COLUMN paidAmountMinor INTEGER")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS balance_snapshots (" +
+                        "accountKey TEXT NOT NULL PRIMARY KEY, " +
+                        "balanceMinor INTEGER NOT NULL, " +
+                        "isCard INTEGER NOT NULL DEFAULT 0, " +
+                        "currency TEXT NOT NULL, " +
+                        "observedAt INTEGER NOT NULL)",
+                )
+            }
+        }
+
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS promotional_exclusions (" +
+                        "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, " +
+                        "bodyRegex TEXT NOT NULL, " +
+                        "sampleSms TEXT, " +
+                        "createdAt INTEGER NOT NULL)",
+                )
+            }
+        }
+
         fun create(context: Context, keyManager: DatabaseKeyManager): AppDatabase {
             // Load SQLCipher native libs. The SupportOpenHelperFactory also triggers this;
             // guarded so a double-load (or already-linked lib) can't crash startup.
@@ -261,7 +314,8 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                     MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                    MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
+                    MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
+                    MIGRATION_17_18,
                 )
                 .fallbackToDestructiveMigration() // safety net for older dev builds
                 .build()

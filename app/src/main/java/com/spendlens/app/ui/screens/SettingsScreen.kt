@@ -76,6 +76,7 @@ fun SettingsScreen(
     onOpenMerchants: () -> Unit = {},
     onOpenGoals: () -> Unit = {},
     onOpenPatterns: () -> Unit = {},
+    onOpenSenders: () -> Unit = {},
 ) {
     val patterns by vm.patterns.collectAsState()
     val exportState by vm.exportState.collectAsState()
@@ -492,6 +493,30 @@ fun SettingsScreen(
                             onCheckedChange = { vm.setMerchantPrediction(it) },
                         )
                     }
+                }
+            }
+        }
+
+        item {
+            ElevatedSurfaceCard {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenSenders() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("SMS senders", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "View all senders classified as financial or non-financial by the system.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

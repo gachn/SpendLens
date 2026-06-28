@@ -23,6 +23,7 @@ class SpendingSummaryGeneratorTest {
             id = id,
             rawSmsId = null,
             amountMinor = amountMinor,
+            amountBaseMinor = amountMinor,
             currency = "INR",
             direction = direction,
             accountKey = "Card1",
@@ -76,7 +77,7 @@ class SpendingSummaryGeneratorTest {
         val metrics = SpendingSummaryGenerator.calculateMetrics(txns, categories, 30)
         assertEquals(metrics.totalSpent, 170000L)
         assertNotNull(metrics.topCategory)
-        assertEquals(metrics.topCategory?.first, "Transport") // ₹80k is max
+        assertEquals(metrics.topCategory?.first, "Food") // Food = 90k (2 txns), Transport = 80k
     }
 
     @Test
@@ -103,7 +104,7 @@ class SpendingSummaryGeneratorTest {
 
     @Test
     fun buildPrompt_createsValidPrompt() {
-        val metrics = SpendingSummaryGenerator.SpendingMetrics(
+        val metrics = SpendingMetrics(
             totalSpent = 150000,
             totalReceived = 0,
             topCategory = "Food" to 50000,
@@ -114,7 +115,7 @@ class SpendingSummaryGeneratorTest {
         val categories = listOf(CategoryEntity(1, "Food", "🍽️", 0xFF0000L))
 
         val prompt = SpendingSummaryGenerator.buildPrompt(metrics, categories, "this month")
-        assertTrue(prompt.contains("150000"))
+        assertTrue(prompt.contains("1500")) // totalSpent/100 = 1500
         assertTrue(prompt.contains("this month"))
         assertTrue(prompt.contains("Swiggy"))
     }

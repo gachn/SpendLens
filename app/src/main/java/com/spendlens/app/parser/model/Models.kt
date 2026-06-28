@@ -38,6 +38,25 @@ data class CardBill(
     val currency: String,
     val dueDate: Long?,
     val statementAt: Long,
+    /** Day of month (1-31) on which the statement was generated, derived from [statementAt]. */
+    val statementCycleDay: Int = 0,
+)
+
+/** A credit-card payment detected from an SMS (e.g. "payment of Rs.X received"). */
+data class CardPayment(
+    val cardKey: String,
+    val amountMinor: Long,
+    val currency: String,
+    val paidAt: Long,
+)
+
+/** A standalone balance snapshot from an SMS not tied to a transaction amount. */
+data class BalanceSnapshot(
+    val accountKey: String,
+    val balanceMinor: Long,
+    val isCard: Boolean,
+    val currency: String,
+    val observedAt: Long,
 )
 
 /** A pattern compiled and ready for matching by [com.spendlens.app.parser.PatternEngine]. */

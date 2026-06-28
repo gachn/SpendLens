@@ -5,13 +5,12 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /**
- * Slightly rounder than the Material 3 defaults to match the soft, card-heavy
- * SpendLens layout. Components that don't override a shape pick these up.
+ * Shapes for the SpendLens Pro minimalist design system.
  */
 val SpendLensShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraSmall = RoundedCornerShape(4.dp), // sm
+    small = RoundedCornerShape(8.dp),      // DEFAULT
+    medium = RoundedCornerShape(12.dp),    // md
+    large = RoundedCornerShape(16.dp),     // lg
+    extraLarge = RoundedCornerShape(24.dp) // xl
 )

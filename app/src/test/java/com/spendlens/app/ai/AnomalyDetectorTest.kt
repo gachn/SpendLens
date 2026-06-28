@@ -23,6 +23,7 @@ class AnomalyDetectorTest {
             id = id,
             rawSmsId = null,
             amountMinor = amountMinor,
+            amountBaseMinor = amountMinor,
             currency = "INR",
             direction = "DEBIT",
             accountKey = "Card1",

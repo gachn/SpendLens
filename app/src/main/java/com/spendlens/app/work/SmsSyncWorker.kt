@@ -34,6 +34,10 @@ class SmsSyncWorker(
                     container.smsImporter.importAll(since = since) { done, total ->
                         setProgress(workDataOf(KEY_DONE to done, KEY_TOTAL to total))
                     }
+                    // Backfill balances on rows parsed before balance enrichment existed, and
+                    // capture standalone balance-notification snapshots from the full history.
+                    container.smsProcessor.backfillBalances()
+                    container.smsProcessor.backfillBalanceSnapshots()
                     // Refresh recurring-bill detection over the freshly-imported history.
                     val detected = com.spendlens.app.parser.BillDetector.detect(
                         container.transactionRepository.allDebits(),
@@ -41,10 +45,11 @@ class SmsSyncWorker(
                     container.billRepository.syncDetected(detected)
                 }.fold(
                     onSuccess = {
-                        // Whole inbox parsed — classify any new senders. AI auto-categorisation is
-                        // NOT kicked off here: it runs only when the user opens the app (see
-                        // MainActivity), so background syncs never spend off-device calls.
+                        // Whole inbox parsed — classify any new senders and scan for promotional SMS.
+                        // AI auto-categorisation is NOT kicked off here: it runs only when the
+                        // user opens the app (see MainActivity) so background syncs don't burn calls.
                         SenderClassifyWorker.enqueue(applicationContext)
+                        PromotionalCheckWorker.enqueue(applicationContext)
                         Result.success()
                     },
                     onFailure = { Result.retry() },
@@ -61,9 +66,10 @@ class SmsSyncWorker(
                             container.savingsGoalRepository.onCreditCommitted(applicationContext, it)
                         }
                         WidgetRefreshWorker.enqueue(applicationContext)
-                        // Classify the new sender if unknown. AI auto-categorisation is deferred to
-                        // the next app launch (MainActivity) so background SMS never spend AI calls.
+                        // Classify the new sender if unknown, then scan for promotional content.
+                        // AI auto-categorisation is deferred to next app launch (MainActivity).
                         SenderClassifyWorker.enqueue(applicationContext)
+                        PromotionalCheckWorker.enqueue(applicationContext)
                     }
                     .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
             }

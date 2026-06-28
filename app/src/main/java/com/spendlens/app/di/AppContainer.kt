@@ -6,6 +6,7 @@ import com.spendlens.app.ai.GatedMerchantResolver
 import com.spendlens.app.ai.MerchantResolver
 import com.spendlens.app.ai.OpenRouterClient
 import com.spendlens.app.ai.PatternGenerator
+import com.spendlens.app.ai.PromotionalChecker
 import com.spendlens.app.ai.SenderClassifier
 import com.spendlens.app.ai.WebMerchantResolver
 import com.spendlens.app.data.prefs.AiConfigStore
@@ -60,7 +61,20 @@ class AppContainer(context: Context) {
     val backupManager by lazy { com.spendlens.app.data.backup.BackupManager(database) }
     val rawSmsDao get() = database.rawSmsDao()
     val cardBillDao get() = database.cardBillDao()
+    val balanceSnapshotDao get() = database.balanceSnapshotDao()
     val senderClassificationDao get() = database.senderClassificationDao()
+    val promotionalExclusionDao get() = database.promotionalExclusionDao()
+
+    /** Inline cache check + background batch AI verifier for promotional SMS detection. */
+    val promotionalChecker by lazy {
+        PromotionalChecker(
+            exclusionDao = promotionalExclusionDao,
+            rawSmsDao = rawSmsDao,
+            txnRepo = transactionRepository,
+            client = openRouterClient,
+            aiConfigStore = aiConfigStore,
+        )
+    }
 
     /** AI-backed sender classifier — classifies SMS senders as financial or non-financial. */
     val senderClassifier by lazy { SenderClassifier(openRouterClient, aiConfigStore) }
@@ -95,9 +109,11 @@ class AppContainer(context: Context) {
             merchantRepo = merchantRepository,
             fxRepo = fxRepository,
             cardBillDao = cardBillDao,
+            balanceSnapshotDao = balanceSnapshotDao,
             generator = patternGenerator,
             senderClassificationDao = senderClassificationDao,
             financialSendersOnly = settingsStore::financialSendersOnly,
+            promotionalChecker = promotionalChecker,
         )
     }
 
@@ -106,10 +122,11 @@ class AppContainer(context: Context) {
     /** AI fallback that categorises transactions no keyword rule could classify. */
     val aiCategorizer: com.spendlens.app.ai.AiCategorizer by lazy { com.spendlens.app.ai.AiCategorizer(this) }
 
-    /** Seeds built-in patterns and categories. Safe to call repeatedly. */
+    /** Seeds built-in patterns and categories, and loads persisted promotional exclusions. Safe to call repeatedly. */
     suspend fun seed() {
         patternRepository.seedIfEmpty()
         categoryRepository.seedIfEmpty()
+        promotionalChecker.loadExclusions()
     }
 
     fun wipeAllData() {

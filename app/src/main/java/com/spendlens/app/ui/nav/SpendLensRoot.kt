@@ -103,6 +103,7 @@ import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
 import com.spendlens.app.ui.screens.MerchantsScreen
 import com.spendlens.app.ui.screens.PatternsScreen
+import com.spendlens.app.ui.screens.SendersScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
@@ -117,6 +118,7 @@ import com.spendlens.app.ui.viewmodel.GoalsViewModel
 import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
 import com.spendlens.app.ui.viewmodel.MerchantsViewModel
 import com.spendlens.app.ui.viewmodel.ReviewViewModel
+import com.spendlens.app.ui.viewmodel.SenderClassificationsViewModel
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
 import com.spendlens.app.ui.viewmodel.SpendLensViewModelFactory
 import com.spendlens.app.ui.viewmodel.TransactionDetailViewModel
@@ -135,6 +137,7 @@ enum class Dest(val route: String, val label: String, val icon: ImageVector) {
 
 private const val ROUTE_SETTINGS     = "settings"
 private const val ROUTE_MERCHANTS    = "merchants"
+private const val ROUTE_SENDERS      = "senders"
 private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
 private const val ROUTE_CATEGORIES   = "categories"
@@ -685,6 +688,13 @@ private fun MainScaffold(
                     onOpenMerchants = { nav.navigate(ROUTE_MERCHANTS) { launchSingleTop = true } },
                     onOpenGoals = { nav.navigate(ROUTE_GOALS) { launchSingleTop = true } },
                     onOpenPatterns = { nav.navigate(ROUTE_PATTERNS) { launchSingleTop = true } },
+                    onOpenSenders = { nav.navigate(ROUTE_SENDERS) { launchSingleTop = true } },
+                )
+            }
+            composable(ROUTE_SENDERS) {
+                SendersScreen(
+                    vm = viewModel<SenderClassificationsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(ROUTE_PATTERNS) {

@@ -162,6 +162,21 @@ class SettingsStore(context: Context) {
         }
     }
 
+    // Statement cycle-day overrides — persisted so the picker is never shown twice for the same card.
+    private fun loadCycleDays(): Map<String, Int> =
+        prefs.all.entries
+            .filter { it.key.startsWith(KEY_CYCLE_DAY_PREFIX) }
+            .mapNotNull { e -> (e.value as? Int)?.let { e.key.removePrefix(KEY_CYCLE_DAY_PREFIX) to it } }
+            .toMap()
+
+    private val _cycleDays = MutableStateFlow(loadCycleDays())
+    val cycleDays: StateFlow<Map<String, Int>> = _cycleDays.asStateFlow()
+
+    fun setStatementCycleDay(accountKey: String, day: Int) {
+        prefs.edit().putInt(KEY_CYCLE_DAY_PREFIX + accountKey, day).apply()
+        _cycleDays.value = _cycleDays.value + (accountKey to day)
+    }
+
     // Backup tracking (issue #13) — drives the "last backup" label and the 30-day reminder.
     private val _lastBackupAt = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP, 0L).takeIf { it > 0L })
     val lastBackupAt: StateFlow<Long?> = _lastBackupAt.asStateFlow()
@@ -185,5 +200,6 @@ class SettingsStore(context: Context) {
         const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
         const val KEY_MERCHANT_PREDICTION = "merchant_prediction_enabled"
         const val KEY_ACCT_NAME_PREFIX = "acct_name_"
+        const val KEY_CYCLE_DAY_PREFIX = "cycle_day_"
     }
 }

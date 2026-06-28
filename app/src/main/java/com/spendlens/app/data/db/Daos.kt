@@ -51,6 +51,10 @@ interface RawSmsDao {
     @Query("SELECT COUNT(*) FROM raw_sms")
     suspend fun count(): Int
 
+    /** Every stored raw SMS, oldest first. Used for one-off backfills (e.g. balance snapshots). */
+    @Query("SELECT * FROM raw_sms ORDER BY receivedAt ASC")
+    suspend fun all(): List<RawSmsEntity>
+
     /** Mark every SMS from [sender] as IGNORED — called when AI classifies sender as non-financial. */
     @Query("UPDATE raw_sms SET status = 'IGNORED', patternId = NULL WHERE sender = :sender AND status != 'IGNORED'")
     suspend fun ignoreAllForSender(sender: String)
@@ -58,6 +62,26 @@ interface RawSmsDao {
     /** All IGNORED SMS from [sender] — used to re-process if AI later classifies sender as financial. */
     @Query("SELECT * FROM raw_sms WHERE sender = :sender AND status = 'IGNORED'")
     suspend fun listIgnoredForSender(sender: String): List<RawSmsEntity>
+
+    /**
+     * PARSED SMS not yet evaluated by [com.spendlens.app.work.PromotionalCheckWorker], filtered
+     * to rows containing at least one known promotional keyword (fast SQL pre-screen before the
+     * full regex runs in Kotlin). Newest first.
+     */
+    @Query(
+        "SELECT * FROM raw_sms WHERE status = 'PARSED' AND promoChecked = 0 AND (" +
+            "body LIKE '%pre-approved%' OR body LIKE '%pre approved%' OR " +
+            "body LIKE '%loan offer%' OR body LIKE '%apply now%' OR " +
+            "body LIKE '%avail now%' OR body LIKE '%exclusive offer%' OR " +
+            "body LIKE '%no cost emi%' OR body LIKE '%instant loan%' OR " +
+            "body LIKE '%credit limit%' OR body LIKE '%eligible for%'" +
+            ") ORDER BY receivedAt DESC",
+    )
+    suspend fun listPromoCandidates(): List<RawSmsEntity>
+
+    /** Mark rows as evaluated by the promotional worker so they are never re-sent to the AI. */
+    @Query("UPDATE raw_sms SET promoChecked = 1 WHERE id IN (:ids)")
+    suspend fun markPromoChecked(ids: List<Long>)
 
     @Query("DELETE FROM raw_sms")
     suspend fun clear()
@@ -501,7 +525,31 @@ interface CardBillDao {
     @Query("SELECT * FROM card_bills")
     fun observeAll(): Flow<List<CardBillEntity>>
 
+    @Query("SELECT * FROM card_bills")
+    suspend fun all(): List<CardBillEntity>
+
+    @Query("UPDATE card_bills SET paidAt = :paidAt, paidAmountMinor = :paidAmountMinor WHERE cardKey = :cardKey")
+    suspend fun markPaid(cardKey: String, paidAt: Long, paidAmountMinor: Long)
+
+    @Query("UPDATE card_bills SET statementCycleDay = :day WHERE cardKey = :cardKey")
+    suspend fun setStatementCycleDay(cardKey: String, day: Int)
+
     @Query("DELETE FROM card_bills")
+    suspend fun clear()
+}
+
+@Dao
+interface BalanceSnapshotDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(snapshot: BalanceSnapshotEntity)
+
+    @Query("SELECT * FROM balance_snapshots WHERE accountKey = :accountKey")
+    suspend fun get(accountKey: String): BalanceSnapshotEntity?
+
+    @Query("SELECT * FROM balance_snapshots")
+    fun observeAll(): Flow<List<BalanceSnapshotEntity>>
+
+    @Query("DELETE FROM balance_snapshots")
     suspend fun clear()
 }
 
@@ -533,6 +581,9 @@ interface SenderClassificationDao {
     /** Senders the AI labelled non-financial — used to enumerate cleanup targets. */
     @Query("SELECT sender FROM sender_classifications WHERE isFinancial = 0")
     suspend fun nonFinancialSenders(): List<String>
+
+    @Query("SELECT * FROM sender_classifications ORDER BY classifiedAt DESC")
+    fun observeAll(): Flow<List<SenderClassificationEntity>>
 
     @Query("DELETE FROM sender_classifications")
     suspend fun clear()

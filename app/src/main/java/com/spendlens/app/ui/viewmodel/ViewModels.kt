@@ -466,9 +466,46 @@ data class AccountSummary(
     val detectedBankName: String? = null,
     /** User-set display name overriding the raw accountKey in the UI. */
     val customName: String? = null,
+    /** Day of month (1-31) on which this card's statement generates (derived from parsed bill or user setting). */
+    val statementCycleDay: Int? = null,
+    /** True when bill amounts are estimated from transactions (no statement SMS parsed). */
+    val isEstimatedBill: Boolean = false,
+    /** True when a payment SMS was detected for the current statement. */
+    val isStatementPaid: Boolean = false,
+    /** Amount paid in minor units if a payment was auto-detected. */
+    val paidAmountMinor: Long? = null,
+    /** Total DEBIT spend from the last statement date to now (current cycle). */
+    val cycleSpendMinor: Long = 0L,
+    /** Balance from a standalone balance-notification SMS ([BalanceSnapshotEntity]). */
+    val snapshotBalanceMinor: Long? = null,
+    /** When that snapshot balance was observed (epoch millis), for the freshness tie-break. */
+    val snapshotObservedAt: Long? = null,
 ) {
     /** Active in the selected month, or a card carrying an outstanding bill. */
     val hasActivity: Boolean get() = txnCount > 0 || billTotalDueMinor != null
+
+    /** Effective balance: most-recent of transaction-reported vs. snapshot balance. */
+    val effectiveBalanceMinor: Long?
+        get() = when {
+            balanceMinor != null && snapshotBalanceMinor != null ->
+                if ((balanceUpdatedAt ?: 0L) >= (snapshotObservedAt ?: 0L)) balanceMinor else snapshotBalanceMinor
+            else -> balanceMinor ?: snapshotBalanceMinor
+        }
+
+    /**
+     * When both a transaction-reported balance and a standalone snapshot balance exist and differ,
+     * this is the *other* source (the one not shown as [effectiveBalanceMinor]) paired with when it
+     * was observed — so the UI can surface both values instead of silently dropping one.
+     */
+    val secondaryBalance: Pair<Long, Long>?
+        get() {
+            val live = balanceMinor ?: return null
+            val snap = snapshotBalanceMinor ?: return null
+            if (live == snap) return null
+            val liveAt = balanceUpdatedAt ?: 0L
+            val snapAt = snapshotObservedAt ?: 0L
+            return if (liveAt >= snapAt) snap to snapAt else live to liveAt
+        }
 }
 
 data class AccountsUiState(
@@ -500,6 +537,29 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     fun setAccountName(accountKey: String, name: String?) =
         container.settingsStore.setAccountName(accountKey, name)
 
+    fun setStatementCycleDay(accountKey: String, day: Int) = viewModelScope.launch {
+        container.settingsStore.setStatementCycleDay(accountKey, day)
+        // Also update the DB row if a parsed bill exists for this card.
+        container.cardBillDao.setStatementCycleDay(accountKey, day)
+    }
+
+    /**
+     * Manually set/override an account's balance. Stored as a [BalanceSnapshotEntity] observed now,
+     * so it wins the freshness tie-break in [AccountSummary.effectiveBalanceMinor] over older
+     * SMS-derived balances. [isCard] picks the avl-limit vs avl-balance label in the UI.
+     */
+    fun setManualBalance(accountKey: String, balanceMinor: Long, isCard: Boolean) = viewModelScope.launch {
+        container.balanceSnapshotDao.upsert(
+            com.spendlens.app.data.db.BalanceSnapshotEntity(
+                accountKey = accountKey,
+                balanceMinor = balanceMinor,
+                isCard = isCard,
+                currency = "INR",
+                observedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     val state: StateFlow<AccountsUiState> = combine(
         repo.observeAll(),
         repo.observeAccountBalances(),
@@ -509,19 +569,33 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
             selectedMonth,
             _senders,
             container.settingsStore.accountNames,
-        ) { bills, month, senders, names ->
+            container.balanceSnapshotDao.observeAll(),
+            container.settingsStore.cycleDays,
+        ) { array ->
+            @Suppress("UNCHECKED_CAST")
             object {
-                val bills = bills; val month = month
-                val senders = senders; val names = names
+                val bills = array[0] as List<com.spendlens.app.data.db.CardBillEntity>
+                val month = array[1] as YearMonth
+                val senders = array[2] as Map<String, String>
+                val names = array[3] as Map<String, String?>
+                val snapshots = array[4] as List<com.spendlens.app.data.db.BalanceSnapshotEntity>
+                val cycleDays = array[5] as Map<String, Int>
             }
         },
     ) { txns, balances, cats, bag ->
         val (start, end) = Dates.monthRange(bag.month)
         val balanceByKey = balances.associateBy { it.accountKey }
+        // Bills keyed by both cardKey (e.g. "••••1234") and by sender (fallback for
+        // statement SMS that had no card number → cardKey = sender address).
         val billByCard = bag.bills.associateBy { it.cardKey }
+        val snapshotByKey = bag.snapshots.associateBy { it.accountKey }
+        val now = System.currentTimeMillis()
         // Group across all history so every account stays visible; scope totals to the month.
         val summaries = txns
             .filter { !it.isDuplicate }
+            // Accounts with no detected number ("Unknown") are not surfaced as cards — the user
+            // tags those transactions with a known account from the transaction detail sheet.
+            .filter { it.accountKey != "Unknown" }
             .groupBy { it.accountKey }
             .map { (key, all) ->
                 // Representative channel = the one most transactions used.
@@ -530,11 +604,25 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
                 val monthTxns = all
                     .filter { it.occurredAt in start until end }
                     .sortedByDescending { it.occurredAt }
-                val bill = billByCard[key]
+                // Try card-number key first; fall back to matching via the account's top sender.
+                val bill = billByCard[key] ?: bag.senders[key]?.let { billByCard[it] }
+                // Cycle day: prefer parsed SMS value, fall back to user's stored preference.
+                val resolvedCycleDay = bill?.statementCycleDay ?: bag.cycleDays[key]
+                val cycleFrom = bill?.statementAt ?: start
+                val cycleSpend = all
+                    .filter { it.direction == "DEBIT" && !it.isDuplicate && it.occurredAt >= cycleFrom }
+                    .sumOf { it.amountBaseMinor }
+                val isCard = topChannel.equals("CARD", ignoreCase = true)
+                // When no statement SMS was parsed but a cycle day is known, estimate the bill
+                // from the current cycle's spend so the card is never shown with a blank amount.
+                val estimatedBill = bill == null && isCard && resolvedCycleDay != null && cycleSpend > 0
+                val estimatedDueDate: Long? = if (estimatedBill) {
+                    estimateNextDueDate(resolvedCycleDay!!, now)
+                } else null
                 AccountSummary(
                     accountKey = key,
                     channel = topChannel,
-                    isCard = topChannel.equals("CARD", ignoreCase = true),
+                    isCard = isCard,
                     balanceMinor = balanceByKey[key]?.balanceMinor,
                     balanceUpdatedAt = balanceByKey[key]?.updatedAt,
                     totalDebitMinor = monthTxns.filter { it.direction == "DEBIT" }.sumOf { it.amountBaseMinor },
@@ -542,12 +630,19 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
                     txnCount = monthTxns.size,
                     lastActivityAt = all.maxOf { it.occurredAt },
                     transactions = monthTxns,
-                    billTotalDueMinor = bill?.totalDueMinor,
+                    billTotalDueMinor = bill?.totalDueMinor ?: if (estimatedBill) cycleSpend else null,
                     billMinDueMinor = bill?.minDueMinor,
-                    billDueDate = bill?.dueDate,
+                    billDueDate = bill?.dueDate ?: estimatedDueDate,
                     topSender = bag.senders[key],
                     detectedBankName = BankBranding.detectedBankName(bag.senders[key]),
                     customName = bag.names[key],
+                    statementCycleDay = resolvedCycleDay,
+                    isEstimatedBill = estimatedBill,
+                    isStatementPaid = bill?.paidAt != null,
+                    paidAmountMinor = bill?.paidAmountMinor,
+                    cycleSpendMinor = cycleSpend,
+                    snapshotBalanceMinor = snapshotByKey[key]?.balanceMinor,
+                    snapshotObservedAt = snapshotByKey[key]?.observedAt,
                 )
             }
             .sortedByDescending { it.lastActivityAt }
@@ -559,6 +654,20 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
             months = monthOptions,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsUiState())
+
+    private fun estimateNextDueDate(cycleDay: Int, nowMillis: Long): Long {
+        val zone = ZoneId.systemDefault()
+        val today = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        // Statement generates on cycleDay; due date is 20 days later (Indian bank standard).
+        val statementThisMonth = runCatching {
+            today.withDayOfMonth(cycleDay.coerceAtMost(today.lengthOfMonth()))
+        }.getOrNull() ?: today
+        val statementDate = if (statementThisMonth <= today) statementThisMonth
+        else statementThisMonth.minusMonths(1).withDayOfMonth(
+            cycleDay.coerceAtMost(statementThisMonth.minusMonths(1).lengthOfMonth())
+        )
+        return statementDate.plusDays(20).atStartOfDay(zone).toInstant().toEpochMilli()
+    }
 }
 
 class AnalyticsViewModel(container: AppContainer) : ViewModel() {
@@ -1178,6 +1287,22 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
         container.merchantRepository.observeDisplayNames()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Distinct known account keys for the "tag with account" picker. Excludes "Unknown". */
+    val knownAccountKeys: StateFlow<List<String>> =
+        container.transactionRepository.observeAll()
+            .map { txns ->
+                txns.map { it.accountKey }
+                    .filter { it != "Unknown" && it.isNotBlank() }
+                    .distinct()
+                    .sorted()
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Update the account key for a single transaction. */
+    fun updateAccountKey(txn: TransactionEntity, newKey: String) = viewModelScope.launch {
+        container.transactionRepository.update(txn.copy(accountKey = newKey))
+    }
+
     /** Gates the per-transaction AI debug section. Off by default (developer aid). */
     val debugInfoEnabled: StateFlow<Boolean> =
         container.settingsStore.appearance
@@ -1691,6 +1816,47 @@ class GoalsViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
+// ---------- Sender classifications ----------
+
+data class SenderRow(
+    val sender: String,
+    val isFinancial: Boolean,
+    val source: String,
+    val classifiedAt: Long,
+)
+
+data class SendersUiState(
+    val items: List<SenderRow> = emptyList(),
+    val query: String = "",
+    val filterFinancialOnly: Boolean = false,
+)
+
+@OptIn(FlowPreview::class)
+class SenderClassificationsViewModel(private val container: AppContainer) : ViewModel() {
+    private val _query = MutableStateFlow("")
+    val displayQuery: StateFlow<String> = _query.asStateFlow()
+    private val debouncedQuery = _query
+        .debounce(300L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    private val _financialOnly = MutableStateFlow(false)
+
+    fun setQuery(q: String) { _query.value = q }
+    fun setFinancialOnly(v: Boolean) { _financialOnly.value = v }
+
+    val state: StateFlow<SendersUiState> = combine(
+        container.senderClassificationDao.observeAll(),
+        debouncedQuery,
+        _financialOnly,
+    ) { all, q, financialOnly ->
+        val items = all
+            .filter { if (financialOnly) it.isFinancial else true }
+            .filter { q.isBlank() || it.sender.contains(q, ignoreCase = true) }
+            .map { SenderRow(it.sender, it.isFinancial, it.source, it.classifiedAt) }
+        SendersUiState(items, q, financialOnly)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SendersUiState())
+}
+
 // ---------- Factory ----------
 
 class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
@@ -1710,6 +1876,7 @@ class SpendLensViewModelFactory(private val container: AppContainer) : ViewModel
             modelClass.isAssignableFrom(GoalsViewModel::class.java) -> GoalsViewModel(container)
             modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> TransactionDetailViewModel(container)
             modelClass.isAssignableFrom(ManualEntryViewModel::class.java) -> ManualEntryViewModel(container)
+            modelClass.isAssignableFrom(SenderClassificationsViewModel::class.java) -> SenderClassificationsViewModel(container)
             else -> error("Unknown ViewModel: ${modelClass.name}")
         }
         return vm as T

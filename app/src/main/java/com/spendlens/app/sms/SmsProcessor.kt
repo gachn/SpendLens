@@ -2,6 +2,7 @@ package com.spendlens.app.sms
 
 import com.spendlens.app.ai.PatternGenerator
 import com.spendlens.app.ai.Pii
+import com.spendlens.app.ai.PromotionalChecker
 import com.spendlens.app.data.Hashing
 import com.spendlens.app.data.db.PatternSource
 import com.spendlens.app.data.db.CardBillDao
@@ -17,12 +18,16 @@ import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.fx.FxRepository
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import com.spendlens.app.parser.BalanceUpdateParser
 import com.spendlens.app.parser.CardBillParser
 import com.spendlens.app.data.repository.CategoryRepository
+import com.spendlens.app.data.db.BalanceSnapshotDao
+import com.spendlens.app.data.db.BalanceSnapshotEntity
 import com.spendlens.app.data.repository.MerchantRepository
 import com.spendlens.app.data.repository.PatternRepository
 import com.spendlens.app.data.repository.TransactionRepository
 import com.spendlens.app.parser.AccountExtractor
+import com.spendlens.app.parser.BalanceExtractor
 import com.spendlens.app.parser.DuplicateDetector
 import com.spendlens.app.parser.FinancialSenderFilter
 import com.spendlens.app.parser.FinancialSmsFilter
@@ -59,6 +64,7 @@ class SmsProcessor(
     private val merchantRepo: MerchantRepository,
     private val fxRepo: FxRepository,
     private val cardBillDao: CardBillDao,
+    private val balanceSnapshotDao: BalanceSnapshotDao,
     private val generator: PatternGenerator,
     private val senderClassificationDao: SenderClassificationDao,
     private val engine: PatternEngine = PatternEngine(),
@@ -69,6 +75,7 @@ class SmsProcessor(
      * confirms the sender is financial. Defaults to true.
      */
     private val financialSendersOnly: () -> Boolean = { true },
+    private val promotionalChecker: PromotionalChecker? = null,
 ) {
 
     private val _progress = MutableStateFlow(SmsProcessingProgress())
@@ -121,6 +128,13 @@ class SmsProcessor(
         }
 
         if (!FinancialSmsFilter.isFinancial(msg)) {
+            rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
+            return null
+        }
+
+        // Fast promotional guard: check the in-memory cache of saved exclusion regexes.
+        // The AI-backed batch check runs later in PromotionalCheckWorker so it never blocks here.
+        if (promotionalChecker?.isKnownPromotional(msg.body) == true) {
             rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
             return null
         }
@@ -187,6 +201,11 @@ class SmsProcessor(
                 changed++
                 continue
             }
+            if (promotionalChecker?.isKnownPromotional(msg.body) == true) {
+                rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                changed++
+                continue
+            }
             val result = engine.match(msg, patterns) ?: continue
             result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
             persistTransaction(raw.id, msg, result)
@@ -248,6 +267,16 @@ class SmsProcessor(
                 continue
             }
 
+            if (promotionalChecker?.isKnownPromotional(msg.body) == true) {
+                if (existing != null && existing.userVerified) continue
+                if (existing != null || raw.status != RawStatus.IGNORED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                    changed++
+                }
+                continue
+            }
+
             val result = engine.match(msg, patterns)
             if (result != null) {
                 val matchedPattern = patterns.firstOrNull { it.id == result.patternId }
@@ -293,6 +322,16 @@ class SmsProcessor(
                 if (existing != null && existing.userVerified) {
                     continue
                 }
+                if (existing != null || raw.status != RawStatus.IGNORED) {
+                    txnRepo.deleteByRawSmsId(raw.id)
+                    rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+                    changed++
+                }
+                continue
+            }
+
+            if (promotionalChecker?.isKnownPromotional(msg.body) == true) {
+                if (existing != null && existing.userVerified) continue
                 if (existing != null || raw.status != RawStatus.IGNORED) {
                     txnRepo.deleteByRawSmsId(raw.id)
                     rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
@@ -369,23 +408,110 @@ class SmsProcessor(
         return@withContext recovered
     }
 
-    /** Parse a credit-card statement, if this SMS is one, keeping only the most recent per card. */
+    /**
+     * Tries three side-effect paths on every inbound SMS:
+     * 1. Card-bill statement → upsert newest [CardBillEntity].
+     * 2. Card-payment confirmation → mark the current bill as paid.
+     * 3. Standalone balance notification → upsert [BalanceSnapshotEntity].
+     */
     private suspend fun captureCardBill(rawId: Long, msg: SmsMessage) {
-        val bill = CardBillParser.parse(msg.sender, msg.body, msg.receivedAt) ?: return
-        val existing = cardBillDao.get(bill.cardKey)
-        if (existing != null && bill.statementAt < existing.statementAt) return
-        cardBillDao.upsert(
-            CardBillEntity(
-                cardKey = bill.cardKey,
-                totalDueMinor = bill.totalDueMinor,
-                minDueMinor = bill.minDueMinor,
-                currency = bill.currency,
-                dueDate = bill.dueDate,
-                statementAt = bill.statementAt,
-                rawSmsId = rawId,
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
+        // Path 1: statement
+        val bill = CardBillParser.parse(msg.sender, msg.body, msg.receivedAt)
+        if (bill != null) {
+            val existing = cardBillDao.get(bill.cardKey)
+            if (existing == null || bill.statementAt >= existing.statementAt) {
+                cardBillDao.upsert(
+                    CardBillEntity(
+                        cardKey = bill.cardKey,
+                        totalDueMinor = bill.totalDueMinor,
+                        minDueMinor = bill.minDueMinor,
+                        currency = bill.currency,
+                        dueDate = bill.dueDate,
+                        statementAt = bill.statementAt,
+                        rawSmsId = rawId,
+                        updatedAt = System.currentTimeMillis(),
+                        statementCycleDay = bill.statementCycleDay,
+                    ),
+                )
+            }
+            return  // statement and payment are mutually exclusive
+        }
+
+        // Path 2: payment confirmation
+        val payment = CardBillParser.parsePayment(msg.sender, msg.body, msg.receivedAt)
+        if (payment != null) {
+            val existingBill = cardBillDao.get(payment.cardKey)
+            if (existingBill != null && existingBill.paidAt == null) {
+                val billAge = payment.paidAt - existingBill.statementAt
+                // Only mark paid if within 60 days of the statement date
+                if (billAge in 0L..60L * 86_400_000L) {
+                    cardBillDao.markPaid(payment.cardKey, payment.paidAt, payment.amountMinor)
+                }
+            }
+            return
+        }
+
+        // Path 3: standalone balance snapshot
+        captureBalanceSnapshot(msg)
+    }
+
+    /**
+     * Path 3 of the SMS side-effects: a standalone balance-notification SMS (no transaction) →
+     * upsert the latest [BalanceSnapshotEntity] for that account, keeping only the newest
+     * observation. Backed by [BalanceUpdateParser]. Returns true if a snapshot was written.
+     */
+    private suspend fun captureBalanceSnapshot(msg: SmsMessage): Boolean {
+        val snapshot = BalanceUpdateParser.parse(msg.sender, msg.body, msg.receivedAt) ?: return false
+        val existing = balanceSnapshotDao.get(snapshot.accountKey)
+        if (existing == null || snapshot.observedAt >= existing.observedAt) {
+            balanceSnapshotDao.upsert(
+                BalanceSnapshotEntity(
+                    accountKey = snapshot.accountKey,
+                    balanceMinor = snapshot.balanceMinor,
+                    isCard = snapshot.isCard,
+                    currency = snapshot.currency,
+                    observedAt = snapshot.observedAt,
+                ),
+            )
+            return true
+        }
+        return false
+    }
+
+    /**
+     * One-off backfill of [BalanceSnapshotEntity] rows from every stored raw SMS. The standalone
+     * balance parser ([BalanceUpdateParser]) only runs in [process] for freshly-received SMS, so
+     * periodic balance alerts imported before this logic existed (or before the parser recognised
+     * them) are not yet reflected. Iterating oldest-first means the newest observation per account
+     * wins. Returns how many snapshots were written/updated.
+     */
+    suspend fun backfillBalanceSnapshots(): Int = withContext(Dispatchers.IO) {
+        var written = 0
+        for (raw in rawDao.all()) {
+            val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+            if (captureBalanceSnapshot(msg)) written++
+        }
+        return@withContext written
+    }
+
+    /**
+     * One-time, non-destructive balance backfill. For every transaction missing a [balanceMinor]
+     * but whose source SMS quotes an "Avl Bal" / "A/c Bal", fill that balance in place — leaving
+     * the category, tags, dedupe status and user edits untouched. Lets the Accounts screen show a
+     * current balance for accounts parsed before balance enrichment existed, without a full reparse.
+     * Returns how many rows were updated.
+     */
+    suspend fun backfillBalances(): Int = withContext(Dispatchers.IO) {
+        var updated = 0
+        for (txn in txnRepo.getAllTransactions()) {
+            if (txn.balanceMinor != null) continue
+            val rawId = txn.rawSmsId ?: continue
+            val raw = rawDao.getById(rawId) ?: continue
+            val bal = BalanceExtractor.extractMinor(raw.body) ?: continue
+            txnRepo.update(txn.copy(balanceMinor = bal))
+            updated++
+        }
+        return@withContext updated
     }
 
     /** Feed an unrecognised SMS to the generator; validate and store the pattern. */
@@ -515,7 +641,7 @@ class SmsProcessor(
             direction = p.direction.name,
             accountKey = p.accountKey,
             counterparty = p.counterparty,
-            balanceMinor = p.balanceMinor,
+            balanceMinor = p.balanceMinor ?: BalanceExtractor.extractMinor(msg.body),
             referenceId = p.referenceId,
             occurredAt = p.occurredAt,
             channel = p.channel.name,

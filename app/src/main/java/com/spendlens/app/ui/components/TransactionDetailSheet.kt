@@ -84,11 +84,13 @@ fun TransactionDetailSheet(
 ) {
     val categories by vm.categories.collectAsState()
     val merchantNames by vm.merchantNames.collectAsState()
+    val knownAccountKeys by vm.knownAccountKeys.collectAsState()
     var current by remember(txn.id) { mutableStateOf(txn) }
     var smsBody by remember(txn.id) { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showSplit by remember { mutableStateOf(false) }
+    var showAccountPicker by remember { mutableStateOf(false) }
     var pendingScope by remember { mutableStateOf<PendingScopeEdit?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val splits by remember(current.id) { vm.splitsFlow(current.id) }
@@ -149,7 +151,11 @@ fun TransactionDetailSheet(
                 DetailLine("In INR", Money.format(current.amountBaseMinor, "INR"))
             }
             bankName?.let { DetailLine("Bank", it) }
-            DetailLine("Account", current.accountKey)
+            if (current.accountKey != "Unknown") {
+                DetailLine("Account", current.accountKey)
+            } else {
+                TextButton(onClick = { showAccountPicker = true }) { Text("Tag with account...") }
+            }
             DetailLine("Channel", current.channel)
             current.referenceId?.let { DetailLine("Reference", it) }
             Spacer(Modifier.height(12.dp))
@@ -364,6 +370,18 @@ fun TransactionDetailSheet(
                 }
                 pendingScope = null
             },
+        )
+    }
+
+    if (showAccountPicker) {
+        AccountPickerDialog(
+            keys = knownAccountKeys,
+            onPick = { key ->
+                vm.updateAccountKey(current, key)
+                current = current.copy(accountKey = key)
+                showAccountPicker = false
+            },
+            onDismiss = { showAccountPicker = false },
         )
     }
 }
@@ -730,6 +748,36 @@ private fun SplitCategoryPicker(
             }
         }
     }
+}
+
+@Composable
+private fun AccountPickerDialog(
+    keys: List<String>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Tag with account") },
+        text = {
+            if (keys.isEmpty()) {
+                Text("No known accounts found.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Column {
+                    keys.forEach { key ->
+                        TextButton(
+                            onClick = { onPick(key) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(key, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 private val EMOJIS = listOf(
