@@ -8,36 +8,66 @@ plugins {
     alias(libs.plugins.newrelic)
 }
 
-// OpenRouter API key baked from local.properties (gitignored) — used as the default when the
-// user hasn't entered their own key in Settings. Empty if absent.
+// OpenRouter API key from local.properties (gitignored) for local builds, or a CI secret env
+// var — used as the default when the user hasn't entered their own key in Settings. Empty if
+// absent from all three sources.
 val openRouterApiKey: String = run {
     val props = Properties()
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { props.load(it) }
     props.getProperty("OPENROUTER_API_KEY")
         ?: (project.findProperty("OPENROUTER_API_KEY") as? String)
+        ?: System.getenv("OPENROUTER_API_KEY")
         ?: ""
 }
 
-// New Relic mobile app token from local.properties (gitignored) — no-op when absent.
+// New Relic mobile app token from local.properties (gitignored) or a CI secret env var —
+// no-op when absent from both.
 val newRelicAppToken: String = run {
     val props = Properties()
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { props.load(it) }
     props.getProperty("NEW_RELIC_APP_TOKEN")
         ?: (project.findProperty("NEW_RELIC_APP_TOKEN") as? String)
+        ?: System.getenv("NEW_RELIC_APP_TOKEN")
         ?: ""
 }
+
+// Release signing credentials from local.properties (gitignored) for local builds, or from
+// environment variables (CI secrets) when local.properties doesn't have them. Signing is
+// skipped (release build stays unsigned) if neither source has a keystore configured.
+val releaseKeystoreProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun releaseSigningProp(key: String): String? =
+    releaseKeystoreProps.getProperty(key) ?: System.getenv(key)
+val releaseKeystorePath: String? = releaseSigningProp("RELEASE_KEYSTORE_PATH")
+
+// CI (see .github/workflows/deploy-play.yml) passes a strictly increasing build number here so
+// every Play Store upload has a unique versionCode. Local builds default to 1.
+val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 1
 
 android {
     namespace = "com.spendlens.app"
     compileSdk = 34
 
+    if (releaseKeystorePath != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(releaseKeystorePath)
+                storePassword = releaseSigningProp("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigningProp("RELEASE_KEYSTORE_ALIAS")
+                keyPassword = releaseSigningProp("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.spendlens.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        versionCode = releaseVersionCode
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -55,6 +85,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (releaseKeystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
