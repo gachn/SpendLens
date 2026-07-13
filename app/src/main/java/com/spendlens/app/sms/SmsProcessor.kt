@@ -531,7 +531,7 @@ class SmsProcessor(
                 senderRegex = gen.senderRegex,
                 bodyRegex = gen.bodyRegex,
                 priority = LEARNED_PRIORITY,
-                source = if (generator.requiresMasking) PatternSource.AI else PatternSource.HEURISTIC,
+                source = if (gen.viaAi) PatternSource.AI else PatternSource.HEURISTIC,
                 sampleSms = msg.body,
             ),
         )

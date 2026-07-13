@@ -31,7 +31,7 @@ data class AiPrefs(
  *
  * Resolution rules (BuildConfig default, Settings override) live in the pure, unit-tested [AiConfig].
  */
-class AiConfigStore(context: Context) {
+class AiConfigStore(context: Context, private val planStore: PlanStore) {
 
     private val appContext = context.applicationContext
 
@@ -55,7 +55,7 @@ class AiConfigStore(context: Context) {
 
     private fun load(): AiPrefs = AiPrefs(
         enabled = prefs.getBoolean(KEY_ENABLED, true),
-        model = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null)),
+        model = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium()),
         hasOverrideKey = !overrideKey().isNullOrBlank(),
         buildKeyPresent = BuildConfig.OPENROUTER_API_KEY.isNotBlank(),
     )
@@ -63,13 +63,18 @@ class AiConfigStore(context: Context) {
     /** Synchronous read used off the main thread when deciding whether to use the AI path. */
     fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, true)
 
-    fun effectiveModel(): String = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null))
+    fun effectiveModel(): String = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium())
 
     /** The key to use for requests, or null if neither an override nor a build default is set. */
     fun effectiveKey(): String? = AiConfig.effectiveKey(overrideKey(), BuildConfig.OPENROUTER_API_KEY)
 
-    /** True when AI is enabled and a usable key exists — the only state in which AI calls run. */
-    fun isUsable(): Boolean = isEnabled() && effectiveKey() != null
+    /**
+     * True only on the Premium plan, with AI enabled and a usable key — the single gate every AI
+     * call site checks before reaching the network. On the Free plan this is always false, so
+     * every AI-backed flow (pattern learning, categorisation, sender/promo classification) falls
+     * back to its on-device heuristic — no AI call is ever made.
+     */
+    fun isUsable(): Boolean = planStore.isPremium() && isEnabled() && effectiveKey() != null
 
     private fun overrideKey(): String? = securePrefs.getString(KEY_API_KEY, null)
 
@@ -88,7 +93,7 @@ class AiConfigStore(context: Context) {
     fun setModel(model: String) {
         val cleaned = model.trim()
         prefs.edit().putString(KEY_MODEL, cleaned).apply()
-        _prefs.value = _prefs.value.copy(model = AiConfig.effectiveModel(cleaned))
+        _prefs.value = _prefs.value.copy(model = AiConfig.effectiveModel(cleaned, planStore.isPremium()))
     }
 
     /** Store (or clear, when [key] is blank) the user's own API key. */

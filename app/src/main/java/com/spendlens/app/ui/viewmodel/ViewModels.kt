@@ -17,6 +17,7 @@ import com.spendlens.app.data.repository.PatternRepository
 import com.spendlens.app.data.repository.BudgetRepository
 import com.spendlens.app.data.repository.BillRepository
 import com.spendlens.app.data.prefs.AppearancePrefs
+import com.spendlens.app.data.prefs.Plan
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.theme.BankBranding
 import com.spendlens.app.di.AppContainer
@@ -868,6 +869,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     // ----- Appearance -----
 
     val appearance: StateFlow<AppearancePrefs> = container.settingsStore.appearance
+
+    // ----- Plan -----
+
+    val plan: StateFlow<Plan> = container.planStore.plan
+
+    fun setPlan(plan: Plan) = container.planStore.setPlan(plan)
 
     fun setThemeMode(mode: ThemeMode) = container.settingsStore.setThemeMode(mode)
 

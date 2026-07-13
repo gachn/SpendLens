@@ -29,11 +29,11 @@ class SenderClassifier(
     suspend fun classify(senders: List<String>): Map<String, Boolean> = withContext(Dispatchers.IO) {
         if (senders.isEmpty()) return@withContext emptyMap()
 
-        val key = aiConfigStore.effectiveKey()
-        if (!aiConfigStore.isEnabled() || key == null) {
-            AppLog.aiSkipped("sender_classify", "ai_disabled_or_no_key")
+        if (!aiConfigStore.isUsable()) {
+            AppLog.aiSkipped("sender_classify", "ai_disabled_or_no_key_or_not_premium")
             return@withContext emptyMap()
         }
+        val key = aiConfigStore.effectiveKey() ?: return@withContext emptyMap()
 
         val numberedList = senders.mapIndexed { i, s -> "${i + 1}. $s" }.joinToString("\n")
         val prompt = """

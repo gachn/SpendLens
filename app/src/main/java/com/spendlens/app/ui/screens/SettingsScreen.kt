@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
+import com.spendlens.app.data.prefs.Plan
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.SectionHeader
@@ -83,6 +84,7 @@ fun SettingsScreen(
     val appearance by vm.appearance.collectAsState()
     val security by vm.security.collectAsState()
     val smsFilter by vm.smsFilter.collectAsState()
+    val plan by vm.plan.collectAsState()
     val ai by vm.aiPrefs.collectAsState()
     val aiModels by vm.aiModels.collectAsState()
     val backupState by vm.backupState.collectAsState()
@@ -180,6 +182,34 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+            }
+        }
+
+        item { SectionHeader("Plan") }
+        item {
+            ElevatedSurfaceCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SegmentedChoice(
+                        options = Plan.entries,
+                        selected = plan,
+                        label = { it.label },
+                        onSelect = { vm.setPlan(it) },
+                    )
+                    Text(
+                        if (plan == Plan.FREE) {
+                            "Free parses SMS entirely on-device with pattern matching — no message " +
+                                "ever leaves your phone. Switch to Premium to let an AI model recognise " +
+                                "message patterns it doesn't already know, using a stronger model."
+                        } else {
+                            "Premium tries an AI model first for SMS pattern recognition, categorisation " +
+                                "and sender/promo checks, falling back to the same on-device heuristics " +
+                                "Free uses if AI is unavailable. No payment is required yet — this is a " +
+                                "preview switch."
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -542,11 +572,18 @@ fun SettingsScreen(
                         }
                         Switch(
                             checked = ai.enabled,
+                            enabled = plan == Plan.PREMIUM,
                             onCheckedChange = { vm.setAiEnabled(it) },
                         )
                     }
 
-                    if (ai.enabled) {
+                    if (plan == Plan.FREE) {
+                        Text(
+                            "AI features require the Premium plan (see the Plan section above).",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else if (ai.enabled) {
                         // Pull the catalogue once so the Model field can autocomplete slugs.
                         LaunchedEffect(Unit) { vm.loadAiModels() }
 

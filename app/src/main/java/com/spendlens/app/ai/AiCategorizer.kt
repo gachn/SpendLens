@@ -48,11 +48,11 @@ class AiCategorizer(private val container: AppContainer) {
      */
     suspend fun run(force: Boolean = false): Outcome = withContext(Dispatchers.IO) {
         val store = container.aiConfigStore
-        val key = store.effectiveKey()
-        if (!store.isEnabled() || key == null) {
-            AppLog.aiSkipped("auto_categorize", "ai_disabled_or_no_key")
+        if (!store.isUsable()) {
+            AppLog.aiSkipped("auto_categorize", "ai_disabled_or_no_key_or_not_premium")
             return@withContext Outcome(0, 0)
         }
+        val key = store.effectiveKey() ?: return@withContext Outcome(0, 0)
 
         if (!force) {
             val sinceLast = System.currentTimeMillis() - store.lastAutoCategorizeAt()

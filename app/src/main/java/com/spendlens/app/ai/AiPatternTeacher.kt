@@ -61,11 +61,11 @@ class AiPatternTeacher(private val container: AppContainer) {
      */
     suspend fun teach(smsList: List<RawSmsEntity>): TeachResult {
         val store = container.aiConfigStore
-        val key = store.effectiveKey()
-        if (!store.isEnabled() || key == null) {
-            AppLog.aiSkipped("pattern_teach", "ai_disabled_or_no_key")
+        if (!store.isUsable()) {
+            AppLog.aiSkipped("pattern_teach", "ai_disabled_or_no_key_or_not_premium")
             return TeachResult.Fallback
         }
+        val key = store.effectiveKey() ?: return TeachResult.Fallback
         AppLog.aiProcessing("pattern_teach", "generating_prompt", mapOf("sms_count" to smsList.size))
         val prompt = generatePrompt(smsList)
         return when (

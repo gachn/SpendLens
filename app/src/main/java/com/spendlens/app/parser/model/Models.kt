@@ -75,4 +75,6 @@ data class GeneratedPattern(
     val bodyRegex: String,
     val senderRegex: String?,
     val fieldNotes: String,
+    /** True when an off-device AI model (Premium) proposed this pattern, false for on-device heuristics. */
+    val viaAi: Boolean = false,
 )

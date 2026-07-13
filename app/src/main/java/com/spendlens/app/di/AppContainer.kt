@@ -1,8 +1,10 @@
 package com.spendlens.app.di
 
 import android.content.Context
+import com.spendlens.app.ai.AiPatternGenerator
 import com.spendlens.app.ai.HeuristicPatternGenerator
 import com.spendlens.app.ai.GatedMerchantResolver
+import com.spendlens.app.ai.LayeredPatternGenerator
 import com.spendlens.app.ai.MerchantResolver
 import com.spendlens.app.ai.OpenRouterClient
 import com.spendlens.app.ai.PatternGenerator
@@ -16,6 +18,7 @@ import com.spendlens.app.data.db.AppDatabase
 import com.spendlens.app.data.fx.FxProvider
 import com.spendlens.app.data.fx.FxRepository
 import com.spendlens.app.data.fx.WebFxProvider
+import com.spendlens.app.data.prefs.PlanStore
 import com.spendlens.app.data.prefs.SettingsStore
 import com.spendlens.app.data.prefs.VelocityAlertStore
 import com.spendlens.app.data.repository.BillRepository
@@ -41,8 +44,11 @@ class AppContainer(context: Context) {
     /** Non-sensitive UI preferences (theme mode, dynamic colour). */
     val settingsStore by lazy { SettingsStore(appContext) }
 
+    /** Free vs Premium plan — gates every AI call site via [aiConfigStore]. See docs/DESIGN.md §3.4. */
+    val planStore by lazy { PlanStore(appContext) }
+
     /** AI flag, model slug and (encrypted) API-key override for the OpenRouter-backed flows. */
-    val aiConfigStore by lazy { AiConfigStore(appContext) }
+    val aiConfigStore by lazy { AiConfigStore(appContext, planStore) }
 
     /** OpenRouter client — single OpenAI-compatible endpoint reaching any configured model. */
     val openRouterClient by lazy { OpenRouterClient() }
@@ -82,8 +88,17 @@ class AppContainer(context: Context) {
     /** Encrypted on-device store for receipt images attached to transactions. */
     val receiptStore by lazy { ReceiptStore(appContext) }
 
-    /** On-device, no-network heuristic pattern learner for unrecognised SMS formats. */
-    val patternGenerator: PatternGenerator by lazy { HeuristicPatternGenerator() }
+    /**
+     * Pattern learner for unrecognised SMS formats. Premium tries the AI generator first (a
+     * stronger model, see [AiConfig.PREMIUM_DEFAULT_MODEL]); Free (and any AI failure) falls back
+     * to the on-device, no-network heuristic — see [LayeredPatternGenerator].
+     */
+    val patternGenerator: PatternGenerator by lazy {
+        LayeredPatternGenerator(
+            primary = AiPatternGenerator(openRouterClient, aiConfigStore),
+            fallback = HeuristicPatternGenerator(),
+        )
+    }
 
     /**
      * Merchant-name resolver. The web-backed (Clearbit) resolver is gated behind the
