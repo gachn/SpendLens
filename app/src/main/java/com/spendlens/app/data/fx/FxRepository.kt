@@ -17,8 +17,8 @@ class FxRepository(context: Context, private val provider: FxProvider) {
 
     fun ratesToBase(): Map<String, Double> = rates
 
-    fun toBaseMinor(amountMinor: Long, currency: String): Long =
-        CurrencyConverter.toBaseMinor(amountMinor, currency, rates)
+    fun convert(amountMinor: Long, from: String, to: String): Long =
+        CurrencyConverter.convert(amountMinor, from, to, rates)
 
     /** Best-effort refresh; keeps existing rates on failure. */
     suspend fun refresh() {

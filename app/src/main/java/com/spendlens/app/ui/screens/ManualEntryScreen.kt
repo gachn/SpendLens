@@ -9,8 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -20,9 +24,11 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,15 +45,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import com.spendlens.app.ai.CategorySuggestion
+import com.spendlens.app.ai.MerchantWarning
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.CategoryCreateDialog
 import com.spendlens.app.ui.components.MerchantSuggestField
+import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.ManualAmount
 import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -66,7 +77,11 @@ fun ManualEntryScreen(
     val categories by vm.categories.collectAsState()
     val accounts by vm.accounts.collectAsState()
     val merchantNames by vm.merchantNames.collectAsState()
+    val isPremium by vm.isPremium.collectAsState()
     val scope = rememberCoroutineScope()
+
+    var categorySuggestions by remember { mutableStateOf<List<CategorySuggestion>>(emptyList()) }
+    var duplicateWarning by remember { mutableStateOf<MerchantWarning?>(null) }
 
     var editing by remember { mutableStateOf<TransactionEntity?>(null) }
     var amountText by remember { mutableStateOf("") }
@@ -103,6 +118,19 @@ fun ManualEntryScreen(
             tags = txn.tags.orEmpty()
             excluded = txn.excludedFromExpense
         }
+    }
+
+    // Premium: suggest a category and warn about likely-duplicate merchants as the user types,
+    // debounced so it doesn't fire on every keystroke.
+    LaunchedEffect(counterparty, isPremium) {
+        if (!isPremium || counterparty.trim().length < 3) {
+            categorySuggestions = emptyList()
+            duplicateWarning = null
+            return@LaunchedEffect
+        }
+        delay(400)
+        categorySuggestions = if (categoryId == null) vm.suggestCategoriesForMerchant(counterparty) else emptyList()
+        duplicateWarning = vm.checkDuplicateMerchant(counterparty)
     }
 
     val amountMinor = ManualAmount.parseMinor(amountText)
@@ -179,7 +207,7 @@ fun ManualEntryScreen(
             categories.forEach { cat ->
                 FilterChip(
                     selected = categoryId == cat.id,
-                    onClick = { categoryId = cat.id; categoryTouched = true },
+                    onClick = { categoryId = cat.id; categoryTouched = true; categorySuggestions = emptyList() },
                     label = { Text("${cat.icon} ${cat.name}") },
                 )
             }
@@ -231,6 +259,62 @@ fun ManualEntryScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+
+        duplicateWarning?.let { warning ->
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Did you mean \"${warning.existingMerchant}\"?",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Used ${warning.transactionCount} time${if (warning.transactionCount == 1) "" else "s"} before",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = {
+                        counterparty = warning.existingMerchant
+                        duplicateWarning = null
+                        scope.launch {
+                            vm.resolveMerchant(warning.existingMerchant)?.let { match ->
+                                match.categoryId?.let { categoryId = it; categoryTouched = true }
+                                excluded = match.excluded
+                            }
+                        }
+                    }) { Text("Use it") }
+                }
+            }
+        }
+
+        if (categorySuggestions.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Suggested category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categorySuggestions.forEach { suggestion ->
+                    AssistChip(
+                        onClick = {
+                            categoryId = suggestion.categoryId
+                            categoryTouched = true
+                            categorySuggestions = emptyList()
+                        },
+                        label = { Text("${suggestion.icon} ${suggestion.name}") },
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(12.dp))
 
         // Count-as-expense toggle (auto-set when a known merchant is picked).

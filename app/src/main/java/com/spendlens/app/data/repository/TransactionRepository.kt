@@ -76,12 +76,13 @@ class TransactionRepository(
         receiptUri: String?,
         excludedFromExpense: Boolean = false,
         ratesToBase: Map<String, Double>,
+        baseCurrency: String,
     ): Long = dao.insert(
         TransactionEntity(
             rawSmsId = null,
             amountMinor = amountMinor,
             currency = currency,
-            amountBaseMinor = CurrencyConverter.toBaseMinor(amountMinor, currency, ratesToBase),
+            amountBaseMinor = CurrencyConverter.convert(amountMinor, currency, baseCurrency, ratesToBase),
             direction = direction,
             accountKey = accountKey,
             counterparty = counterparty,
@@ -104,9 +105,11 @@ class TransactionRepository(
      * Update an edited manual transaction in place (same row id, no duplicate). Recomputes
      * [amountBaseMinor] from the edited amount/currency so totals stay consistent.
      */
-    suspend fun updateManual(txn: TransactionEntity, ratesToBase: Map<String, Double>) =
+    suspend fun updateManual(txn: TransactionEntity, ratesToBase: Map<String, Double>, baseCurrency: String) =
         dao.update(
-            txn.copy(amountBaseMinor = CurrencyConverter.toBaseMinor(txn.amountMinor, txn.currency, ratesToBase)),
+            txn.copy(
+                amountBaseMinor = CurrencyConverter.convert(txn.amountMinor, txn.currency, baseCurrency, ratesToBase),
+            ),
         )
 
     suspend fun findCandidates(
@@ -211,5 +214,31 @@ class TransactionRepository(
     suspend fun clearSplit(parent: TransactionEntity) {
         splitDao.deleteForParent(parent.id)
         dao.update(parent.copy(isSplit = false))
+    }
+
+    /**
+     * Recompute every transaction's [TransactionEntity.amountBaseMinor] via [convert] — called
+     * when the user changes their primary currency. Split children aren't priced independently
+     * (they're a proportional share of their parent's total, see [splitTransaction]), so after the
+     * parent rows are updated each split is rescaled to the same proportion of its parent's new
+     * total rather than re-converted from a currency of its own.
+     */
+    suspend fun recomputeBaseAmounts(convert: (amountMinor: Long, currency: String) -> Long) {
+        dao.recomputeBaseAmounts(convert)
+        dao.getAllTransactions().filter { it.isSplit }.forEach { parent ->
+            val splits = splitDao.forParent(parent.id)
+            if (splits.isEmpty()) return@forEach
+            val oldTotal = splits.sumOf { it.amountBaseMinor }
+            if (oldTotal == 0L) return@forEach
+            var assigned = 0L
+            splits.forEachIndexed { i, s ->
+                val newBase = if (i == splits.lastIndex) {
+                    parent.amountBaseMinor - assigned
+                } else {
+                    (s.amountBaseMinor * parent.amountBaseMinor / oldTotal).also { assigned += it }
+                }
+                splitDao.update(s.copy(amountBaseMinor = newBase))
+            }
+        }
     }
 }

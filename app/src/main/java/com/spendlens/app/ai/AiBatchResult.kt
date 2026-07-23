@@ -6,6 +6,8 @@ import org.json.JSONObject
 /** One SMS's worth of the batched AI response — see [PromptGenerator]'s schema. */
 data class AiSmsResult(
     val isFinancial: Boolean,
+    /** True for a future-dated notice ("will be deducted", "EMI due on") — not a completed spend. */
+    val isReminder: Boolean,
     val bodyRegex: String?,
     val senderRegex: String?,
     val name: String?,
@@ -43,11 +45,18 @@ object AiBatchResult {
 
     private fun parseOne(json: JSONObject): AiSmsResult {
         val isFinancial = json.optBoolean("isFinancial", false)
+        val isReminder = json.optBoolean("isReminder", false)
         val bodyRegex = json.optString("bodyRegex")
             .takeIf { it.isNotBlank() && it != "null" }
             ?.takeIf { runCatching { Regex(it) }.isSuccess }
         val senderRegex = json.optString("senderRegex").takeIf { it.isNotBlank() && it != "null" }
         val name = json.optString("name").takeIf { it.isNotBlank() && it != "null" }
-        return AiSmsResult(isFinancial = isFinancial, bodyRegex = bodyRegex, senderRegex = senderRegex, name = name)
+        return AiSmsResult(
+            isFinancial = isFinancial,
+            isReminder = isReminder,
+            bodyRegex = bodyRegex,
+            senderRegex = senderRegex,
+            name = name,
+        )
     }
 }

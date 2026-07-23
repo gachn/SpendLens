@@ -1,6 +1,8 @@
 package com.spendlens.app.data.prefs
 
 import android.content.Context
+import java.util.Currency
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +34,12 @@ data class SecurityPrefs(
     val appLockEnabled: Boolean = false,
     /** Seconds the app may sit in the background before it re-locks (avoids re-prompt on rotation). */
     val gracePeriodSec: Int = 30,
+)
+
+/** Primary-currency choice, surfaced in Settings → Currency. */
+data class CurrencyPrefs(
+    /** User-chosen ISO-4217 override, or null to auto-detect from the device locale. */
+    val primaryCurrencyOverride: String? = null,
 )
 
 /** SMS-parsing choices, surfaced in Settings → SMS Filtering. */
@@ -69,6 +77,9 @@ class SettingsStore(context: Context) {
     private val _smsFilter = MutableStateFlow(loadSmsFilter())
     val smsFilter: StateFlow<SmsFilterPrefs> = _smsFilter.asStateFlow()
 
+    private val _currency = MutableStateFlow(loadCurrency())
+    val currency: StateFlow<CurrencyPrefs> = _currency.asStateFlow()
+
     private fun load(): AppearancePrefs {
         val mode = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
             ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -90,6 +101,23 @@ class SettingsStore(context: Context) {
         financialSendersOnly = prefs.getBoolean(KEY_FINANCIAL_SENDERS_ONLY, true),
         merchantPredictionEnabled = prefs.getBoolean(KEY_MERCHANT_PREDICTION, false),
     )
+
+    private fun loadCurrency(): CurrencyPrefs =
+        CurrencyPrefs(primaryCurrencyOverride = prefs.getString(KEY_PRIMARY_CURRENCY, null))
+
+    /** Device locale's currency, used whenever the user hasn't chosen an override. */
+    private fun detectPrimaryCurrency(): String =
+        runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrDefault("USD")
+
+    /**
+     * Synchronous read used off the main thread (SMS ingest, manual entry, FX conversion): the
+     * user's override if set, else the device-locale currency detected at read time so it tracks
+     * a locale change even without the user visiting Settings.
+     */
+    fun primaryCurrency(): String =
+        prefs.getString(KEY_PRIMARY_CURRENCY, null) ?: detectPrimaryCurrency()
+
+    fun detectedPrimaryCurrency(): String = detectPrimaryCurrency()
 
     /** Synchronous read for app-launch gating (before any flow is collected). */
     fun isAppLockEnabled(): Boolean = prefs.getBoolean(KEY_APP_LOCK, false)
@@ -139,6 +167,12 @@ class SettingsStore(context: Context) {
     fun setMerchantPredictionEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_MERCHANT_PREDICTION, enabled).apply()
         _smsFilter.value = _smsFilter.value.copy(merchantPredictionEnabled = enabled)
+    }
+
+    /** `code` = null clears the override and reverts to auto-detecting from the device locale. */
+    fun setPrimaryCurrency(code: String?) {
+        prefs.edit().putString(KEY_PRIMARY_CURRENCY, code).apply()
+        _currency.value = _currency.value.copy(primaryCurrencyOverride = code)
     }
 
     // Account display-name overrides — user can rename "••••9496" to "HDFC Credit" etc.
@@ -199,6 +233,7 @@ class SettingsStore(context: Context) {
         const val KEY_LAST_BACKUP = "last_backup_at"
         const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
         const val KEY_MERCHANT_PREDICTION = "merchant_prediction_enabled"
+        const val KEY_PRIMARY_CURRENCY = "primary_currency_override"
         const val KEY_ACCT_NAME_PREFIX = "acct_name_"
         const val KEY_CYCLE_DAY_PREFIX = "cycle_day_"
     }

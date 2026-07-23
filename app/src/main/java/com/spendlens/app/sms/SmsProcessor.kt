@@ -86,6 +86,8 @@ class SmsProcessor(
     private val aiAlwaysUsable: () -> Boolean = { false },
     /** Schedules (or reschedules, debounced) the batched AI call — see AiSmsBatchWorker.enqueue. */
     private val enqueueAiBatch: () -> Unit = {},
+    /** The user's primary currency — used as the fallback when a pattern captures no currency. */
+    private val primaryCurrency: () -> String = { "INR" },
 ) {
 
     private val _progress = MutableStateFlow(SmsProcessingProgress())
@@ -175,13 +177,13 @@ class SmsProcessor(
             return null
         }
 
-        var result = engine.match(msg, patternRepo.compiled())
+        var result = engine.match(msg, patternRepo.compiled(), primaryCurrency())
         var patternId = result?.patternId
 
         if (result == null) {
             patternId = tryLearnPattern(rawId, msg)
             if (patternId != null) {
-                result = engine.match(msg, patternRepo.compiled())
+                result = engine.match(msg, patternRepo.compiled(), primaryCurrency())
             }
         }
 
@@ -210,7 +212,10 @@ class SmsProcessor(
             return runRegexPipeline(raw.id, msg)
         }
 
-        if (!result.isFinancial) {
+        if (!result.isFinancial || result.isReminder) {
+            // A reminder ("Rs 129 will be deducted", "EMI due on...") describes money that
+            // hasn't moved yet — recording it as a transaction would double-count once the real
+            // debit/credit SMS arrives later.
             rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
             return null
         }
@@ -219,7 +224,7 @@ class SmsProcessor(
             validateAndSavePattern(msg, it, result.senderRegex, result.name ?: "AI-learned pattern", viaAi = true)
         }
 
-        val matchResult = engine.match(msg, patternRepo.compiled())
+        val matchResult = engine.match(msg, patternRepo.compiled(), primaryCurrency())
         if (matchResult == null) {
             rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
             return null
@@ -247,7 +252,7 @@ class SmsProcessor(
         var changed = 0
         for (raw in rawList) {
             val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
-            val result = engine.match(msg, patterns) ?: continue
+            val result = engine.match(msg, patterns, primaryCurrency()) ?: continue
             result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
             txnRepo.deleteByRawSmsId(raw.id)
             persistTransaction(raw.id, msg, result)
@@ -278,7 +283,7 @@ class SmsProcessor(
                 changed++
                 continue
             }
-            val result = engine.match(msg, patterns) ?: continue
+            val result = engine.match(msg, patterns, primaryCurrency()) ?: continue
             result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
             persistTransaction(raw.id, msg, result)
             rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
@@ -349,7 +354,7 @@ class SmsProcessor(
                 continue
             }
 
-            val result = engine.match(msg, patterns)
+            val result = engine.match(msg, patterns, primaryCurrency())
             if (result != null) {
                 val matchedPattern = patterns.firstOrNull { it.id == result.patternId }
                 val isUserPattern = matchedPattern != null && matchedPattern.priority >= LEARNED_PRIORITY
@@ -423,7 +428,7 @@ class SmsProcessor(
                 }
             }
 
-            val result = engine.match(msg, patterns)
+            val result = engine.match(msg, patterns, primaryCurrency())
             if (result != null) {
                 val matchedPattern = patterns.firstOrNull { it.id == result.patternId }
                 val isUserPattern = matchedPattern != null && matchedPattern.priority >= LEARNED_PRIORITY
@@ -464,7 +469,7 @@ class SmsProcessor(
             for (raw in rawDao.listIgnoredForSender(senderName)) {
                 val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
                 if (!FinancialSmsFilter.isFinancial(msg)) continue
-                val result = engine.match(msg, patterns)
+                val result = engine.match(msg, patterns, primaryCurrency())
                 if (result != null) {
                     result.patternId.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
                     txnRepo.deleteByRawSmsId(raw.id)
@@ -643,7 +648,7 @@ class SmsProcessor(
             accountKey = betterAccount ?: raw.accountKey,
             counterparty = merchantName,
         )
-        val amountBaseMinor = fxRepo.toBaseMinor(p.amountMinor, p.currency)
+        val amountBaseMinor = fxRepo.convert(p.amountMinor, p.currency, primaryCurrency())
 
         val candidates = txnRepo.findCandidates(
             amount = p.amountMinor,

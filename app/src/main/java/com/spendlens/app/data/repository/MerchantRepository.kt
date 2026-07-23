@@ -53,6 +53,7 @@ class MerchantRepository(
                 tags = tags,
                 logoEmoji = existing?.logoEmoji,
                 excludedFromExpense = existing?.excludedFromExpense ?: false,
+                consolidationCheckedAt = existing?.consolidationCheckedAt,
             ),
         )
     }
@@ -72,6 +73,7 @@ class MerchantRepository(
                 tags = existing?.tags,
                 logoEmoji = existing?.logoEmoji,
                 excludedFromExpense = excluded,
+                consolidationCheckedAt = existing?.consolidationCheckedAt,
             ),
         )
     }
@@ -101,7 +103,17 @@ class MerchantRepository(
         val existing = dao.getByKey(key)
         val existingTags = existing?.tags
         val existingLogo = existing?.logoEmoji
-        dao.upsert(MerchantAliasEntity(rawKey = key, displayName = display, source = source, tags = existingTags, logoEmoji = existingLogo, excludedFromExpense = existing?.excludedFromExpense ?: false))
+        dao.upsert(
+            MerchantAliasEntity(
+                rawKey = key,
+                displayName = display,
+                source = source,
+                tags = existingTags,
+                logoEmoji = existingLogo,
+                excludedFromExpense = existing?.excludedFromExpense ?: false,
+                consolidationCheckedAt = existing?.consolidationCheckedAt,
+            ),
+        )
         cache[key] = display
         return display
     }
@@ -117,6 +129,7 @@ class MerchantRepository(
                 tags = existing?.tags,
                 logoEmoji = emoji,
                 excludedFromExpense = existing?.excludedFromExpense ?: false,
+                consolidationCheckedAt = existing?.consolidationCheckedAt,
             )
         )
     }
@@ -158,4 +171,10 @@ class MerchantRepository(
         dao.deleteByKey(rawKey)
         cache.remove(rawKey)
     }
+
+    /** Count of merchants [com.spendlens.app.work.MerchantConsolidationWorker] hasn't checked yet. */
+    suspend fun countUnconsolidated(): Int = dao.countUnconsolidated()
+
+    /** Stamp every not-yet-checked merchant as considered by the periodic consolidation pass. */
+    suspend fun markUnconsolidatedAsChecked(at: Long) = dao.markUnconsolidatedAsChecked(at)
 }

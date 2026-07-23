@@ -260,7 +260,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
             DashboardUiState(
                 spendMinor = spend,
                 incomeMinor = income,
-                currency = "INR",
+                currency = container.settingsStore.primaryCurrency(),
                 monthLabel = Dates.label(month),
                 recent = monthTxns.take(15),
                 slices = slices,
@@ -272,30 +272,75 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState(monthOptions = monthOptions))
 
-    /**
-     * Generate a spending summary for the selected month.
-     * Returns natural language description of spending patterns.
-     */
-    suspend fun generateSpendingSummary(): String? {
-        val allTxns = repo.observeAll().first()
-        val cats = container.categoryRepository.all()
-        val metrics = com.spendlens.app.ai.SpendingSummaryGenerator.calculateMetrics(
-            allTxns,
-            cats,
-            daysBack = 30,
-        )
-        return metrics.takeIf { it.transactionCount > 0 }?.let {
-            com.spendlens.app.ai.SpendingSummaryGenerator.buildPrompt(it, cats, "this month")
-        }
+    // ---------- Premium: AI monthly spending recap ----------
+
+    /** State of the AI-generated natural-language monthly recap card. */
+    sealed interface RecapState {
+        data object Idle : RecapState
+        data object Loading : RecapState
+        /** Not on Premium, AI disabled, or no API key configured. */
+        data object Unavailable : RecapState
+        /** Premium + AI usable, but not enough transactions this month to summarise yet. */
+        data object NoData : RecapState
+        data class Ready(val text: String, val generatedAt: Long) : RecapState
+        data class Error(val message: String) : RecapState
+    }
+
+    private val _recap = MutableStateFlow<RecapState>(RecapState.Idle)
+    val recap: StateFlow<RecapState> = _recap.asStateFlow()
+
+    private fun currentMonthKey(): String = YearMonth.now().toString()
+
+    init {
+        container.insightsStore.lastRecap()
+            ?.takeIf { it.monthKey == currentMonthKey() }
+            ?.let { _recap.value = RecapState.Ready(it.text, it.generatedAt) }
     }
 
     /**
-     * Detect recurring transactions in the current data.
-     * Returns subscriptions and regular payments sorted by confidence.
+     * Generate (or regenerate) this month's AI recap. Flag-gated like every other AI call site —
+     * [RecapState.Unavailable] when AI is off, unconfigured, or the plan isn't Premium.
      */
-    suspend fun detectRecurringTransactions(): List<com.spendlens.app.ai.RecurringPattern> {
+    fun generateRecap() = viewModelScope.launch {
+        val store = container.aiConfigStore
+        val key = store.effectiveKey()
+        if (!store.isUsable() || key == null) {
+            com.spendlens.app.util.AppLog.aiSkipped("monthly_recap", "ai_disabled_or_no_key")
+            _recap.value = RecapState.Unavailable
+            return@launch
+        }
+
+        _recap.value = RecapState.Loading
         val allTxns = repo.observeAll().first()
-        return com.spendlens.app.ai.RecurringDetector.detectRecurring(allTxns, minOccurrences = 3)
+        val cats = container.categoryRepository.all()
+        val metrics = com.spendlens.app.ai.SpendingSummaryGenerator.calculateMetrics(allTxns, cats, daysBack = 30)
+        if (metrics.transactionCount == 0) {
+            _recap.value = RecapState.NoData
+            return@launch
+        }
+
+        val prompt = com.spendlens.app.ai.SpendingSummaryGenerator.buildPrompt(metrics, cats, "this month")
+        when (
+            val response = container.openRouterClient.complete(
+                key,
+                store.effectiveModel(),
+                prompt,
+                operation = "monthly_recap",
+            )
+        ) {
+            is com.spendlens.app.ai.OpenRouterClient.Result.Failure -> _recap.value = RecapState.Error(response.message)
+            is com.spendlens.app.ai.OpenRouterClient.Result.Success -> {
+                val summary = com.spendlens.app.ai.SpendingSummaryGenerator.parseSummary(response.content)
+                if (summary == null) {
+                    _recap.value = RecapState.Error("Empty AI response")
+                } else {
+                    val now = System.currentTimeMillis()
+                    container.insightsStore.saveRecap(currentMonthKey(), summary, now)
+                    com.spendlens.app.util.AppLog.aiApplied("monthly_recap", "chars=${summary.length}")
+                    _recap.value = RecapState.Ready(summary, now)
+                }
+            }
+        }
     }
 }
 
@@ -555,7 +600,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
                 accountKey = accountKey,
                 balanceMinor = balanceMinor,
                 isCard = isCard,
-                currency = "INR",
+                currency = container.settingsStore.primaryCurrency(),
                 observedAt = System.currentTimeMillis(),
             ),
         )
@@ -705,7 +750,7 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
         val (breakdownMonth, tab, cmp) = ctrl
         val map = categories.associateBy { it.id }
         val splitsByParent = splits.groupBy { it.parentId }
-        val currency = "INR" // base currency for all totals
+        val currency = container.settingsStore.primaryCurrency()
 
         // Last 6 months, oldest → newest.
         val now = YearMonth.now(zone)
@@ -809,6 +854,29 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             comparisonRows = comparisonRows,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState(monthOptions = monthOptions))
+
+    /** One transaction [com.spendlens.app.ai.AnomalyDetector] flagged, paired with its score/reason. */
+    data class AnomalyRow(val txn: TransactionEntity, val score: com.spendlens.app.ai.AnomalyScore)
+
+    /**
+     * Premium insight: transactions that stand out against the user's own history (new merchant,
+     * unusually large amount, rare category, a spending spike day). Pure on-device statistics —
+     * gated to Premium as a value-add, not because it needs the network.
+     */
+    val anomalies: StateFlow<List<AnomalyRow>> = combine(
+        repo.observeAll(),
+        container.categoryRepository.observeCategories(),
+        container.planStore.plan,
+    ) { txns, categories, plan ->
+        if (plan != Plan.PREMIUM) {
+            emptyList()
+        } else {
+            val byId = txns.associateBy { it.id }
+            com.spendlens.app.ai.AnomalyDetector.detectAnomalies(txns, categories)
+                .take(5)
+                .mapNotNull { score -> byId[score.transactionId]?.let { AnomalyRow(it, score) } }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 class ReviewViewModel(private val container: AppContainer) : ViewModel() {
@@ -897,6 +965,43 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setFinancialSendersOnly(enabled: Boolean) = container.settingsStore.setFinancialSendersOnly(enabled)
 
     fun setMerchantPrediction(enabled: Boolean) = container.settingsStore.setMerchantPredictionEnabled(enabled)
+
+    // ----- Currency -----
+
+    val currencyPrefs: StateFlow<com.spendlens.app.data.prefs.CurrencyPrefs> = container.settingsStore.currency
+
+    /** The currency actually in effect right now: the user's override, or the detected locale. */
+    val resolvedPrimaryCurrency: StateFlow<String> = currencyPrefs
+        .map { container.settingsStore.primaryCurrency() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), container.settingsStore.primaryCurrency())
+
+    /** What auto-detect would pick right now, shown next to the override picker. */
+    fun detectedCurrency(): String = container.settingsStore.detectedPrimaryCurrency()
+
+    sealed interface CurrencyRecomputeState {
+        data object Idle : CurrencyRecomputeState
+        data object Working : CurrencyRecomputeState
+        data object Done : CurrencyRecomputeState
+    }
+
+    private val _recomputeState = MutableStateFlow<CurrencyRecomputeState>(CurrencyRecomputeState.Idle)
+    val recomputeState: StateFlow<CurrencyRecomputeState> = _recomputeState
+    fun consumeRecomputeState() { _recomputeState.value = CurrencyRecomputeState.Idle }
+
+    /**
+     * `code` = null reverts to auto-detect. Every existing transaction/split's [amountBaseMinor]
+     * is immediately recomputed against the newly resolved currency so totals never mix
+     * conversions from two different primary currencies.
+     */
+    fun setPrimaryCurrency(code: String?) = viewModelScope.launch {
+        _recomputeState.value = CurrencyRecomputeState.Working
+        container.settingsStore.setPrimaryCurrency(code)
+        val newCurrency = container.settingsStore.primaryCurrency()
+        container.transactionRepository.recomputeBaseAmounts { amount, currency ->
+            container.fxRepository.convert(amount, currency, newCurrency)
+        }
+        _recomputeState.value = CurrencyRecomputeState.Done
+    }
 
     // ----- AI (OpenRouter) -----
 
@@ -1122,7 +1227,7 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
             CategoriesUiState(
                 items = items,
                 totalMinor = totals.sumOf { it.total },
-                currency = "INR", // base currency
+                currency = container.settingsStore.primaryCurrency(),
                 monthLabel = Dates.label(month),
                 selectedMonth = month,
                 monthOptions = monthOptions,
@@ -1161,7 +1266,7 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
             }
             // Budgeted categories first, then by spend.
             .sortedWith(compareByDescending<BudgetRow> { it.limitMinor > 0 }.thenByDescending { it.spentMinor })
-        BudgetsUiState(rows = rows, currency = "INR")
+        BudgetsUiState(rows = rows, currency = container.settingsStore.primaryCurrency())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BudgetsUiState())
 
     fun setBudget(categoryId: Long, limitMinor: Long, rolloverEnabled: Boolean? = null) = viewModelScope.launch {
@@ -1216,26 +1321,26 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
-     * Generate AI-based budget alerts for all categories.
-     * Shows current status and whether user is on track to exceed budget.
+     * Premium insight: a burn-rate-aware month-end projection per budgeted category (unlike the
+     * plain "% used so far" badge on each [BudgetRow], this accounts for days remaining in the
+     * month), surfacing only categories on track to hit WARNING (≥80%) or EXCEEDED. Pure on-device
+     * statistics via [com.spendlens.app.ai.BudgetPredictor] — gated to Premium as a value-add.
      */
-    suspend fun generateBudgetAlerts(): List<com.spendlens.app.ai.BudgetAlert> {
-        val allTxns = container.transactionRepository.observeAll().first()
-        val categories = container.categoryRepository.all().associateBy { it.id }
-        val budgets = container.budgetRepository.all().associate { budget ->
-            val catName = categories[budget.categoryId]?.name ?: "Unknown"
-            budget.categoryId to (catName to budget.monthlyLimitMinor)
+    val budgetForecast: StateFlow<List<com.spendlens.app.ai.BudgetAlert>> = combine(
+        state,
+        container.transactionRepository.observeAll(),
+        container.planStore.plan,
+    ) { budgetState, txns, plan ->
+        if (plan != Plan.PREMIUM) {
+            emptyList()
+        } else {
+            val budgets = budgetState.rows
+                .filter { it.limitMinor > 0 }
+                .associate { it.category.id to (it.category.name to it.limitMinor) }
+            com.spendlens.app.ai.BudgetPredictor.generateAllAlerts(budgets, txns)
+                .filter { it.status == "WARNING" || it.status == "EXCEEDED" }
         }
-        return com.spendlens.app.ai.BudgetPredictor.generateAllAlerts(budgets, allTxns)
-    }
-
-    /**
-     * Predict whether a category will exceed budget before month ends.
-     */
-    suspend fun predictCategoryBudgetStatus(categoryId: Long, categoryName: String, budgetMinor: Long): com.spendlens.app.ai.BudgetPrediction {
-        val allTxns = container.transactionRepository.observeAll().first()
-        return com.spendlens.app.ai.BudgetPredictor.predictBudgetStatus(categoryId, categoryName, budgetMinor, allTxns)
-    }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 class BillsViewModel(private val container: AppContainer) : ViewModel() {
@@ -1272,6 +1377,43 @@ class BillsViewModel(private val container: AppContainer) : ViewModel() {
         val detected = com.spendlens.app.parser.BillDetector.detect(debits)
         container.billRepository.syncDetected(detected)
     }
+}
+
+// ---------- Premium: subscriptions insight ----------
+
+data class SubscriptionsUiState(
+    val patterns: List<com.spendlens.app.ai.RecurringPattern> = emptyList(),
+    val totalMonthlyMinor: Long = 0,
+    val currency: String = "INR",
+    val isPremium: Boolean = false,
+)
+
+/**
+ * Backs the Premium "Subscriptions" insight: unlike [BillsViewModel] (due-date reminders,
+ * available to everyone), this surfaces the cost side — every recurring merchant found by
+ * [com.spendlens.app.ai.RecurringDetector] with its frequency and estimated monthly cost, so the
+ * user sees at a glance how much recurring spend they're carrying. Pure on-device statistics, no
+ * AI call — gated to Premium as a value-add insight, not because it needs the network.
+ */
+class SubscriptionsViewModel(private val container: AppContainer) : ViewModel() {
+
+    val state: StateFlow<SubscriptionsUiState> = combine(
+        container.transactionRepository.observeAll(),
+        container.planStore.plan,
+    ) { txns, plan ->
+        val isPremium = plan == Plan.PREMIUM
+        val patterns = if (isPremium) {
+            com.spendlens.app.ai.RecurringDetector.detectRecurring(txns, minOccurrences = 3)
+        } else {
+            emptyList()
+        }
+        SubscriptionsUiState(
+            patterns = patterns,
+            totalMonthlyMinor = com.spendlens.app.ai.RecurringDetector.calculateTotalSubscriptionCost(patterns),
+            currency = container.settingsStore.primaryCurrency(),
+            isPremium = isPremium,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SubscriptionsUiState())
 }
 
 /** Backs the transaction detail sheet: edit category, toggle expense, view source SMS. */
@@ -1519,12 +1661,11 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
             .map { txns -> (listOf(CASH_ACCOUNT) + txns.map { it.accountKey }).distinct().sorted() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), listOf(CASH_ACCOUNT))
 
-    /** Currencies the app can convert to the base currency. Base ("INR") first. */
+    /** Currencies the app can convert to the primary currency. Primary currency first. */
     val currencies: List<String> =
-        listOf(com.spendlens.app.parser.CurrencyConverter.BASE) +
-            (com.spendlens.app.data.fx.FxRepository.BUNDLED.keys - com.spendlens.app.parser.CurrencyConverter.BASE).sorted()
+        listOf(baseCurrency) + (com.spendlens.app.parser.Normalize.CURRENCY_CODES - baseCurrency).sorted()
 
-    val baseCurrency: String get() = com.spendlens.app.parser.CurrencyConverter.BASE
+    val baseCurrency: String get() = container.settingsStore.primaryCurrency()
 
     suspend fun loadById(id: Long): TransactionEntity? = container.transactionRepository.getById(id)
 
@@ -1566,6 +1707,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                 receiptUri = null,
                 excludedFromExpense = excludedFromExpense,
                 ratesToBase = rates,
+                baseCurrency = baseCurrency,
             )
         } else {
             container.transactionRepository.updateManual(
@@ -1582,6 +1724,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                     excludedFromExpense = excludedFromExpense,
                 ),
                 rates,
+                baseCurrency,
             )
         }
         onDone()
@@ -1601,6 +1744,24 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
         val recentTxns = container.transactionRepository.allTransactions().takeLast(100)
         val cats = container.categoryRepository.all()
         return com.spendlens.app.ai.ManualEntryCategorySuggester.suggestLocally(merchantName, recentTxns, cats)
+    }
+
+    /** Gates the category-suggestion and duplicate-merchant-warning hints below the merchant field. */
+    val isPremium: StateFlow<Boolean> = container.planStore.plan
+        .map { it == Plan.PREMIUM }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * Warn when [merchantName] closely matches an already-known merchant (e.g. "Swigy" vs "Swiggy")
+     * so the user doesn't accidentally fork a new merchant entry. Null when it's blank, already an
+     * exact known name, or no close match exists.
+     */
+    suspend fun checkDuplicateMerchant(merchantName: String): com.spendlens.app.ai.MerchantWarning? {
+        val trimmed = merchantName.trim()
+        if (trimmed.isBlank() || container.merchantRepository.isKnownMerchant(trimmed)) return null
+        val recentTxns = container.transactionRepository.allTransactions().takeLast(200)
+        val counts = recentTxns.groupingBy { it.counterparty }.eachCount()
+        return com.spendlens.app.ai.MerchantDeduplicator.checkDuplicates(trimmed, counts)
     }
 
     companion object {
@@ -1806,7 +1967,7 @@ class GoalsViewModel(private val container: AppContainer) : ViewModel() {
                 projectedCompletion = projectCompletion(g, saved),
             )
         }
-        GoalsUiState(goals = items, currency = "INR", accounts = accounts)
+        GoalsUiState(goals = items, currency = container.settingsStore.primaryCurrency(), accounts = accounts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GoalsUiState())
 
     private fun projectCompletion(goal: com.spendlens.app.data.db.SavingsGoalEntity, saved: Long): Long? {
@@ -1888,6 +2049,7 @@ class SpendLensViewModelFactory(private val container: AppContainer) : ViewModel
             modelClass.isAssignableFrom(CategoriesViewModel::class.java) -> CategoriesViewModel(container)
             modelClass.isAssignableFrom(BudgetsViewModel::class.java) -> BudgetsViewModel(container)
             modelClass.isAssignableFrom(BillsViewModel::class.java) -> BillsViewModel(container)
+            modelClass.isAssignableFrom(SubscriptionsViewModel::class.java) -> SubscriptionsViewModel(container)
             modelClass.isAssignableFrom(GoalsViewModel::class.java) -> GoalsViewModel(container)
             modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> TransactionDetailViewModel(container)
             modelClass.isAssignableFrom(ManualEntryViewModel::class.java) -> ManualEntryViewModel(container)

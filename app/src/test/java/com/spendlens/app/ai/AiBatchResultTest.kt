@@ -59,4 +59,20 @@ class AiBatchResultTest {
         val results = AiBatchResult.parseBatch(1, raw)
         assertEquals(false, results[0]!!.isFinancial)
     }
+
+    @Test fun `reminder is financial but flagged distinctly from a completed spend`() {
+        val raw = """
+            {"isFinancial": true, "isReminder": true, "name": null, "senderRegex": null, "bodyRegex": null}
+        """.trimIndent()
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertTrue(r.isFinancial)
+        assertTrue(r.isReminder)
+        assertNull(r.bodyRegex)
+    }
+
+    @Test fun `isReminder defaults to false when absent`() {
+        val raw = """{"isFinancial": true, "name": "A", "senderRegex": null, "bodyRegex": "(?<amount>\\d+)"}"""
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertEquals(false, r.isReminder)
+    }
 }

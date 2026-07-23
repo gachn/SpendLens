@@ -12,7 +12,12 @@ import com.spendlens.app.parser.model.SmsMessage
  */
 class PatternEngine {
 
-    fun match(sms: SmsMessage, patterns: List<CompiledPattern>): MatchResult? {
+    /**
+     * [defaultCurrency] is used when the matched pattern captures no recognizable currency token
+     * — normally the user's primary currency, so an SMS with no explicit currency (common for
+     * domestic bank alerts) is assumed to be in local currency rather than hardcoded to INR.
+     */
+    fun match(sms: SmsMessage, patterns: List<CompiledPattern>, defaultCurrency: String = "INR"): MatchResult? {
         for (pattern in patterns) {
             if (pattern.sender != null && !pattern.sender.containsMatchIn(sms.sender)) continue
             val m = pattern.body.find(sms.body) ?: continue
@@ -20,7 +25,7 @@ class PatternEngine {
             val amount = Normalize.amountToMinor(m.groupOrNull("amount")) ?: continue
             val txn = ParsedTransaction(
                 amountMinor = amount,
-                currency = Normalize.currency(m.groupOrNull("curr")),
+                currency = Normalize.currency(m.groupOrNull("curr"), defaultCurrency),
                 direction = Normalize.direction(m.groupOrNull("dir")),
                 accountKey = Normalize.maskAccount(m.groupOrNull("account")),
                 counterparty = Normalize.cleanParty(m.groupOrNull("party")),

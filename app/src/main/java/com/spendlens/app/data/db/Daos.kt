@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -318,6 +319,19 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions")
     suspend fun clear()
+
+    /**
+     * Recompute every row's [TransactionEntity.amountBaseMinor] via [convert] (amountMinor,
+     * currency) -> newAmountBaseMinor — used when the user changes their primary currency.
+     * Wrapped in one DB transaction so a crash mid-loop can't leave rows converted against a mix
+     * of the old and new currency.
+     */
+    @Transaction
+    suspend fun recomputeBaseAmounts(convert: (amountMinor: Long, currency: String) -> Long) {
+        getAllTransactions().forEach { t ->
+            update(t.copy(amountBaseMinor = convert(t.amountMinor, t.currency)))
+        }
+    }
 }
 
 @Dao
@@ -363,6 +377,9 @@ interface TransactionSplitDao {
 
     @Query("DELETE FROM transaction_splits WHERE parentId = :parentId")
     suspend fun deleteForParent(parentId: Long)
+
+    @Update
+    suspend fun update(split: TransactionSplitEntity)
 }
 
 @Dao
@@ -448,6 +465,14 @@ interface MerchantDao {
 
     @Query("DELETE FROM merchant_aliases")
     suspend fun clear()
+
+    /** Count of merchants never yet sent to [com.spendlens.app.work.MerchantConsolidationWorker]. */
+    @Query("SELECT COUNT(*) FROM merchant_aliases WHERE consolidationCheckedAt IS NULL")
+    suspend fun countUnconsolidated(): Int
+
+    /** Stamp every not-yet-checked row as considered by the periodic consolidation pass. */
+    @Query("UPDATE merchant_aliases SET consolidationCheckedAt = :at WHERE consolidationCheckedAt IS NULL")
+    suspend fun markUnconsolidatedAsChecked(at: Long)
 }
 
 @Dao

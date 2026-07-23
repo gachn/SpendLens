@@ -50,6 +50,9 @@ class AppContainer(context: Context) {
     /** AI flag, model slug and (encrypted) API-key override for the OpenRouter-backed flows. */
     val aiConfigStore by lazy { AiConfigStore(appContext, planStore) }
 
+    /** Cache for the Premium AI monthly spending recap shown on the Dashboard. */
+    val insightsStore by lazy { com.spendlens.app.data.prefs.InsightsStore(appContext) }
+
     /** OpenRouter client — single OpenAI-compatible endpoint reaching any configured model. */
     val openRouterClient by lazy { OpenRouterClient() }
 
@@ -111,7 +114,7 @@ class AppContainer(context: Context) {
         GatedMerchantResolver(WebMerchantResolver(), settingsStore::merchantPredictionEnabled)
     val merchantRepository by lazy { MerchantRepository(database.merchantDao(), merchantResolver) }
 
-    /** FX rates for converting foreign-currency spend into the base currency (INR). */
+    /** FX rates for converting foreign-currency spend into the user's primary currency. */
     val fxProvider: FxProvider = WebFxProvider()
     val fxRepository by lazy { FxRepository(appContext, fxProvider) }
 
@@ -131,6 +134,7 @@ class AppContainer(context: Context) {
             promotionalChecker = promotionalChecker,
             aiAlwaysUsable = aiConfigStore::isUsable,
             enqueueAiBatch = { com.spendlens.app.work.AiSmsBatchWorker.enqueue(appContext) },
+            primaryCurrency = settingsStore::primaryCurrency,
         )
     }
 

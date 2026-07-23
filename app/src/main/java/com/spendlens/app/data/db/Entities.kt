@@ -195,6 +195,13 @@ data class MerchantAliasEntity(
     val logoEmoji: String? = null,
     /** User excluded this merchant from spend/income totals; applied to future parsed transactions. */
     val excludedFromExpense: Boolean = false,
+    /**
+     * Epoch millis when this merchant was last considered by [com.spendlens.app.work.MerchantConsolidationWorker],
+     * or null if it has never been checked. Null rows are the "new merchants" the periodic Premium
+     * consolidation pass sends to the AI; every row is stamped once a pass completes, so unchanged
+     * merchants are never re-sent.
+     */
+    val consolidationCheckedAt: Long? = null,
 )
 
 /** A user-set monthly spending limit for one category. One row per category (categoryId = PK). */

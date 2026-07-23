@@ -54,15 +54,20 @@ object Normalize {
         "redemption", "payout", "settlement",
     )
 
-    fun currency(symbol: String?): String {
-        if (symbol.isNullOrBlank()) return "INR"
+    /**
+     * Resolves a captured currency token to an ISO code, falling back to [fallback] (the user's
+     * primary currency, or "INR" when the caller has no other preference) when [symbol] is
+     * missing or unrecognized.
+     */
+    fun currency(symbol: String?, fallback: String = "INR"): String {
+        if (symbol.isNullOrBlank()) return fallback
         val t = symbol.trim()
         symbolToCode[t]?.let { return it }
         val key = t.trimEnd('.').uppercase()
         symbolToCode[key]?.let { return it }
         aliasMap[key]?.let { return it }
         if (key in codeSet) return key
-        return "INR"
+        return fallback
     }
 
     /** "1,234.50" → 123450 (minor units, 2 decimal places assumed). */

@@ -19,12 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,10 +58,12 @@ fun DashboardScreen(
     budgetVm: BudgetsViewModel,
     onTransactionClick: (TransactionEntity) -> Unit = {},
     onOpenBills: () -> Unit = {},
+    onOpenSubscriptions: () -> Unit = {},
     onViewAll: () -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
     val budgetState by budgetVm.state.collectAsState()
+    val recap by vm.recap.collectAsState()
 
     val budgeted = budgetState.rows.filter { it.limitMinor > 0 }
     val totalLimit = budgeted.sumOf { it.limitMinor }
@@ -203,6 +208,9 @@ fun DashboardScreen(
             }
         }
 
+        // ── AI Monthly Recap (Premium) ───────────────────────────────────────
+        item { AiRecapCard(recap, onGenerate = vm::generateRecap) }
+
         // ── Monthly Budget progress ──────────────────────────────────────────
         item {
             GlassCard {
@@ -302,22 +310,119 @@ fun DashboardScreen(
             }
         }
 
-        // ── Bills shortcut ───────────────────────────────────────────────────
+        // ── Bills & Subscriptions shortcuts ──────────────────────────────────
         item {
-            Button(
-                onClick = onOpenBills,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            ) {
-                Text("🧾  Upcoming bills & reminders")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onOpenBills,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                ) {
+                    Text("🧾  Bills")
+                }
+                Button(
+                    onClick = onOpenSubscriptions,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                ) {
+                    Text("🔁  Subscriptions")
+                }
             }
         }
 
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** Premium "AI Monthly Recap" card — a 1-3 sentence natural-language spending summary. */
+@Composable
+private fun AiRecapCard(recap: DashboardViewModel.RecapState, onGenerate: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("AI Monthly Recap", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                }
+                if (recap is DashboardViewModel.RecapState.Ready || recap is DashboardViewModel.RecapState.Error) {
+                    IconButton(onClick = onGenerate, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Regenerate", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            when (recap) {
+                is DashboardViewModel.RecapState.Idle -> {
+                    Text(
+                        "Get a quick AI-written summary of this month's spending.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = onGenerate, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                        Text("Generate insight", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                is DashboardViewModel.RecapState.Loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Thinking…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                is DashboardViewModel.RecapState.Unavailable -> {
+                    Text(
+                        "AI features require the Premium plan with a configured API key (see Settings).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                is DashboardViewModel.RecapState.NoData -> {
+                    Text(
+                        "Not enough transactions this month yet to summarise.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                is DashboardViewModel.RecapState.Error -> {
+                    Text(
+                        "Couldn't generate a recap (${recap.message}). Tap refresh to retry.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SpendLensTheme.colors.debit,
+                    )
+                }
+                is DashboardViewModel.RecapState.Ready -> {
+                    Text(
+                        recap.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
     }
 }
 

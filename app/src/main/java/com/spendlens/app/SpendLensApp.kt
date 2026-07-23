@@ -27,6 +27,7 @@ class SpendLensApp : Application() {
         com.spendlens.app.work.CardPaymentReminderWorker.schedule(this)
         com.spendlens.app.work.VelocityAlertWorker.schedule(this)
         com.spendlens.app.work.WidgetRefreshWorker.schedule(this)
+        com.spendlens.app.work.MerchantConsolidationWorker.schedule(this)
         appScope.launch {
             container.seed()
             runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort

@@ -17,8 +17,14 @@ object MerchantExtractor {
     private val iciciParty = Regex("(?i);\\s*([A-Za-z][A-Za-z0-9 &._-]{1,38})\\s+(?:credited|received)\\b")
     private val info = Regex("(?i)\\binfo[:\\-/\\s]+([A-Za-z0-9][A-Za-z0-9 &._/-]{1,39})")
     // Include * so aggregator-prefixed names like "CAS*Swiggy" / "RAZ*Swiggy" are captured whole.
-    private val atMerchant = Regex("(?i)\\bat\\s+([A-Za-z0-9][A-Za-z0-9 &.*_/-]{1,39}?)(?:\\s+on\\b|\\s+ref\\b|[.,;]|$)")
-    private val toMerchant = Regex("(?i)\\b(?:to|from)\\s+([A-Za-z][A-Za-z0-9 &._-]{1,39}?)(?:\\s+on\\b|\\s+ref\\b|[.,;]|$)")
+    // Stops at " for " too — FASTag toll SMS append the vehicle number as "at MERCHANT for
+    // KA01NE2494 on ...", and without this the vehicle number gets swept into the merchant name.
+    private val atMerchant = Regex("(?i)\\bat\\s+([A-Za-z0-9][A-Za-z0-9 &.*_/-]{1,39}?)(?:\\s+on\\b|\\s+ref\\b|\\s+for\\b|[.,;]|$)")
+    // Autopay/mandate debit alerts phrase it "debited from <OWN BANK ACCOUNT> ... towards
+    // <MERCHANT> for <purpose>" — "towards" is the real counterparty; tried before toMerchant so
+    // the "from <own account>" clause never wins over it.
+    private val towardsMerchant = Regex("(?i)\\btowards\\s+([A-Za-z0-9][A-Za-z0-9 &.*_/-]{1,39}?)(?:\\s+on\\b|\\s+ref\\b|\\s+for\\b|[.,;]|$)")
+    private val toMerchant = Regex("(?i)\\b(?:to|from)\\s+([A-Za-z][A-Za-z0-9 &._-]{1,39}?)(?:\\s+on\\b|\\s+ref\\b|\\s+for\\b|[.,;]|$)")
 
     fun extract(body: String): String? {
         vpa.find(body)?.group()?.let { return it } // VPA carries the merchant handle
@@ -27,6 +33,7 @@ object MerchantExtractor {
         iciciParty.find(body)?.group()?.let { if (plausible(it)) return it }
         atMerchant.find(body)?.group()?.let { if (plausible(it)) return it }
         info.find(body)?.group()?.let { if (plausible(it)) return it }
+        towardsMerchant.find(body)?.group()?.let { if (plausible(it)) return it }
         toMerchant.find(body)?.group()?.let { if (plausible(it)) return it }
         return null
     }

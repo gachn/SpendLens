@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -60,6 +61,7 @@ import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 fun BudgetsScreen(vm: BudgetsViewModel) {
     val state by vm.state.collectAsState()
     val predictState by vm.predictState.collectAsState()
+    val forecast by vm.budgetForecast.collectAsState()
     var editing by remember { mutableStateOf<BudgetRow?>(null) }
     var confirmPredict by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -271,6 +273,11 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
             }
         }
 
+        // ── Budget Forecast (Premium) ────────────────────────────────────────
+        if (forecast.isNotEmpty()) {
+            item { BudgetForecastCard(forecast, state.currency) }
+        }
+
         // ── Category headers ──────────────────────────────────────────────────
         item {
             Row(
@@ -334,6 +341,53 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
                 editing = null
             },
         )
+    }
+}
+
+/** Premium: burn-rate-aware month-end projection for every category on track to hit its limit. */
+@Composable
+private fun BudgetForecastCard(alerts: List<com.spendlens.app.ai.BudgetAlert>, currency: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, SpendLensTheme.colors.debit.copy(alpha = 0.2f)),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null, tint = SpendLensTheme.colors.debit, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("BUDGET FORECAST", style = MaterialTheme.typography.labelSmall, color = SpendLensTheme.colors.debit, letterSpacing = 0.8.sp)
+            }
+            alerts.forEachIndexed { i, alert ->
+                Spacer(Modifier.height(if (i == 0) 10.dp else 4.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(alert.categoryName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            if (alert.status == "EXCEEDED") "Already over budget" else "Projected ${Money.format(alert.projectedMinor, currency)} by month end",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = SpendLensTheme.colors.debit.copy(alpha = 0.12f),
+                    ) {
+                        Text(
+                            alert.status,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SpendLensTheme.colors.debit,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+                if (i < alerts.size - 1) {
+                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp), color = Color.White.copy(alpha = 0.05f))
+                }
+            }
+        }
     }
 }
 

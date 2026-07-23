@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -35,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.DonutChart
 import com.spendlens.app.ui.components.GlassCard
 import com.spendlens.app.ui.components.GroupedBarChart
@@ -54,8 +58,10 @@ fun AnalyticsScreen(
     onViewAllMerchants: () -> Unit = {},
     onMerchantClick: (String) -> Unit = {},
     onCategoryClick: (Long) -> Unit = {},
+    onTransactionClick: (TransactionEntity) -> Unit = {},
 ) {
     val state by vm.state.collectAsState()
+    val anomalies by vm.anomalies.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -128,6 +134,11 @@ fun AnalyticsScreen(
                         }
                     }
                 }
+            }
+
+            // ── Unusual activity (Premium) ──────────────────────────────────────
+            if (anomalies.isNotEmpty()) {
+                item { UnusualActivityCard(anomalies, state.currency, onTransactionClick) }
             }
 
             // ── Month-over-month comparison (issue #15) ───────────────────────
@@ -712,6 +723,54 @@ private fun ComparisonRow(
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1.1f),
         )
+    }
+}
+
+// ── Unusual activity (Premium) ───────────────────────────────────────────────
+
+@Composable
+private fun UnusualActivityCard(
+    rows: List<AnalyticsViewModel.AnomalyRow>,
+    currency: String,
+    onTransactionClick: (TransactionEntity) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, SpendLensTheme.colors.debit.copy(alpha = 0.2f)),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Warning, contentDescription = null, tint = SpendLensTheme.colors.debit, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("UNUSUAL ACTIVITY", style = MaterialTheme.typography.labelSmall, color = SpendLensTheme.colors.debit, letterSpacing = 0.8.sp)
+            }
+            Spacer(Modifier.height(4.dp))
+            rows.forEachIndexed { i, row ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onTransactionClick(row.txn) }
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(row.txn.counterparty, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(row.score.reason, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text(
+                        Money.format(row.txn.amountBaseMinor, currency),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SpendLensTheme.colors.debit,
+                    )
+                }
+                if (i < rows.size - 1) {
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                }
+            }
+        }
     }
 }
 

@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -551,6 +554,67 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionHeader("Currency") }
+        item {
+            var showCurrencyDialog by remember { mutableStateOf(false) }
+            val resolvedCurrency by vm.resolvedPrimaryCurrency.collectAsState()
+            val currencyPrefs by vm.currencyPrefs.collectAsState()
+            val recomputeState by vm.recomputeState.collectAsState()
+
+            ElevatedSurfaceCard {
+                Row(
+                    Modifier.fillMaxWidth().clickable { showCurrencyDialog = true },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Primary currency", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (currencyPrefs.primaryCurrencyOverride == null) {
+                                "$resolvedCurrency — auto-detected from device region"
+                            } else {
+                                "$resolvedCurrency — custom"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "Foreign-currency SMS are converted to this currency for totals.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (recomputeState is SettingsViewModel.CurrencyRecomputeState.Working) {
+                        CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (showCurrencyDialog) {
+                CurrencyPickerDialog(
+                    detected = vm.detectedCurrency(),
+                    current = currencyPrefs.primaryCurrencyOverride,
+                    onSelect = { code ->
+                        vm.setPrimaryCurrency(code)
+                        showCurrencyDialog = false
+                    },
+                    onDismiss = { showCurrencyDialog = false },
+                )
+            }
+
+            LaunchedEffect(recomputeState) {
+                if (recomputeState is SettingsViewModel.CurrencyRecomputeState.Done) {
+                    vm.consumeRecomputeState()
+                }
+            }
+        }
+
         item { SectionHeader("AI") }
         item {
             ElevatedSurfaceCard {
@@ -840,6 +904,55 @@ private fun <T> SegmentedChoice(
                 }
             }
         }
+    }
+}
+
+/**
+ * Lets the user pick a primary currency, or revert to auto-detecting one from the device locale.
+ * [current] is the stored override (null = auto-detect); [detected] is what auto-detect resolves
+ * to right now, shown so the auto-detect row is self-explanatory.
+ */
+@Composable
+private fun CurrencyPickerDialog(
+    detected: String,
+    current: String?,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text("Primary currency") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                item {
+                    CurrencyOptionRow(
+                        label = "Auto-detect (device: $detected)",
+                        selected = current == null,
+                        onClick = { onSelect(null) },
+                    )
+                    HorizontalDivider()
+                }
+                items(com.spendlens.app.parser.Normalize.CURRENCY_CODES.sorted()) { code ->
+                    CurrencyOptionRow(
+                        label = code,
+                        selected = current == code,
+                        onClick = { onSelect(code) },
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun CurrencyOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

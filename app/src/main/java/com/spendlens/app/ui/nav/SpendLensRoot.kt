@@ -107,6 +107,7 @@ import com.spendlens.app.ui.screens.SendersScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
+import com.spendlens.app.ui.screens.SubscriptionsScreen
 import com.spendlens.app.ui.screens.TransactionsScreen
 import com.spendlens.app.ui.viewmodel.AccountsViewModel
 import com.spendlens.app.ui.viewmodel.AnalyticsViewModel
@@ -121,6 +122,7 @@ import com.spendlens.app.ui.viewmodel.ReviewViewModel
 import com.spendlens.app.ui.viewmodel.SenderClassificationsViewModel
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
 import com.spendlens.app.ui.viewmodel.SpendLensViewModelFactory
+import com.spendlens.app.ui.viewmodel.SubscriptionsViewModel
 import com.spendlens.app.ui.viewmodel.TransactionDetailViewModel
 import com.spendlens.app.ui.viewmodel.TransactionsViewModel
 import com.spendlens.app.work.SmsSyncWorker
@@ -140,6 +142,7 @@ private const val ROUTE_MERCHANTS    = "merchants"
 private const val ROUTE_SENDERS      = "senders"
 private const val ROUTE_REVIEW       = "review"
 private const val ROUTE_BILLS        = "bills"
+private const val ROUTE_SUBSCRIPTIONS = "subscriptions"
 private const val ROUTE_CATEGORIES   = "categories"
 private const val ROUTE_GOALS        = "goals"
 private const val ROUTE_PATTERNS     = "patterns"
@@ -642,6 +645,7 @@ private fun MainScaffold(
                     budgetVm = viewModel<BudgetsViewModel>(factory = factory),
                     onTransactionClick = { onSelectedChanged(it) },
                     onOpenBills = { nav.navigate(ROUTE_BILLS) { launchSingleTop = true } },
+                    onOpenSubscriptions = { nav.navigate(ROUTE_SUBSCRIPTIONS) { launchSingleTop = true } },
                     onViewAll = { navigateToTab(nav, Dest.History) },
                 )
             }
@@ -667,6 +671,7 @@ private fun MainScaffold(
                         pendingCategoryFilter = categoryId
                         navigateToTab(nav, Dest.History)
                     },
+                    onTransactionClick = { onSelectedChanged(it) },
                 )
             }
             composable(Dest.Budgets.route) {
@@ -674,6 +679,9 @@ private fun MainScaffold(
             }
             composable(ROUTE_BILLS) {
                 BillsScreen(viewModel<BillsViewModel>(factory = factory))
+            }
+            composable(ROUTE_SUBSCRIPTIONS) {
+                SubscriptionsScreen(viewModel<SubscriptionsViewModel>(factory = factory))
             }
             composable(Dest.Accounts.route) {
                 AccountsScreen(viewModel<AccountsViewModel>(factory = factory), onTransactionClick = { onSelectedChanged(it) })
