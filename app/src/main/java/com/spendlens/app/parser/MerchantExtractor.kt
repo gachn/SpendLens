@@ -74,7 +74,7 @@ object MerchantExtractor {
     private val BANK_SENDERS = setOf(
         "AXISBK", "HDFCBK", "ICICIB", "ICICIT", "SBIINB", "SBICRD", "SBIBNK", "KOTAKB", "KOTAK",
         "PNBSMS", "BOIIND", "CANBNK", "CBSSBI", "YESBNK", "IDFCFB", "INDUSB", "FEDBNK", "RBLBNK",
-        "AUBANK", "BOBTXN", "BOBSMS", "CENTBK", "UNIONB", "UCOBNK", "DBSBNK", "HSBCIM", "CITIBK",
+        "AUBANK", "BOBTXN", "BOBSMS", "CENTBK", "UNIONB", "UCOBNK", "DBSBNK", "HSBCIN", "HSBCBK", "CITIBK",
         "AMEXIN", "SCBANK", "PAYTMB", "AIRBNK", "ONECRD", "SLICE", "ZERODHA", "NSESMS", "BSELTD",
         "AXISBANK", "HDFCBANK",
     )

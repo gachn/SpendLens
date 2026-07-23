@@ -908,6 +908,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setAiApiKey(key: String?) = container.aiConfigStore.setApiKey(key)
 
+    fun setAiMaxTokens(tokens: Int) = container.aiConfigStore.setMaxTokens(tokens)
+
     /** OpenRouter model slugs for autocompleting the Model field; empty until [loadAiModels] runs. */
     private val _aiModels = MutableStateFlow<List<String>>(emptyList())
     val aiModels: StateFlow<List<String>> = _aiModels.asStateFlow()
@@ -1323,6 +1325,9 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
         val categoryName: String?,
         val viaAiRule: Boolean,
         val model: String,
+        /** Exact prompt/response for the AI call that classified/parsed this transaction's SMS, if any. */
+        val parsePrompt: String?,
+        val parseResponse: String?,
     )
 
     /**
@@ -1338,12 +1343,15 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
             txn.categoryId != null -> "AI assigned a category"
             else -> "AI analysed but could not categorise"
         }
+        val raw = txn.rawSmsId?.let { container.rawSmsDao.getById(it) }
         return AiDebugInfo(
             analysed = txn.aiCategorizeAttempted,
             outcome = outcome,
             categoryName = categoryName,
             viaAiRule = viaAiRule,
             model = container.aiConfigStore.effectiveModel(),
+            parsePrompt = raw?.aiPrompt,
+            parseResponse = raw?.aiResponse,
         )
     }
 

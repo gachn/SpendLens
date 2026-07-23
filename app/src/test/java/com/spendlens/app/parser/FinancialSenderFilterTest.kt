@@ -75,6 +75,10 @@ class FinancialSenderFilterTest {
         assertTrue(FinancialSenderFilter.isFinancialSender("VK-SCBANK"))
     }
 
+    @Test fun `HSBC sender is financial`() {
+        assertTrue(FinancialSenderFilter.isFinancialSender("AD-HSBCIN-S"))
+    }
+
     // ---- payment wallets and UPI apps ----
 
     @Test fun `Paytm sender is financial`() {

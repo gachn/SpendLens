@@ -100,8 +100,10 @@ class ParserTest {
 
     @Test
     fun `heuristic learns a format the builtins miss`() = runTest {
-        // Verb precedes amount → built-ins don't match.
-        val unseen = sms("Your account was debited with INR 320.50 for ELECTRICITY bill.")
+        // "charged with" (verb directly followed by "with", not the currency) matches none of the
+        // built-ins — including the "credited/debited with" seed above, which only covers those
+        // two verbs, not "charged".
+        val unseen = sms("Your card was charged with INR 320.50 for ELECTRICITY bill.")
         assertNull("built-ins should miss this", engine.match(unseen, builtins))
 
         val gen = HeuristicPatternGenerator().generate(unseen.body, unseen.sender)
@@ -123,5 +125,34 @@ class ParserTest {
         assertEquals(15000L, r!!.transaction.amountMinor)
         assertEquals(TxnDirection.DEBIT, r.transaction.direction)
         assertEquals("THE PET PROJECT", r.transaction.counterparty)
+    }
+
+    @Test
+    fun `parses HSBC credit interest with dir-before-amount phrasing`() {
+        val body = "HSBC: Dear Customer, your HSBC A/c 074-618***-006 has been credited with INR 289.48+ " +
+            "on 01JUL as CREDIT INTEREST . Your available Bal is 454,308.48 ."
+        val r = engine.match(sms(body, "VM-HSBCIN-S"), builtins)
+        assertNotNull("built-ins should parse HSBC's 'credited with' phrasing", r)
+        assertEquals(28948L, r!!.transaction.amountMinor)
+        assertEquals(TxnDirection.CREDIT, r.transaction.direction)
+    }
+
+    @Test
+    fun `parses HSBC NEFT credit with dir-before-amount phrasing`() {
+        val body = "HSBC: A/c 074-618***-006 is credited with INR 309,018.00+ on 29JUN at 08.33.29 " +
+            "with UTR BOFAH26180024463 as NEFT from BANSAL A/c"
+        val r = engine.match(sms(body, "JM-HSBCIN-S"), builtins)
+        assertNotNull("built-ins should parse HSBC's NEFT credit phrasing", r)
+        assertEquals(30_901_800L, r!!.transaction.amountMinor)
+        assertEquals(TxnDirection.CREDIT, r.transaction.direction)
+    }
+
+    @Test
+    fun `parses HSBC debit with trailing minus sign`() {
+        val body = "HSBC: A/c 074-618***-006 is debited with INR 1.00- on 26MAY. Avl Bal is INR 45,001.00 ."
+        val r = engine.match(sms(body, "VM-HSBCIN-S"), builtins)
+        assertNotNull("built-ins should parse HSBC's debited-with phrasing", r)
+        assertEquals(100L, r!!.transaction.amountMinor)
+        assertEquals(TxnDirection.DEBIT, r.transaction.direction)
     }
 }

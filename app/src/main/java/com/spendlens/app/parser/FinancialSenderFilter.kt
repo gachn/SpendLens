@@ -51,6 +51,7 @@ object FinancialSenderFilter {
             "DCBBNK|DCBANK|" +                          // DCB Bank
             "SCBANK|SCBBNK|" +                          // Standard Chartered
             "CITIBK|CITIBN|" +                          // Citibank
+            "HSBCIN|HSBCBK|" +                          // HSBC
             "TMBLBK|TMBBNK|" +                          // Tamilnad Mercantile Bank
             "KVBBNK|KVBSMS|" +                          // Karur Vysya Bank
             "SVCBNK|SVCBAN|" +                          // SVC Co-operative Bank

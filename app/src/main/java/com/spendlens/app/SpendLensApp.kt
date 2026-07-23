@@ -30,6 +30,13 @@ class SpendLensApp : Application() {
         appScope.launch {
             container.seed()
             runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort
+            // Resume any Premium AI-batch backlog left behind by a killed/interrupted process —
+            // PENDING_AI rows otherwise only get re-queued when a new SMS arrives.
+            val stranded = container.rawSmsDao.listByStatus(com.spendlens.app.data.db.RawStatus.PENDING_AI)
+            if (stranded.isNotEmpty()) {
+                AppLog.i("SpendLensApp: resuming ${stranded.size} AI-batch rows stranded from a prior run")
+                com.spendlens.app.work.AiSmsBatchWorker.enqueue(this@SpendLensApp)
+            }
         }
     }
 

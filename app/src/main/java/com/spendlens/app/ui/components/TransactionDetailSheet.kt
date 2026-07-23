@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -301,6 +302,24 @@ fun TransactionDetailSheet(
                     DetailLine("Category id", current.categoryId?.toString() ?: "null")
                     DetailLine("Via AI rule", if (dbg.viaAiRule) "Yes" else "No")
                     DetailLine("Model", dbg.model)
+
+                    if (dbg.parsePrompt != null || dbg.parseResponse != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "AI SMS parsing call",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        dbg.parsePrompt?.let { AiDebugTextBlock("Prompt sent", it) }
+                        dbg.parseResponse?.let { AiDebugTextBlock("Response received", it) }
+                    } else {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "No AI call was made for this SMS (parsed on-device).",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -530,6 +549,27 @@ private fun DetailLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Scrollable, selectable (for copy) block for a long AI prompt/response — see debug section. */
+@Composable
+private fun AiDebugTextBlock(label: String, text: String) {
+    Spacer(Modifier.height(8.dp))
+    Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(max = 160.dp),
+    ) {
+        SelectionContainer {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(8.dp),
+            )
+        }
     }
 }
 

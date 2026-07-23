@@ -77,4 +77,7 @@ data class GeneratedPattern(
     val fieldNotes: String,
     /** True when an off-device AI model (Premium) proposed this pattern, false for on-device heuristics. */
     val viaAi: Boolean = false,
+    /** Exact prompt/response for [viaAi] patterns, for the debug-menu section. Null for heuristics. */
+    val promptText: String? = null,
+    val responseText: String? = null,
 )

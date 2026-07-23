@@ -78,12 +78,16 @@ class AiPatternTeacher(private val container: AppContainer) {
         ) {
             is OpenRouterClient.Result.Success -> {
                 AppLog.aiProcessing("pattern_teach", "saving_patterns")
+                smsList.forEach { container.rawSmsDao.updateAiDebug(it.id, prompt, r.content) }
                 // Pass the specific teaching SMS so they are re-parsed immediately.
                 val patternCount = applyAiPatterns(r.content, teachingSmsList = smsList)
                 AppLog.aiApplied("pattern_teach", "patterns_saved=$patternCount reprocess_enqueued=true")
                 TeachResult.Applied(patternCount)
             }
-            is OpenRouterClient.Result.Failure -> TeachResult.Error(r.message)
+            is OpenRouterClient.Result.Failure -> {
+                smsList.forEach { container.rawSmsDao.updateAiDebug(it.id, prompt, "ERROR: ${r.message}") }
+                TeachResult.Error(r.message)
+            }
         }
     }
 

@@ -101,6 +101,21 @@ object BuiltinPatterns {
                 ".*?;\\s*(?<party>[A-Za-z][A-Za-z0-9 &._-]{1,38})\\s+credited" +
                 ".*?(?:upi|vpa)\\s*[:#]?\\s*(?<ref>[A-Za-z0-9]{4,})?",
         ),
+        // HSBC (and similar) phrasing: "...is credited/debited with INR X+/-..." — the direction
+        // verb sits BEFORE the amount ("credited with INR 289.48"), the opposite order every seed
+        // above assumes, so none of them match. Trailing +/- after the amount (HSBC's convention)
+        // is consumed and discarded.
+        PatternSeed(
+            name = "Credited/debited with amount (dir before amount)",
+            senderRegex = null,
+            priority = 20,
+            bodyRegex = "(?i).*?\\b(?<dir>credited|debited)\\s+with\\s+(?<curr>${Normalize.CURRENCY_TOKEN})\\s?" +
+                "(?<amount>[\\d,]+(?:\\.\\d{1,2})?)[+-]?" +
+                ".*?(?:(?:a/c|ac|acct|account|card)[^\\dxX*]{0,8}(?<account>[xX*]*\\d{3,}))?" +
+                ".*?(?:(?:at|to|from|by|vpa|in favou?r of)\\s+(?<party>[A-Za-z0-9@._\\-]{2,40}))?" +
+                ".*?(?:(?:ref|txn|utr|rrn)[^A-Za-z0-9]{0,4}(?<ref>[A-Za-z0-9]{4,}))?" +
+                ".*?(?:(?:avl\\s?bal|bal|balance)[^\\d]{0,8}(?<balance>[\\d,]+(?:\\.\\d{1,2})?))?",
+        ),
         // Generic debit/credit account alert — broad fallback
         PatternSeed(
             name = "Generic debit/credit",

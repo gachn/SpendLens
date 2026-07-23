@@ -1,5 +1,6 @@
 package com.spendlens.app.sms
 
+import com.spendlens.app.ai.AiSmsResult
 import com.spendlens.app.ai.PatternGenerator
 import com.spendlens.app.ai.Pii
 import com.spendlens.app.ai.PromotionalChecker
@@ -76,11 +77,32 @@ class SmsProcessor(
      */
     private val financialSendersOnly: () -> Boolean = { true },
     private val promotionalChecker: PromotionalChecker? = null,
+    /**
+     * True when the Premium AI pipeline should handle every SMS (see
+     * [com.spendlens.app.data.prefs.AiConfigStore.isUsable]). When true, [process] skips the
+     * sender/body/regex pipeline entirely and defers each SMS to [enqueueAiBatch]'s debounced
+     * batch call; [applyAiBatchResult] resolves it afterwards.
+     */
+    private val aiAlwaysUsable: () -> Boolean = { false },
+    /** Schedules (or reschedules, debounced) the batched AI call — see AiSmsBatchWorker.enqueue. */
+    private val enqueueAiBatch: () -> Unit = {},
 ) {
 
     private val _progress = MutableStateFlow(SmsProcessingProgress())
     val progress: StateFlow<SmsProcessingProgress> = _progress.asStateFlow()
 
+    /** Drives [progress] for external batch drivers (currently [com.spendlens.app.work.AiSmsBatchWorker]). */
+    fun beginExternalProgress(total: Int) {
+        _progress.value = SmsProcessingProgress(current = 0, total = total, isProcessing = true)
+    }
+
+    fun advanceExternalProgress(current: Int) {
+        _progress.value = _progress.value.copy(current = current)
+    }
+
+    fun endExternalProgress() {
+        _progress.value = SmsProcessingProgress(isProcessing = false)
+    }
 
     suspend fun process(msg: SmsMessage): TransactionEntity? {
         val hash = Hashing.contentHash(msg.sender, msg.body)
@@ -119,7 +141,7 @@ class SmsProcessor(
                     senderClassificationDao.insertIgnore(
                         SenderClassificationEntity(msg.sender, true, SenderSource.STATIC, System.currentTimeMillis()),
                     )
-                } else if (financialSendersOnly()) {
+                } else if (financialSendersOnly() && !aiAlwaysUsable()) {
                     rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
                     return null
                 }
@@ -127,6 +149,20 @@ class SmsProcessor(
             // senderClass.isFinancial == true → fall through
         }
 
+        // Premium: every SMS that survives the cheap sender-classification cache above is
+        // deferred to the debounced AI batch instead of running the regex pipeline here — the
+        // AI decides both "is this financial" and "what's in it". applyAiBatchResult resolves it.
+        if (aiAlwaysUsable()) {
+            rawDao.updateStatus(rawId, RawStatus.PENDING_AI, null)
+            enqueueAiBatch()
+            return null
+        }
+
+        return runRegexPipeline(rawId, msg)
+    }
+
+    /** Free (and AI-fallback) path: body filter → promo guard → regex match → persist. */
+    private suspend fun runRegexPipeline(rawId: Long, msg: SmsMessage): TransactionEntity? {
         if (!FinancialSmsFilter.isFinancial(msg)) {
             rawDao.updateStatus(rawId, RawStatus.IGNORED, null)
             return null
@@ -143,7 +179,7 @@ class SmsProcessor(
         var patternId = result?.patternId
 
         if (result == null) {
-            patternId = tryLearnPattern(msg)
+            patternId = tryLearnPattern(rawId, msg)
             if (patternId != null) {
                 result = engine.match(msg, patternRepo.compiled())
             }
@@ -157,6 +193,42 @@ class SmsProcessor(
         patternId?.takeIf { it > 0 }?.let { patternRepo.incrementMatch(it) }
         val txn = persistTransaction(rawId, msg, result)
         rawDao.updateStatus(rawId, RawStatus.PARSED, patternId)
+        return txn.takeIf { !it.isDuplicate }
+    }
+
+    /**
+     * Resolves one [raw] row after the debounced AI batch call returns. [result] is null when
+     * the AI call failed outright or omitted this row's index — in that case the raw SMS is run
+     * through the same regex pipeline Free users use. Otherwise the AI's classification decides
+     * IGNORED vs. PARSED/UNPARSED, using its regex (once validated) the same way a learned pattern
+     * would be — never trusting AI-extracted field values directly.
+     */
+    suspend fun applyAiBatchResult(raw: RawSmsEntity, result: AiSmsResult?): TransactionEntity? {
+        val msg = SmsMessage(sender = raw.sender, body = raw.body, receivedAt = raw.receivedAt)
+
+        if (result == null) {
+            return runRegexPipeline(raw.id, msg)
+        }
+
+        if (!result.isFinancial) {
+            rawDao.updateStatus(raw.id, RawStatus.IGNORED, null)
+            return null
+        }
+
+        val learnedPatternId = result.bodyRegex?.let {
+            validateAndSavePattern(msg, it, result.senderRegex, result.name ?: "AI-learned pattern", viaAi = true)
+        }
+
+        val matchResult = engine.match(msg, patternRepo.compiled())
+        if (matchResult == null) {
+            rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
+            return null
+        }
+
+        val patternId = matchResult.patternId.takeIf { it > 0 } ?: learnedPatternId
+        patternId?.let { patternRepo.incrementMatch(it) }
+        val txn = persistTransaction(raw.id, msg, matchResult)
+        rawDao.updateStatus(raw.id, RawStatus.PARSED, patternId)
         return txn.takeIf { !it.isDuplicate }
     }
 
@@ -515,23 +587,38 @@ class SmsProcessor(
     }
 
     /** Feed an unrecognised SMS to the generator; validate and store the pattern. */
-    private suspend fun tryLearnPattern(msg: SmsMessage): Long? {
+    private suspend fun tryLearnPattern(rawId: Long, msg: SmsMessage): Long? {
         val input = if (generator.requiresMasking) Pii.mask(msg.body) else msg.body
         val gen = generator.generate(input, msg.sender) ?: return null
+        if (gen.viaAi) rawDao.updateAiDebug(rawId, gen.promptText, gen.responseText)
+        return validateAndSavePattern(msg, gen.bodyRegex, gen.senderRegex, gen.name, gen.viaAi)
+    }
 
-        val body = runCatching { Regex(gen.bodyRegex) }.getOrNull() ?: return null
-        val sender = gen.senderRegex?.let { runCatching { Regex(it) }.getOrNull() }
+    /**
+     * Validates that [bodyRegex] (optionally paired with [senderRegex]) actually extracts a
+     * transaction from [msg], then persists it as a learned pattern. Shared by [tryLearnPattern]
+     * (single-SMS AI/heuristic fallback) and [applyAiBatchResult] (Premium batch AI result).
+     */
+    private suspend fun validateAndSavePattern(
+        msg: SmsMessage,
+        bodyRegex: String,
+        senderRegex: String?,
+        name: String,
+        viaAi: Boolean,
+    ): Long? {
+        val body = runCatching { Regex(bodyRegex) }.getOrNull() ?: return null
+        val sender = senderRegex?.let { runCatching { Regex(it) }.getOrNull() }
         // Validate: the generated pattern must actually extract a transaction from its source.
         val candidate = CompiledPattern(id = 0, priority = LEARNED_PRIORITY, body = body, sender = sender)
         engine.match(msg, listOf(candidate)) ?: return null
 
         return patternRepo.savePattern(
             SmsPatternEntity(
-                name = gen.name,
-                senderRegex = gen.senderRegex,
-                bodyRegex = gen.bodyRegex,
+                name = name,
+                senderRegex = senderRegex,
+                bodyRegex = bodyRegex,
                 priority = LEARNED_PRIORITY,
-                source = if (gen.viaAi) PatternSource.AI else PatternSource.HEURISTIC,
+                source = if (viaAi) PatternSource.AI else PatternSource.HEURISTIC,
                 sampleSms = msg.body,
             ),
         )

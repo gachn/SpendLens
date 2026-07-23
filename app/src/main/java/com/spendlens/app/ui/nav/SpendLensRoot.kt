@@ -421,12 +421,15 @@ fun SpendLensRoot(
                 }
             }
 
-            // Reprocessing Progress Popup
+            // Processing progress — covers bulk reprocess AND the Premium AI batch worker
+            // (SmsProcessor.beginExternalProgress/advanceExternalProgress/endExternalProgress).
+            // Anchored at the top so it's visible whenever SMS are pending, not just on reprocess.
             if (showProgressPopup && processingProgress.isProcessing) {
+                val pendingCount = (processingProgress.total - processingProgress.current).coerceAtLeast(0)
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 90.dp, start = 16.dp, end = 16.dp)
+                        .align(Alignment.TopCenter)
+                        .padding(top = 90.dp, start = 16.dp, end = 16.dp)
                         .fillMaxWidth(0.9f),
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(12.dp),
@@ -449,13 +452,13 @@ fun SpendLensRoot(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Processing transaction updates...",
+                                    text = "Processing SMS…",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "${processingProgress.current}/${processingProgress.total}",
+                                    text = "${processingProgress.current} processed · $pendingCount pending",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary

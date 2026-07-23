@@ -22,6 +22,7 @@ data class AiPrefs(
     val model: String = AiConfig.DEFAULT_MODEL,
     val hasOverrideKey: Boolean = false,
     val buildKeyPresent: Boolean = false,
+    val maxTokensPerRequest: Int = AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST,
 )
 
 /**
@@ -58,12 +59,24 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         model = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium()),
         hasOverrideKey = !overrideKey().isNullOrBlank(),
         buildKeyPresent = BuildConfig.OPENROUTER_API_KEY.isNotBlank(),
+        maxTokensPerRequest = clampedMaxTokens(),
     )
 
     /** Synchronous read used off the main thread when deciding whether to use the AI path. */
     fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, true)
 
     fun effectiveModel(): String = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium())
+
+    /**
+     * Token budget for one batched AI request — drives how many SMS AiSmsBatchWorker packs per
+     * call. Clamped on read too (not just in [setMaxTokens]) so a value stored before [MAX_TOKENS]
+     * existed — or edited directly in prefs — can never produce an oversized single request that
+     * risks exceeding a free-tier model's context window.
+     */
+    fun maxTokensPerRequest(): Int = clampedMaxTokens()
+
+    private fun clampedMaxTokens(): Int =
+        prefs.getInt(KEY_MAX_TOKENS, AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST).coerceIn(MIN_TOKENS, MAX_TOKENS)
 
     /** The key to use for requests, or null if neither an override nor a build default is set. */
     fun effectiveKey(): String? = AiConfig.effectiveKey(overrideKey(), BuildConfig.OPENROUTER_API_KEY)
@@ -105,10 +118,21 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         _prefs.value = _prefs.value.copy(hasOverrideKey = cleaned.isNotBlank())
     }
 
+    fun setMaxTokens(tokens: Int) {
+        val clamped = tokens.coerceIn(MIN_TOKENS, MAX_TOKENS)
+        prefs.edit().putInt(KEY_MAX_TOKENS, clamped).apply()
+        _prefs.value = _prefs.value.copy(maxTokensPerRequest = clamped)
+    }
+
     private companion object {
         const val KEY_ENABLED = "ai_enabled"
         const val KEY_MODEL = "ai_model"
         const val KEY_API_KEY = "ai_api_key"
         const val KEY_LAST_AUTO_CATEGORIZE = "ai_last_auto_categorize_at"
+        const val KEY_MAX_TOKENS = "ai_max_tokens_per_request"
+        const val MIN_TOKENS = 200 // floor: below this a single SMS often won't fit
+        // Ceiling: most free-tier OpenRouter models cap context well under this; a bigger single
+        // request just risks an outright context-length failure for the whole batch.
+        const val MAX_TOKENS = 16_000
     }
 }

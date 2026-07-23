@@ -129,6 +129,8 @@ class AppContainer(context: Context) {
             senderClassificationDao = senderClassificationDao,
             financialSendersOnly = settingsStore::financialSendersOnly,
             promotionalChecker = promotionalChecker,
+            aiAlwaysUsable = aiConfigStore::isUsable,
+            enqueueAiBatch = { com.spendlens.app.work.AiSmsBatchWorker.enqueue(appContext) },
         )
     }
 

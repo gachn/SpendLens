@@ -27,12 +27,12 @@ class AiConfigTest {
     }
 
     @Test fun `model falls back to default when blank`() {
-        assertEquals(AiConfig.DEFAULT_MODEL, AiConfig.effectiveModel(null))
-        assertEquals(AiConfig.DEFAULT_MODEL, AiConfig.effectiveModel("   "))
+        assertEquals(AiConfig.DEFAULT_MODEL, AiConfig.effectiveModel(null, isPremium = false))
+        assertEquals(AiConfig.DEFAULT_MODEL, AiConfig.effectiveModel("   ", isPremium = false))
     }
 
     @Test fun `stored model wins and is trimmed`() {
-        assertEquals("openai/gpt-latest", AiConfig.effectiveModel("  openai/gpt-latest  "))
+        assertEquals("openai/gpt-latest", AiConfig.effectiveModel("  openai/gpt-latest  ", isPremium = false))
     }
 
     @Test fun `default model is a free slug`() {

@@ -47,10 +47,10 @@ class AiPatternGenerator(
             }
         }
 
-        return parse(content, model)
+        return parse(content, model, prompt)
     }
 
-    private fun parse(raw: String, model: String): GeneratedPattern? {
+    private fun parse(raw: String, model: String, prompt: String): GeneratedPattern? {
         val start = raw.indexOf('{')
         val end = raw.lastIndexOf('}')
         if (start == -1 || end == -1 || end <= start) return null
@@ -67,6 +67,8 @@ class AiPatternGenerator(
             senderRegex = senderRegex,
             fieldNotes = "premium AI ($model)",
             viaAi = true,
+            promptText = prompt,
+            responseText = raw,
         )
     }
 }

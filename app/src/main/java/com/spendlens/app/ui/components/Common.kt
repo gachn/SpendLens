@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.theme.LLSurfaceBright
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money

@@ -669,6 +669,31 @@ fun SettingsScreen(
                             }
                         }
 
+                        var maxTokens by remember(ai.maxTokensPerRequest) {
+                            mutableStateOf(ai.maxTokensPerRequest.toString())
+                        }
+                        OutlinedTextField(
+                            value = maxTokens,
+                            onValueChange = { new ->
+                                maxTokens = new.filter { it.isDigit() }
+                                maxTokens.toIntOrNull()?.let { vm.setAiMaxTokens(it) }
+                            },
+                            singleLine = true,
+                            label = { Text("Max tokens per AI request") },
+                            supportingText = {
+                                Text(
+                                    "SMS are sent to AI in batches instead of one at a time. This caps how " +
+                                        "much text goes into a single request; multiple pending SMS are " +
+                                        "packed together up to this budget. Clamped between 200 and 16,000 " +
+                                        "— most free-tier models can't reliably handle more in one call.",
+                                )
+                            },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Auto-categorise with AI", style = MaterialTheme.typography.bodyLarge)
                             Text(

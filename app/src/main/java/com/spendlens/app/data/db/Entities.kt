@@ -24,6 +24,9 @@ data class RawSmsEntity(
     val patternId: Long? = null,
     /** True once PromotionalCheckWorker has evaluated this row so it is never re-sent to the AI. */
     val promoChecked: Boolean = false,
+    /** Exact prompt sent / response received for the AI call that classified/parsed this SMS, if any. */
+    val aiPrompt: String? = null,
+    val aiResponse: String? = null,
 )
 
 object RawStatus {
@@ -31,6 +34,7 @@ object RawStatus {
     const val PARSED = "PARSED"
     const val UNPARSED = "UNPARSED"   // financial but no pattern matched → Review queue
     const val IGNORED = "IGNORED"     // not a financial SMS
+    const val PENDING_AI = "PENDING_AI" // Premium: queued for the debounced batch AI call
 }
 
 /** Discriminator stored in [TransactionEntity.channel] for transactions the user entered by hand. */

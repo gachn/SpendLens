@@ -27,6 +27,10 @@ interface RawSmsDao {
     @Query("UPDATE raw_sms SET status = :status, patternId = :patternId WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, patternId: Long?)
 
+    /** Records the exact AI prompt/response used to classify/parse this row — debug-menu only. */
+    @Query("UPDATE raw_sms SET aiPrompt = :prompt, aiResponse = :response WHERE id = :id")
+    suspend fun updateAiDebug(id: Long, prompt: String?, response: String?)
+
     @Query("SELECT * FROM raw_sms WHERE status = :status ORDER BY receivedAt DESC")
     fun observeByStatus(status: String): Flow<List<RawSmsEntity>>
 

@@ -20,7 +20,13 @@ object AiConfig {
      * paid model, since Premium's pitch is better message-pattern recognition. Changeable from
      * Settings like any other model slug.
      */
-    const val PREMIUM_DEFAULT_MODEL = "openai/gpt-4o-mini"
+    const val PREMIUM_DEFAULT_MODEL = "google/gemma-4-31b-it:free"
+
+    /**
+     * Default token budget for one batched AI request (see [TokenEstimator]) — sized to comfortably
+     * fit several SMS in one call on typical free-tier context windows without configuration.
+     */
+    const val DEFAULT_MAX_TOKENS_PER_REQUEST = 4000
 
     /**
      * Effective API key: a non-blank Settings override wins; otherwise the build-baked default;

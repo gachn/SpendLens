@@ -2,7 +2,9 @@ package com.spendlens.app.ai
 
 import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -38,52 +40,68 @@ class OpenRouterClient {
         AppLog.aiPrompt(operation, model, prompt)
         AppLog.aiProcessing(operation, "building_request")
 
+        // HttpURLConnection's connectTimeout/readTimeout bound individual socket operations, but
+        // not every hang (DNS stalls, or a connection left half-open while the process was
+        // backgrounded/frozen and resumes to a dead socket). The call runs on its own child
+        // coroutine so a hard wall-clock ceiling below can abandon it outright — callers (e.g. the
+        // Premium batch worker) must never be stuck waiting indefinitely on one request.
         var conn: HttpURLConnection? = null
-        try {
-            val body = OpenRouter.buildRequestBody(model, prompt).toByteArray(Charsets.UTF_8)
-            AppLog.aiRequestSent(operation, model, body.size)
-            AppLog.aiProcessing(operation, "awaiting_model")
+        val call = async {
+            try {
+                val body = OpenRouter.buildRequestBody(model, prompt).toByteArray(Charsets.UTF_8)
+                AppLog.aiRequestSent(operation, model, body.size)
+                AppLog.aiProcessing(operation, "awaiting_model")
 
-            conn = (URL(OpenRouter.BASE_URL).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 15_000
-                readTimeout = 60_000
-                doOutput = true
-                setRequestProperty("Authorization", "Bearer $apiKey")
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("Accept", "application/json")
-                // Optional attribution headers OpenRouter uses for ranking.
-                setRequestProperty("HTTP-Referer", "https://spendlens.app")
-                setRequestProperty("X-Title", "SpendLens")
+                val localConn = (URL(OpenRouter.BASE_URL).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15_000
+                    readTimeout = 60_000
+                    doOutput = true
+                    setRequestProperty("Authorization", "Bearer $apiKey")
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Accept", "application/json")
+                    // Optional attribution headers OpenRouter uses for ranking.
+                    setRequestProperty("HTTP-Referer", "https://spendlens.app")
+                    setRequestProperty("X-Title", "SpendLens")
+                }
+                conn = localConn
+                localConn.outputStream.use { it.write(body) }
+
+                val code = localConn.responseCode
+                val elapsedMs = System.currentTimeMillis() - startedAt
+                val stream = if (code in 200..299) localConn.inputStream else localConn.errorStream
+                val text = stream?.bufferedReader()?.use { it.readText() }
+
+                if (code !in 200..299) {
+                    val detail = OpenRouterErrorMessage(text) ?: "HTTP $code"
+                    AppLog.aiFailure(operation, model, code, detail, elapsedMs)
+                    Result.Failure(detail) as Result
+                } else {
+                    AppLog.aiProcessing(operation, "parsing_response")
+                    val content = OpenRouter.parseContent(text)
+                    if (content.isNullOrBlank()) {
+                        AppLog.aiFailure(operation, model, code, "Empty AI response", elapsedMs)
+                        Result.Failure("Empty AI response")
+                    } else {
+                        AppLog.aiResponse(operation, model, code, content, elapsedMs)
+                        Result.Success(content)
+                    }
+                }
+            } catch (e: Exception) {
+                val elapsedMs = System.currentTimeMillis() - startedAt
+                AppLog.aiFailure(operation, model, null, e.message ?: "Network error", elapsedMs)
+                Result.Failure(e.message ?: "Network error")
+            } finally {
+                conn?.disconnect()
             }
-            conn.outputStream.use { it.write(body) }
+        }
 
-            val code = conn.responseCode
+        withTimeoutOrNull(HARD_TIMEOUT_MS) { call.await() } ?: run {
             val elapsedMs = System.currentTimeMillis() - startedAt
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }
-
-            if (code !in 200..299) {
-                val detail = OpenRouterErrorMessage(text) ?: "HTTP $code"
-                AppLog.aiFailure(operation, model, code, detail, elapsedMs)
-                return@withContext Result.Failure(detail)
-            }
-
-            AppLog.aiProcessing(operation, "parsing_response")
-            val content = OpenRouter.parseContent(text)
-            if (content.isNullOrBlank()) {
-                AppLog.aiFailure(operation, model, code, "Empty AI response", elapsedMs)
-                Result.Failure("Empty AI response")
-            } else {
-                AppLog.aiResponse(operation, model, code, content, elapsedMs)
-                Result.Success(content)
-            }
-        } catch (e: Exception) {
-            val elapsedMs = System.currentTimeMillis() - startedAt
-            AppLog.aiFailure(operation, model, null, e.message ?: "Network error", elapsedMs)
-            Result.Failure(e.message ?: "Network error")
-        } finally {
-            conn?.disconnect()
+            AppLog.aiFailure(operation, model, null, "No response within ${HARD_TIMEOUT_MS}ms — abandoned", elapsedMs)
+            call.cancel()
+            runCatching { conn?.disconnect() } // best-effort: may unblock the abandoned call's thread
+            Result.Failure("AI request timed out after ${HARD_TIMEOUT_MS / 1000}s")
         }
     }
 
@@ -122,5 +140,10 @@ class OpenRouterClient {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private companion object {
+        /** Absolute wall-clock ceiling for [complete] — comfortably above connectTimeout+readTimeout. */
+        const val HARD_TIMEOUT_MS = 90_000L
     }
 }
