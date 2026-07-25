@@ -224,10 +224,18 @@ class SmsProcessor(
             validateAndSavePattern(msg, it, result.senderRegex, result.name ?: "AI-learned pattern", viaAi = true)
         }
 
-        val matchResult = engine.match(msg, patternRepo.compiled(), primaryCurrency())
+        var matchResult = engine.match(msg, patternRepo.compiled(), primaryCurrency())
         if (matchResult == null) {
             rawDao.updateStatus(raw.id, RawStatus.UNPARSED, null)
             return null
+        }
+
+        // The AI can disambiguate currency using context (sender bank/country) a bare regex
+        // symbol match can't see — e.g. "$" alone doesn't say USD vs SGD vs AUD. Unlike
+        // amount/party (which stay regex-only, see the class doc above), a wrong currency guess
+        // doesn't fabricate money, so it's safe to prefer here when the AI offered one.
+        if (result.currency != null && result.currency != matchResult.transaction.currency) {
+            matchResult = matchResult.copy(transaction = matchResult.transaction.copy(currency = result.currency))
         }
 
         val patternId = matchResult.patternId.takeIf { it > 0 } ?: learnedPatternId
@@ -290,6 +298,25 @@ class SmsProcessor(
             changed++
         }
         return changed
+    }
+
+    /**
+     * Premium-only backlog rescue. [process] only ever routes freshly-received/imported SMS to
+     * the AI batch ([enqueueAiBatch]) — years of SMS already sitting UNPARSED from before Premium
+     * was turned on (or from before this SMS's format had a learned pattern) never get a second
+     * look, because a plain inbox re-scan is incremental and skips anything already ingested (see
+     * [com.spendlens.app.sms.SmsImporter]'s `since` cursor) and bulk reprocessing
+     * ([reprocessUnparsed]/[reprocessAllSms]) deliberately never calls the AI. This is what lets
+     * "Re-scan SMS inbox" actually reach that backlog: it requeues every UNPARSED row as
+     * PENDING_AI in one statement and kicks the batch once. No-op on Free (or if AI isn't
+     * configured) — PENDING_AI rows would otherwise sit there forever, since only the AI batch
+     * worker drains that status. Returns how many rows were requeued.
+     */
+    suspend fun requeueUnparsedForAi(): Int {
+        if (!aiAlwaysUsable()) return 0
+        val count = rawDao.requeueUnparsedForAi()
+        if (count > 0) enqueueAiBatch()
+        return count
     }
 
     /**

@@ -75,4 +75,28 @@ class AiBatchResultTest {
         val r = AiBatchResult.parseBatch(1, raw)[0]!!
         assertEquals(false, r.isReminder)
     }
+
+    @Test fun `valid ISO currency code is parsed`() {
+        val raw = """{"isFinancial": true, "name": "A", "senderRegex": null, "bodyRegex": null, "currency": "USD"}"""
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertEquals("USD", r.currency)
+    }
+
+    @Test fun `lowercase currency code is normalized to uppercase`() {
+        val raw = """{"isFinancial": true, "name": "A", "senderRegex": null, "bodyRegex": null, "currency": "usd"}"""
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertEquals("USD", r.currency)
+    }
+
+    @Test fun `unrecognized currency code is dropped`() {
+        val raw = """{"isFinancial": true, "name": "A", "senderRegex": null, "bodyRegex": null, "currency": "XYZ"}"""
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertNull(r.currency)
+    }
+
+    @Test fun `currency defaults to null when absent`() {
+        val raw = """{"isFinancial": true, "name": "A", "senderRegex": null, "bodyRegex": "(?<amount>\\d+)"}"""
+        val r = AiBatchResult.parseBatch(1, raw)[0]!!
+        assertNull(r.currency)
+    }
 }

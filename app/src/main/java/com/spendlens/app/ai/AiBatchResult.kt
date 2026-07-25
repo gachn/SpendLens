@@ -1,5 +1,6 @@
 package com.spendlens.app.ai
 
+import com.spendlens.app.parser.Normalize
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -11,6 +12,11 @@ data class AiSmsResult(
     val bodyRegex: String?,
     val senderRegex: String?,
     val name: String?,
+    /**
+     * ISO-4217 code the AI inferred from context (sender bank/country, explicit code/symbol),
+     * independent of the bodyRegex's own curr capture — null when undeterminable or invalid.
+     */
+    val currency: String? = null,
 )
 
 /**
@@ -51,12 +57,17 @@ object AiBatchResult {
             ?.takeIf { runCatching { Regex(it) }.isSuccess }
         val senderRegex = json.optString("senderRegex").takeIf { it.isNotBlank() && it != "null" }
         val name = json.optString("name").takeIf { it.isNotBlank() && it != "null" }
+        val currency = json.optString("currency")
+            .takeIf { it.isNotBlank() && it != "null" }
+            ?.trim()?.uppercase()
+            ?.takeIf { it in Normalize.CURRENCY_CODES }
         return AiSmsResult(
             isFinancial = isFinancial,
             isReminder = isReminder,
             bodyRegex = bodyRegex,
             senderRegex = senderRegex,
             name = name,
+            currency = currency,
         )
     }
 }

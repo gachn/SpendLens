@@ -38,6 +38,11 @@ object PromptGenerator {
             append("- (?<party>...) : The counterparty/merchant name (e.g. SWIGGY*DELHI)\n")
             append("- (?<balance>...) : The post-transaction balance (optional)\n")
             append("- (?<ref>...) : The transaction reference or UTR number (optional)\n\n")
+            append("Also determine currency: the ISO-4217 code (e.g. INR, USD, AED) for the amount, decided ")
+            append("from context — the sender's bank/country, any explicit code or symbol, and typical local ")
+            append("formatting — not just the bodyRegex's own curr group. This matters because a bare symbol " +
+                "like \"$\" or \"Rs\" is ambiguous without that context (e.g. \"$\" could be USD, SGD, AUD or " +
+                "CAD depending on the issuing bank). Set currency to null only if you genuinely cannot tell.\n\n")
 
             if (smsList.size == 1) {
                 append("Respond ONLY with a valid JSON block matching this schema:\n")
@@ -46,7 +51,8 @@ object PromptGenerator {
                 append("  \"isReminder\": true or false,\n")
                 append("  \"name\": \"Clean name for this pattern (e.g., ICICI Bank UPI), or null if not financial\",\n")
                 append("  \"senderRegex\": \"Regex for sender or null\",\n")
-                append("  \"bodyRegex\": \"The regex with named capture groups, or null if not financial or if isReminder\"\n")
+                append("  \"bodyRegex\": \"The regex with named capture groups, or null if not financial or if isReminder\",\n")
+                append("  \"currency\": \"ISO-4217 code, or null if not financial or undeterminable\"\n")
                 append("}\n")
             } else {
                 append("Respond ONLY with a valid JSON array of objects matching this schema (with exactly ${smsList.size} objects in the array):\n")
@@ -56,7 +62,8 @@ object PromptGenerator {
                 append("    \"isReminder\": true or false,\n")
                 append("    \"name\": \"Clean name for this pattern (e.g., ICICI Bank UPI), or null if not financial\",\n")
                 append("    \"senderRegex\": \"Regex for sender or null\",\n")
-                append("    \"bodyRegex\": \"The regex with named capture groups, or null if not financial or if isReminder\"\n")
+                append("    \"bodyRegex\": \"The regex with named capture groups, or null if not financial or if isReminder\",\n")
+                append("    \"currency\": \"ISO-4217 code, or null if not financial or undeterminable\"\n")
                 append("  }\n")
                 append("]\n\n")
                 append("CRITICAL: Generate exactly ${smsList.size} JSON objects in the array, one for each SMS provided above in that exact order. Do NOT truncate, do NOT use \"...\" placeholders, and do NOT omit any entries.\n")

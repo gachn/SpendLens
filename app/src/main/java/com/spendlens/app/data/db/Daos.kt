@@ -38,6 +38,22 @@ interface RawSmsDao {
     @Query("SELECT * FROM raw_sms WHERE status = :status ORDER BY receivedAt DESC")
     suspend fun listByStatus(status: String): List<RawSmsEntity>
 
+    /**
+     * Live count of rows in [status] — used to show a "pending" indicator (e.g. PENDING_AI SMS
+     * queued for the debounced Premium batch call) before/between [com.spendlens.app.work.AiSmsBatchWorker]
+     * runs, when [com.spendlens.app.sms.SmsProcessor.progress] isn't actively processing.
+     */
+    @Query("SELECT COUNT(*) FROM raw_sms WHERE status = :status")
+    fun observeCountByStatus(status: String): Flow<Int>
+
+    /**
+     * Bulk-requeues every UNPARSED row for the Premium AI batch in one statement — used to give
+     * the AI a shot at backlog that was stuck UNPARSED before AI was ever enabled (or before this
+     * SMS's format had a learned pattern). Returns how many rows were requeued.
+     */
+    @Query("UPDATE raw_sms SET status = '${RawStatus.PENDING_AI}', patternId = NULL WHERE status = '${RawStatus.UNPARSED}'")
+    suspend fun requeueUnparsedForAi(): Int
+
     @Query("SELECT * FROM raw_sms WHERE id = :id")
     suspend fun getById(id: Long): RawSmsEntity?
 
@@ -305,6 +321,13 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun count(): Int
 
+    /**
+     * The currency the most transactions are recorded in — used to auto-detect a primary
+     * currency from actual usage instead of the (often wrong/generic) device locale. Null when
+     * there are no transactions yet.
+     */
+    @Query("SELECT currency FROM transactions GROUP BY currency ORDER BY COUNT(*) DESC LIMIT 1")
+    suspend fun mostFrequentCurrency(): String?
 
     @Query(
         "SELECT COUNT(*) FROM transactions " +

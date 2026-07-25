@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +42,14 @@ import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
 import com.spendlens.app.ui.util.Money
 import java.time.YearMonth
+
+/**
+ * The user's resolved primary currency (override or device-locale auto-detect), provided once at
+ * the [com.spendlens.app.ui.nav.SpendLensRoot] and read by [TransactionRow] to decide whether to
+ * show the original-currency amount alongside the converted one. Falls back to "INR" only if
+ * nothing provides it (e.g. a `@Preview`).
+ */
+val LocalPrimaryCurrency = staticCompositionLocalOf { "INR" }
 
 // ---------------------------------------------------------------------------
 // Glass card — surface with subtle border, the base panel for all new screens
@@ -72,6 +81,7 @@ fun TransactionRow(
     val category = txn.categoryId?.let { categories[it] }
     val logoEmoji = merchantEmojis[txn.counterparty] ?: category?.icon ?: "💳"
     val isDebit = txn.direction == "DEBIT"
+    val primaryCurrency = LocalPrimaryCurrency.current
     val amountAlpha = if (txn.excludedFromExpense) 0.4f else 1f
     val amountColor = if (isDebit) SpendLensTheme.colors.debit else SpendLensTheme.colors.credit
 
@@ -177,9 +187,9 @@ fun TransactionRow(
                 color = amountColor.copy(alpha = amountAlpha),
                 fontWeight = FontWeight.SemiBold,
             )
-            if (txn.currency != "INR" && txn.amountBaseMinor > 0) {
+            if (txn.currency != primaryCurrency && txn.amountBaseMinor > 0) {
                 Text(
-                    "≈ ${Money.format(txn.amountBaseMinor, "INR")}",
+                    "≈ ${Money.format(txn.amountBaseMinor, primaryCurrency)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

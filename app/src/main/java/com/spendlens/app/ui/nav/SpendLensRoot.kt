@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -89,8 +90,10 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.di.AppContainer
+import com.spendlens.app.ui.components.LocalPrimaryCurrency
 import com.spendlens.app.ui.components.TransactionDetailSheet
 import com.spendlens.app.ui.screens.AccountsScreen
 import com.spendlens.app.ui.screens.AnalyticsScreen
@@ -98,6 +101,7 @@ import com.spendlens.app.ui.screens.BillsScreen
 import com.spendlens.app.ui.screens.BudgetsScreen
 import com.spendlens.app.ui.screens.CategoriesScreen
 import com.spendlens.app.ui.screens.DashboardScreen
+import com.spendlens.app.ui.screens.DebugScreen
 import com.spendlens.app.ui.screens.GoalsScreen
 import com.spendlens.app.ui.screens.ManualEntryScreen
 import com.spendlens.app.ui.screens.MerchantDetailScreen
@@ -146,6 +150,7 @@ private const val ROUTE_SUBSCRIPTIONS = "subscriptions"
 private const val ROUTE_CATEGORIES   = "categories"
 private const val ROUTE_GOALS        = "goals"
 private const val ROUTE_PATTERNS     = "patterns"
+private const val ROUTE_DEBUG        = "debug"
 private const val ROUTE_MERCHANT     = "merchant"
 private const val ARG_MERCHANT       = "name"
 private const val ROUTE_ENTRY        = "entry"
@@ -167,15 +172,40 @@ fun SpendLensRoot(
     val processingProgress by container.smsProcessor.progress.collectAsState()
     var showProgressPopup by remember { mutableStateOf(false) }
 
+    // SMS queued for the Premium AI batch (PENDING_AI) but not yet picked up by
+    // AiSmsBatchWorker — e.g. still inside its debounce window, or waiting for WorkManager to run
+    // it. Without this, the progress popup only appears once the worker is actually mid-call,
+    // leaving a silent gap where messages are visibly stuck with no feedback.
+    val pendingAiCountFlow = remember { container.rawSmsDao.observeCountByStatus(RawStatus.PENDING_AI) }
+    val pendingAiCount by pendingAiCountFlow.collectAsState(initial = 0)
+
     // "AI is analysing…" banner: shown while auto-categorisation runs, unless the user turned it off.
     val aiRunning by container.aiCategorizer.running.collectAsState()
     val appearance by container.settingsStore.appearance.collectAsState()
     val showAiBanner = aiRunning && appearance.aiBannerEnabled
 
+    // Recomputed whenever the override is set/cleared OR auto-detect resolves differently (e.g.
+    // once enough transactions exist to outvote an initial locale guess) so every screen's
+    // "≈ converted amount" badge tracks the current primary currency without a restart.
+    val currencyPrefs by container.settingsStore.currency.collectAsState()
+    val detectedCurrency by container.settingsStore.detected.collectAsState()
+    val primaryCurrency = currencyPrefs.primaryCurrencyOverride ?: detectedCurrency
+
     LaunchedEffect(processingProgress.isProcessing) {
         if (processingProgress.isProcessing) {
             showProgressPopup = true
+        } else {
+            // A batch just finished (or none has run yet this session) — re-check whether the
+            // resolved primary currency should change now that more transactions may exist, and
+            // keep amountBaseMinor consistent with it.
+            container.refreshPrimaryCurrency()
         }
+    }
+
+    // Surface the popup as soon as SMS are queued for the AI batch, even before the debounced
+    // worker actually starts running (isProcessing is false the whole time it's just waiting).
+    LaunchedEffect(pendingAiCount) {
+        if (pendingAiCount > 0) showProgressPopup = true
     }
 
 
@@ -385,12 +415,14 @@ fun SpendLensRoot(
 
     PermissionGate {
         Box(modifier = Modifier.fillMaxSize()) {
-            MainScaffold(
-                container = container,
-                factory = factory,
-                selected = selected,
-                onSelectedChanged = { selected = it },
-            )
+            CompositionLocalProvider(LocalPrimaryCurrency provides primaryCurrency) {
+                MainScaffold(
+                    container = container,
+                    factory = factory,
+                    selected = selected,
+                    onSelectedChanged = { selected = it },
+                )
+            }
 
             // AI auto-categorisation banner (top, below the app bar).
             if (showAiBanner) {
@@ -425,10 +457,14 @@ fun SpendLensRoot(
             }
 
             // Processing progress — covers bulk reprocess AND the Premium AI batch worker
-            // (SmsProcessor.beginExternalProgress/advanceExternalProgress/endExternalProgress).
-            // Anchored at the top so it's visible whenever SMS are pending, not just on reprocess.
-            if (showProgressPopup && processingProgress.isProcessing) {
-                val pendingCount = (processingProgress.total - processingProgress.current).coerceAtLeast(0)
+            // (SmsProcessor.beginExternalProgress/advanceExternalProgress/endExternalProgress), plus
+            // SMS that are merely queued (PENDING_AI) and waiting on the worker's debounce window —
+            // isProcessing alone would leave that wait silent. Anchored at the top so it's visible
+            // whenever SMS are pending, not just while a batch call is actually in flight.
+            val isQueuedOnly = !processingProgress.isProcessing && pendingAiCount > 0
+            if (showProgressPopup && (processingProgress.isProcessing || isQueuedOnly)) {
+                val displayCurrent = if (processingProgress.isProcessing) processingProgress.current else 0
+                val displayTotal = if (processingProgress.isProcessing) processingProgress.total else pendingAiCount
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -455,20 +491,20 @@ fun SpendLensRoot(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Processing SMS…",
+                                    text = if (isQueuedOnly) "SMS queued for AI analysis…" else "Processing SMS…",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "${processingProgress.current} processed · $pendingCount pending",
+                                    text = "$displayCurrent / $displayTotal parsed",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            val fraction = if (processingProgress.total > 0) {
-                                processingProgress.current.toFloat() / processingProgress.total.toFloat()
+                            val fraction = if (displayTotal > 0) {
+                                displayCurrent.toFloat() / displayTotal.toFloat()
                             } else 0f
                             LinearProgressIndicator(
                                 progress = { fraction },
@@ -700,6 +736,13 @@ private fun MainScaffold(
                     onOpenGoals = { nav.navigate(ROUTE_GOALS) { launchSingleTop = true } },
                     onOpenPatterns = { nav.navigate(ROUTE_PATTERNS) { launchSingleTop = true } },
                     onOpenSenders = { nav.navigate(ROUTE_SENDERS) { launchSingleTop = true } },
+                    onOpenDebug = { nav.navigate(ROUTE_DEBUG) { launchSingleTop = true } },
+                )
+            }
+            composable(ROUTE_DEBUG) {
+                DebugScreen(
+                    vm = viewModel<SettingsViewModel>(factory = factory),
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(ROUTE_SENDERS) {

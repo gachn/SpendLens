@@ -27,6 +27,10 @@ object Money {
             else -> String.format(Locale.getDefault(), "%.0f", v)
         }
     }
+
+    /** "Indian Rupee" for "INR" — falls back to the bare code if the platform doesn't recognise it. */
+    fun currencyName(code: String): String =
+        runCatching { java.util.Currency.getInstance(code).getDisplayName(Locale.getDefault()) }.getOrDefault(code)
 }
 
 object Dates {

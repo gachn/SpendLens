@@ -976,7 +976,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), container.settingsStore.primaryCurrency())
 
     /** What auto-detect would pick right now, shown next to the override picker. */
-    fun detectedCurrency(): String = container.settingsStore.detectedPrimaryCurrency()
+    fun detectedCurrency(): String = container.settingsStore.detectedCurrency()
 
     sealed interface CurrencyRecomputeState {
         data object Idle : CurrencyRecomputeState
@@ -996,10 +996,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setPrimaryCurrency(code: String?) = viewModelScope.launch {
         _recomputeState.value = CurrencyRecomputeState.Working
         container.settingsStore.setPrimaryCurrency(code)
-        val newCurrency = container.settingsStore.primaryCurrency()
-        container.transactionRepository.recomputeBaseAmounts { amount, currency ->
-            container.fxRepository.convert(amount, currency, newCurrency)
-        }
+        container.refreshPrimaryCurrency()
         _recomputeState.value = CurrencyRecomputeState.Done
     }
 
@@ -1014,6 +1011,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setAiApiKey(key: String?) = container.aiConfigStore.setApiKey(key)
 
     fun setAiMaxTokens(tokens: Int) = container.aiConfigStore.setMaxTokens(tokens)
+
+    fun setAiConcurrentRequests(count: Int) = container.aiConfigStore.setConcurrentRequests(count)
 
     /** OpenRouter model slugs for autocompleting the Model field; empty until [loadAiModels] runs. */
     private val _aiModels = MutableStateFlow<List<String>>(emptyList())
@@ -1055,7 +1054,16 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
             )
         }
 
-    fun reimport(context: android.content.Context) = SmsSyncWorker.enqueueImport(context)
+    /**
+     * "Re-scan SMS inbox": pulls genuinely new inbox messages (incremental — see
+     * [SmsSyncWorker]'s `since` cursor) AND, on Premium, gives the AI a shot at every SMS still
+     * stuck UNPARSED from before AI was enabled — that backlog is otherwise unreachable, since the
+     * incremental scan skips anything already ingested. See [SmsProcessor.requeueUnparsedForAi].
+     */
+    fun reimport(context: android.content.Context) {
+        SmsSyncWorker.enqueueImport(context)
+        viewModelScope.launch { container.smsProcessor.requeueUnparsedForAi() }
+    }
 
     /** True when AI is on with a usable key — gates the "auto-categorise" controls. */
     fun aiUsable(): Boolean = container.aiConfigStore.isUsable()

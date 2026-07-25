@@ -80,6 +80,16 @@ class SettingsStore(context: Context) {
     private val _currency = MutableStateFlow(loadCurrency())
     val currency: StateFlow<CurrencyPrefs> = _currency.asStateFlow()
 
+    /**
+     * Reactive twin of [detectedCurrency] — a plain synchronous getter isn't observable, so
+     * screens that need to redraw when auto-detect resolves differently (e.g. once transactions
+     * exist to infer a currency from) collect this instead.
+     */
+    private val _detected = MutableStateFlow(detectedCurrencyOrNull() ?: detectFromLocale())
+    val detected: StateFlow<String> = _detected.asStateFlow()
+
+    private fun detectedCurrencyOrNull(): String? = prefs.getString(KEY_DETECTED_CURRENCY, null)
+
     private fun load(): AppearancePrefs {
         val mode = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
             ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -105,19 +115,47 @@ class SettingsStore(context: Context) {
     private fun loadCurrency(): CurrencyPrefs =
         CurrencyPrefs(primaryCurrencyOverride = prefs.getString(KEY_PRIMARY_CURRENCY, null))
 
-    /** Device locale's currency, used whenever the user hasn't chosen an override. */
-    private fun detectPrimaryCurrency(): String =
+    /**
+     * Device locale's currency — only a fallback for the very first read, before
+     * [AppContainer.refreshPrimaryCurrency] has ever run (i.e. before any transaction exists to
+     * infer a currency from). Many devices report a generic "English (US)" system locale
+     * regardless of the user's actual country, so this alone is not a reliable detector.
+     */
+    private fun detectFromLocale(): String =
         runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrDefault("USD")
 
     /**
+     * The auto-detected currency: the most recent value [setDetectedCurrency] cached (normally
+     * the majority currency across the user's own transactions, refreshed by
+     * [com.spendlens.app.di.AppContainer.refreshPrimaryCurrency]), or the device locale before
+     * any transaction has ever been parsed.
+     */
+    fun detectedCurrency(): String = detectedCurrencyOrNull() ?: detectFromLocale()
+
+    /** Caches the latest auto-detected currency so [detectedCurrency] is a cheap synchronous read. */
+    fun setDetectedCurrency(code: String) {
+        prefs.edit().putString(KEY_DETECTED_CURRENCY, code).apply()
+        _detected.value = code
+    }
+
+    /**
      * Synchronous read used off the main thread (SMS ingest, manual entry, FX conversion): the
-     * user's override if set, else the device-locale currency detected at read time so it tracks
-     * a locale change even without the user visiting Settings.
+     * user's override if set, else [detectedCurrency].
      */
     fun primaryCurrency(): String =
-        prefs.getString(KEY_PRIMARY_CURRENCY, null) ?: detectPrimaryCurrency()
+        prefs.getString(KEY_PRIMARY_CURRENCY, null) ?: detectedCurrency()
 
-    fun detectedPrimaryCurrency(): String = detectPrimaryCurrency()
+    /**
+     * The currency [amountBaseMinor] values across the DB were last computed against. Compared
+     * to [primaryCurrency] by [com.spendlens.app.di.AppContainer.refreshPrimaryCurrency] to decide
+     * whether a recompute is needed — catches drift from auto-detect changing (e.g. once enough
+     * transactions exist to outvote an initial locale guess), not just an explicit user override.
+     */
+    fun lastAppliedCurrency(): String? = prefs.getString(KEY_LAST_APPLIED_CURRENCY, null)
+
+    fun setLastAppliedCurrency(code: String) {
+        prefs.edit().putString(KEY_LAST_APPLIED_CURRENCY, code).apply()
+    }
 
     /** Synchronous read for app-launch gating (before any flow is collected). */
     fun isAppLockEnabled(): Boolean = prefs.getBoolean(KEY_APP_LOCK, false)
@@ -234,6 +272,8 @@ class SettingsStore(context: Context) {
         const val KEY_FINANCIAL_SENDERS_ONLY = "financial_senders_only"
         const val KEY_MERCHANT_PREDICTION = "merchant_prediction_enabled"
         const val KEY_PRIMARY_CURRENCY = "primary_currency_override"
+        const val KEY_DETECTED_CURRENCY = "primary_currency_detected"
+        const val KEY_LAST_APPLIED_CURRENCY = "primary_currency_last_applied"
         const val KEY_ACCT_NAME_PREFIX = "acct_name_"
         const val KEY_CYCLE_DAY_PREFIX = "cycle_day_"
     }

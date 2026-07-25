@@ -148,8 +148,9 @@ fun TransactionDetailSheet(
                 Text("📈 View merchant history")
             }
             Spacer(Modifier.height(12.dp))
-            if (current.currency != "INR" && current.amountBaseMinor > 0) {
-                DetailLine("In INR", Money.format(current.amountBaseMinor, "INR"))
+            val primaryCurrency = LocalPrimaryCurrency.current
+            if (current.currency != primaryCurrency && current.amountBaseMinor > 0) {
+                DetailLine("In $primaryCurrency", Money.format(current.amountBaseMinor, primaryCurrency))
             }
             bankName?.let { DetailLine("Bank", it) }
             if (current.accountKey != "Unknown") {

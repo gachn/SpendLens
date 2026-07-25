@@ -23,6 +23,7 @@ data class AiPrefs(
     val hasOverrideKey: Boolean = false,
     val buildKeyPresent: Boolean = false,
     val maxTokensPerRequest: Int = AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST,
+    val concurrentRequests: Int = AiConfig.DEFAULT_CONCURRENT_REQUESTS,
 )
 
 /**
@@ -60,6 +61,7 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         hasOverrideKey = !overrideKey().isNullOrBlank(),
         buildKeyPresent = BuildConfig.OPENROUTER_API_KEY.isNotBlank(),
         maxTokensPerRequest = clampedMaxTokens(),
+        concurrentRequests = clampedConcurrentRequests(),
     )
 
     /** Synchronous read used off the main thread when deciding whether to use the AI path. */
@@ -77,6 +79,16 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
 
     private fun clampedMaxTokens(): Int =
         prefs.getInt(KEY_MAX_TOKENS, AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST).coerceIn(MIN_TOKENS, MAX_TOKENS)
+
+    /**
+     * How many [com.spendlens.app.work.AiSmsBatchWorker] batch calls may be in flight at once.
+     * Clamped on read too, so a value stored before this setting existed defaults sanely.
+     */
+    fun concurrentRequests(): Int = clampedConcurrentRequests()
+
+    private fun clampedConcurrentRequests(): Int =
+        prefs.getInt(KEY_CONCURRENT_REQUESTS, AiConfig.DEFAULT_CONCURRENT_REQUESTS)
+            .coerceIn(MIN_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS)
 
     /** The key to use for requests, or null if neither an override nor a build default is set. */
     fun effectiveKey(): String? = AiConfig.effectiveKey(overrideKey(), BuildConfig.OPENROUTER_API_KEY)
@@ -124,6 +136,12 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         _prefs.value = _prefs.value.copy(maxTokensPerRequest = clamped)
     }
 
+    fun setConcurrentRequests(count: Int) {
+        val clamped = count.coerceIn(MIN_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS)
+        prefs.edit().putInt(KEY_CONCURRENT_REQUESTS, clamped).apply()
+        _prefs.value = _prefs.value.copy(concurrentRequests = clamped)
+    }
+
     private companion object {
         const val KEY_ENABLED = "ai_enabled"
         const val KEY_MODEL = "ai_model"
@@ -134,5 +152,10 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         // Ceiling: most free-tier OpenRouter models cap context well under this; a bigger single
         // request just risks an outright context-length failure for the whole batch.
         const val MAX_TOKENS = 16_000
+        const val KEY_CONCURRENT_REQUESTS = "ai_concurrent_requests"
+        const val MIN_CONCURRENT_REQUESTS = 1
+        // Ceiling: past this, a free-tier model's per-key rate limit is nearly guaranteed to start
+        // rejecting requests rather than speed anything up further.
+        const val MAX_CONCURRENT_REQUESTS = 8
     }
 }

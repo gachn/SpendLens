@@ -49,6 +49,9 @@ class TransactionRepository(
     suspend fun allTransactions(): List<TransactionEntity> = dao.allTransactions()
     suspend fun getAllTransactions(): List<TransactionEntity> = dao.getAllTransactions()
 
+    /** The currency the most transactions are in, or null with no transactions yet. */
+    suspend fun mostFrequentCurrency(): String? = dao.mostFrequentCurrency()
+
 
     suspend fun insert(txn: TransactionEntity): Long = dao.insert(txn)
     suspend fun update(txn: TransactionEntity) = dao.update(txn)

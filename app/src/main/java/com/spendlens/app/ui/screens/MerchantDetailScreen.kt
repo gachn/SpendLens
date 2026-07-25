@@ -69,7 +69,10 @@ fun MerchantDetailScreen(
         container.merchantRepository.observeExcluded(counterparty)
     }.collectAsState(initial = false)
 
-    // Spend totals use base-currency (INR) minor units and ignore non-expense rows (transfers etc.).
+    val primaryCurrency = com.spendlens.app.ui.components.LocalPrimaryCurrency.current
+
+    // Spend totals use base-currency (the user's primary currency) minor units and ignore
+    // non-expense rows (transfers etc.).
     val spendable = txns.filter { it.direction == "DEBIT" && !it.excludedFromExpense }
     val totalSpentMinor = spendable.sumOf { it.amountBaseMinor }
 
@@ -108,7 +111,7 @@ fun MerchantDetailScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         SummaryStat(
                             label = "Total spent",
-                            value = Money.format(totalSpentMinor, "INR"),
+                            value = Money.format(totalSpentMinor, primaryCurrency),
                             accent = SpendLensTheme.colors.debit,
                         )
                         SummaryStat(

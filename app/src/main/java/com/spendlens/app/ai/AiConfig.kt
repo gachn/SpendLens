@@ -29,6 +29,14 @@ object AiConfig {
     const val DEFAULT_MAX_TOKENS_PER_REQUEST = 4000
 
     /**
+     * Default number of [com.spendlens.app.work.AiSmsBatchWorker] batch calls allowed in flight at
+     * once. Each batch call can take tens of seconds, so a large backlog processed one call at a
+     * time (the old behaviour) is slow; raising this trades that for a higher chance of tripping a
+     * free-tier model's per-key rate limit. Kept low by default; changeable from the debug menu.
+     */
+    const val DEFAULT_CONCURRENT_REQUESTS = 2
+
+    /**
      * Effective API key: a non-blank Settings override wins; otherwise the build-baked default;
      * otherwise null (AI disabled — caller must fall back).
      */

@@ -62,6 +62,7 @@ import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.GlassCard
+import com.spendlens.app.ui.components.LocalPrimaryCurrency
 import com.spendlens.app.ui.components.MonthDropdown
 import com.spendlens.app.ui.components.SectionHeader
 import com.spendlens.app.ui.components.SummaryStat
@@ -76,6 +77,7 @@ import com.spendlens.app.ui.viewmodel.AccountsViewModel
 @Composable
 fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity) -> Unit = {}) {
     val state by vm.state.collectAsState()
+    val primaryCurrency = LocalPrimaryCurrency.current
     var openKey by remember { mutableStateOf<String?>(null) }
     var showEmpty by remember { mutableStateOf(false) }
     val open = openKey?.let { key ->
@@ -190,7 +192,7 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
                 }
             }
         }
-        smartInsight(state.cards)?.let { insight ->
+        smartInsight(state.cards, primaryCurrency)?.let { insight ->
             item { SmartInsightModule(insight, modifier = Modifier.padding(horizontal = 16.dp)) }
         }
         item { Spacer(Modifier.height(24.dp)) }
@@ -250,6 +252,7 @@ private fun NetLiquidBalanceCard(
     cards: List<AccountSummary>,
     modifier: Modifier = Modifier,
 ) {
+    val primaryCurrency = LocalPrimaryCurrency.current
     val cashMinor = bankAccounts.mapNotNull { it.effectiveBalanceMinor }.sum()
     val outstandingMinor = cards.mapNotNull { it.billTotalDueMinor }.sum()
     val netMinor = cashMinor - outstandingMinor
@@ -266,7 +269,7 @@ private fun NetLiquidBalanceCard(
                 letterSpacing = 1.5.sp,
             )
             Text(
-                Money.format(netMinor, "INR"),
+                Money.format(netMinor, primaryCurrency),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -278,7 +281,7 @@ private fun NetLiquidBalanceCard(
                 if (hasCash) {
                     SummaryStat(
                         label = "Total cash",
-                        value = Money.format(cashMinor, "INR"),
+                        value = Money.format(cashMinor, primaryCurrency),
                         accent = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
                     )
@@ -286,7 +289,7 @@ private fun NetLiquidBalanceCard(
                 if (hasOutstanding) {
                     SummaryStat(
                         label = "Outstanding",
-                        value = Money.format(outstandingMinor, "INR"),
+                        value = Money.format(outstandingMinor, primaryCurrency),
                         accent = SpendLensTheme.colors.debit,
                         modifier = Modifier.weight(1f),
                     )
@@ -344,6 +347,7 @@ private fun BankAccountRow(
 ) {
     val brand = BankBranding.forAccount(acct.accountKey, acct.topSender)
     val displayName = acct.customName ?: acct.detectedBankName ?: acct.accountKey
+    val primaryCurrency = LocalPrimaryCurrency.current
     var showRename by remember { mutableStateOf(false) }
 
     if (showRename) {
@@ -419,8 +423,8 @@ private fun BankAccountRow(
             ) {
                 Column {
                     Text(
-                        acct.effectiveBalanceMinor?.let { Money.format(it, "INR") }
-                            ?: ("-" + Money.format(acct.totalDebitMinor, "INR")),
+                        acct.effectiveBalanceMinor?.let { Money.format(it, primaryCurrency) }
+                            ?: ("-" + Money.format(acct.totalDebitMinor, primaryCurrency)),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -455,6 +459,7 @@ private fun CreditCardRow(
     val brand = BankBranding.forAccount(acct.accountKey, acct.topSender)
     val outstanding = acct.billTotalDueMinor
     val displayName = acct.customName ?: acct.detectedBankName ?: acct.accountKey
+    val primaryCurrency = LocalPrimaryCurrency.current
     var showRename by remember { mutableStateOf(false) }
 
     if (showRename) {
@@ -552,8 +557,8 @@ private fun CreditCardRow(
             // Outstanding amount (hero number) — estimated when no statement SMS was parsed
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    outstanding?.let { Money.format(it, "INR") }
-                        ?: ("-" + Money.format(acct.totalDebitMinor, "INR")),
+                    outstanding?.let { Money.format(it, primaryCurrency) }
+                        ?: ("-" + Money.format(acct.totalDebitMinor, primaryCurrency)),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = brand.onCard,
@@ -605,7 +610,7 @@ private fun CreditCardRow(
                     )
                     // Always render this line (empty when no min due) so all cards have same height
                     Text(
-                        acct.billMinDueMinor?.let { "Min: ${Money.format(it, "INR")}" } ?: "",
+                        acct.billMinDueMinor?.let { "Min: ${Money.format(it, primaryCurrency)}" } ?: "",
                         style = MaterialTheme.typography.labelSmall,
                         color = brand.onCard.copy(alpha = 0.75f),
                     )
@@ -637,12 +642,12 @@ private fun CreditCardRow(
 
 private data class Insight(val text: String)
 
-private fun smartInsight(cards: List<AccountSummary>): Insight? {
+private fun smartInsight(cards: List<AccountSummary>, primaryCurrency: String): Insight? {
     val due = cards.filter { it.billTotalDueMinor != null && it.billDueDate != null }
         .maxByOrNull { it.billTotalDueMinor!! } ?: return null
     return Insight(
         "Pay off the ${due.accountKey} balance of " +
-            "${Money.format(due.billTotalDueMinor!!, "INR")} before " +
+            "${Money.format(due.billTotalDueMinor!!, primaryCurrency)} before " +
             "${Dates.date(due.billDueDate!!)} to avoid interest charges.",
     )
 }
@@ -801,6 +806,7 @@ private fun AccountStats(
     onEditCycleDay: () -> Unit = {},
     onEditBalance: () -> Unit = {},
 ) {
+    val primaryCurrency = LocalPrimaryCurrency.current
     Column {
         if (acct.isCard && acct.billTotalDueMinor != null) {
             // Latest credit-card statement summary.
@@ -811,7 +817,7 @@ private fun AccountStats(
                         acct.isEstimatedBill -> "Est. outstanding"
                         else -> "Total due"
                     },
-                    value = Money.format(acct.billTotalDueMinor, "INR"),
+                    value = Money.format(acct.billTotalDueMinor, primaryCurrency),
                     accent = if (acct.isStatementPaid) SpendLensTheme.colors.credit else SpendLensTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
@@ -826,13 +832,13 @@ private fun AccountStats(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 SummaryStat(
                     label = "Min due",
-                    value = acct.billMinDueMinor?.let { Money.format(it, "INR") } ?: "—",
+                    value = acct.billMinDueMinor?.let { Money.format(it, primaryCurrency) } ?: "—",
                     accent = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
                 SummaryStat(
                     label = "Cycle spend",
-                    value = "-" + Money.format(acct.cycleSpendMinor, "INR"),
+                    value = "-" + Money.format(acct.cycleSpendMinor, primaryCurrency),
                     accent = SpendLensTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
@@ -873,13 +879,13 @@ private fun AccountStats(
                 Box(Modifier.weight(1f)) {
                     SummaryStat(
                         label = if (acct.isCard) "Avl. balance" else "Current balance",
-                        value = acct.effectiveBalanceMinor?.let { Money.format(it, "INR") } ?: "—",
+                        value = acct.effectiveBalanceMinor?.let { Money.format(it, primaryCurrency) } ?: "—",
                         accent = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 SummaryStat(
                     label = "Total debit",
-                    value = "-" + Money.format(acct.totalDebitMinor, "INR"),
+                    value = "-" + Money.format(acct.totalDebitMinor, primaryCurrency),
                     accent = SpendLensTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
@@ -896,7 +902,7 @@ private fun AccountStats(
             acct.secondaryBalance?.let { (amountMinor, observedAt) ->
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Also ${Money.format(amountMinor, "INR")} as on ${Dates.date(observedAt)}",
+                    "Also ${Money.format(amountMinor, primaryCurrency)} as on ${Dates.date(observedAt)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -911,6 +917,7 @@ private fun AccountStats(
 
 @Composable
 private fun PaymentReminderBanner(daysUntilDue: Long, dueDate: Long, totalDue: Long?) {
+    val primaryCurrency = LocalPrimaryCurrency.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -931,7 +938,7 @@ private fun PaymentReminderBanner(daysUntilDue: Long, dueDate: Long, totalDue: L
                 )
                 if (totalDue != null) {
                     Text(
-                        "Pay ${Money.format(totalDue, "INR")} by ${Dates.date(dueDate)} to avoid interest.",
+                        "Pay ${Money.format(totalDue, primaryCurrency)} by ${Dates.date(dueDate)} to avoid interest.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
                     )

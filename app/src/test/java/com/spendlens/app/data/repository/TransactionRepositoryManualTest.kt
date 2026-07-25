@@ -64,7 +64,7 @@ class TransactionRepositoryManualTest {
         val id = repoWith(capture).addManual(
             amountMinor = 50000, currency = "INR", direction = "DEBIT", accountKey = "Cash",
             counterparty = "Groceries", occurredAt = 1000, categoryId = 3L,
-            note = "weekly", tags = "home", receiptUri = null, ratesToBase = rates,
+            note = "weekly", tags = "home", receiptUri = null, ratesToBase = rates, baseCurrency = "INR",
         )
         assertEquals(1L, id)
         val e = requireNotNull(capture.lastEntity)
@@ -115,7 +115,7 @@ class TransactionRepositoryManualTest {
         repoWith(capture).addManual(
             amountMinor = 50000, currency = "INR", direction = "DEBIT", accountKey = "Cash",
             counterparty = "Groceries", occurredAt = 1000, categoryId = null,
-            note = null, tags = null, receiptUri = null, ratesToBase = rates,
+            note = null, tags = null, receiptUri = null, ratesToBase = rates, baseCurrency = "INR",
         )
         assertEquals(50000L, requireNotNull(capture.lastEntity).amountBaseMinor)
     }
@@ -126,7 +126,7 @@ class TransactionRepositoryManualTest {
         repoWith(capture).addManual(
             amountMinor = 10000, currency = "USD", direction = "DEBIT", accountKey = "Cash",
             counterparty = "Hotel", occurredAt = 1000, categoryId = null,
-            note = null, tags = null, receiptUri = null, ratesToBase = rates,
+            note = null, tags = null, receiptUri = null, ratesToBase = rates, baseCurrency = "INR",
         )
         // 10000 minor * 83.0 = 830000 base minor units.
         assertEquals(830000L, requireNotNull(capture.lastEntity).amountBaseMinor)
@@ -138,7 +138,7 @@ class TransactionRepositoryManualTest {
         repoWith(capture).addManual(
             amountMinor = 50000, currency = "INR", direction = "DEBIT", accountKey = "Cash",
             counterparty = "Groceries", occurredAt = 1000, categoryId = null,
-            note = null, tags = null, receiptUri = null, ratesToBase = rates,
+            note = null, tags = null, receiptUri = null, ratesToBase = rates, baseCurrency = "INR",
         )
         assertEquals(listOf("insert"), capture.methods)
     }
@@ -152,7 +152,7 @@ class TransactionRepositoryManualTest {
             counterparty = "Hotel", occurredAt = 1000, channel = "MANUAL",
             userVerified = true,
         )
-        repoWith(capture).updateManual(edited, rates)
+        repoWith(capture).updateManual(edited, rates, "INR")
         val e = requireNotNull(capture.lastEntity)
         assertEquals(listOf("update"), capture.methods)
         assertEquals(7L, e.id)

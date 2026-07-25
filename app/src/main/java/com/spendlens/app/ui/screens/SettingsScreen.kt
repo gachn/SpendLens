@@ -25,10 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -81,9 +79,9 @@ fun SettingsScreen(
     onOpenGoals: () -> Unit = {},
     onOpenPatterns: () -> Unit = {},
     onOpenSenders: () -> Unit = {},
+    onOpenDebug: () -> Unit = {},
 ) {
     val patterns by vm.patterns.collectAsState()
-    val exportState by vm.exportState.collectAsState()
     val appearance by vm.appearance.collectAsState()
     val security by vm.security.collectAsState()
     val smsFilter by vm.smsFilter.collectAsState()
@@ -93,7 +91,6 @@ fun SettingsScreen(
     val backupState by vm.backupState.collectAsState()
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
-    var showClearDataDialog by remember { mutableStateOf(false) }
 
     // Encrypted backup/restore (issue #13). A picked file uri + mode opens the password dialog.
     var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -134,33 +131,6 @@ fun SettingsScreen(
         )
     }
 
-    if (showClearDataDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDataDialog = false },
-            title = { Text("Delete all data & re-scan?") },
-            text = {
-                Text(
-                    "This will delete all parsed transactions and raw SMS records, then re-scan " +
-                        "your inbox from scratch. Learned patterns and categories are kept. " +
-                        "This cannot be undone.",
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showClearDataDialog = false
-                        vm.clearAllDataAndRescan(context)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text("Delete & re-scan") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDataDialog = false }) { Text("Cancel") }
-            },
-        )
-    }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -423,45 +393,6 @@ fun SettingsScreen(
                     ) {
                         Text("Clear parsed transactions")
                     }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { showClearDataDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    ) {
-                        Text("Delete all data & re-scan")
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { vm.exportDebugCsv(context) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = exportState !is SettingsViewModel.ExportState.InProgress,
-                    ) {
-                        if (exportState is SettingsViewModel.ExportState.InProgress) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(16.dp).padding(end = 8.dp),
-                                strokeWidth = 2.dp,
-                            )
-                            Text("Exporting…")
-                        } else {
-                            Icon(
-                                Icons.Filled.Share,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp),
-                            )
-                            Text("Export debug CSV")
-                        }
-                    }
-                    when (val s = exportState) {
-                        is SettingsViewModel.ExportState.Failed -> Text(
-                            "Export failed: ${s.message}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        else -> {}
-                    }
                 }
             }
         }
@@ -570,11 +501,8 @@ fun SettingsScreen(
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Primary currency", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            if (currencyPrefs.primaryCurrencyOverride == null) {
-                                "$resolvedCurrency — auto-detected from device region"
-                            } else {
-                                "$resolvedCurrency — custom"
-                            },
+                            "$resolvedCurrency — ${com.spendlens.app.ui.util.Money.currencyName(resolvedCurrency)}" +
+                                if (currencyPrefs.primaryCurrencyOverride == null) " (auto-detected)" else "",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -733,31 +661,6 @@ fun SettingsScreen(
                             }
                         }
 
-                        var maxTokens by remember(ai.maxTokensPerRequest) {
-                            mutableStateOf(ai.maxTokensPerRequest.toString())
-                        }
-                        OutlinedTextField(
-                            value = maxTokens,
-                            onValueChange = { new ->
-                                maxTokens = new.filter { it.isDigit() }
-                                maxTokens.toIntOrNull()?.let { vm.setAiMaxTokens(it) }
-                            },
-                            singleLine = true,
-                            label = { Text("Max tokens per AI request") },
-                            supportingText = {
-                                Text(
-                                    "SMS are sent to AI in batches instead of one at a time. This caps how " +
-                                        "much text goes into a single request; multiple pending SMS are " +
-                                        "packed together up to this budget. Clamped between 200 and 16,000 " +
-                                        "— most free-tier models can't reliably handle more in one call.",
-                                )
-                            },
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Auto-categorise with AI", style = MaterialTheme.typography.bodyLarge)
                             Text(
@@ -798,26 +701,6 @@ fun SettingsScreen(
                                 onCheckedChange = { vm.setAiBannerEnabled(it) },
                             )
                         }
-
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text("Show debug info", style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "Add an AI-categorisation debug section to each transaction. " +
-                                        "Developer aid — keep off in normal use.",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Switch(
-                                checked = appearance.debugInfoEnabled,
-                                onCheckedChange = { vm.setDebugInfoEnabled(it) },
-                            )
-                        }
                     }
                 }
             }
@@ -848,6 +731,31 @@ fun SettingsScreen(
                         Text("SMS patterns (${patterns.size})", style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "View, toggle, test and add the rules that read your SMS.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        item { SectionHeader("Developer") }
+        item {
+            ElevatedSurfaceCard {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenDebug() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Developer options", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Debug export, AI request tuning and diagnostic flags.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -908,7 +816,8 @@ private fun <T> SegmentedChoice(
 }
 
 /**
- * Lets the user pick a primary currency, or revert to auto-detecting one from the device locale.
+ * Lets the user pick a primary currency, or revert to auto-detect (the majority currency across
+ * their own transactions, falling back to the device locale before any transaction exists).
  * [current] is the stored override (null = auto-detect); [detected] is what auto-detect resolves
  * to right now, shown so the auto-detect row is self-explanatory.
  */
@@ -927,7 +836,8 @@ private fun CurrencyPickerDialog(
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 item {
                     CurrencyOptionRow(
-                        label = "Auto-detect (device: $detected)",
+                        label = "Auto-detect",
+                        sublabel = "Currently $detected — ${com.spendlens.app.ui.util.Money.currencyName(detected)}",
                         selected = current == null,
                         onClick = { onSelect(null) },
                     )
@@ -936,6 +846,7 @@ private fun CurrencyPickerDialog(
                 items(com.spendlens.app.parser.Normalize.CURRENCY_CODES.sorted()) { code ->
                     CurrencyOptionRow(
                         label = code,
+                        sublabel = com.spendlens.app.ui.util.Money.currencyName(code),
                         selected = current == code,
                         onClick = { onSelect(code) },
                     )
@@ -946,13 +857,22 @@ private fun CurrencyPickerDialog(
 }
 
 @Composable
-private fun CurrencyOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun CurrencyOptionRow(label: String, sublabel: String? = null, selected: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = onClick)
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Column {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (sublabel != null) {
+                Text(
+                    sublabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

@@ -42,6 +42,7 @@ import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.DonutChart
 import com.spendlens.app.ui.components.GlassCard
 import com.spendlens.app.ui.components.GroupedBarChart
+import com.spendlens.app.ui.components.LocalPrimaryCurrency
 import com.spendlens.app.ui.components.MonthDropdown
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Dates
@@ -594,7 +595,7 @@ private fun CategoryBentoCard(
                 textAlign = TextAlign.Center,
             )
             Text(
-                Money.format(slice.amountMinor, "INR"),
+                Money.format(slice.amountMinor, LocalPrimaryCurrency.current),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,

@@ -148,6 +148,30 @@ class AppContainer(context: Context) {
         patternRepository.seedIfEmpty()
         categoryRepository.seedIfEmpty()
         promotionalChecker.loadExclusions()
+        refreshPrimaryCurrency()
+    }
+
+    /**
+     * Keeps the resolved primary currency in sync with actual usage, and every transaction's
+     * [com.spendlens.app.data.db.TransactionEntity.amountBaseMinor] consistent with it. Two things
+     * can make the resolved currency drift with no explicit user action: the device locale is
+     * often wrong/generic (many phones report "English (US)" regardless of country), and the
+     * majority currency across the user's own transactions can only be known once some exist —
+     * so the very first resolution (before any SMS is parsed) may later turn out to be wrong once
+     * real data arrives. Call after SMS import/processing and at app startup; cheap no-op when
+     * nothing has changed since the last call.
+     */
+    suspend fun refreshPrimaryCurrency() {
+        if (settingsStore.currency.value.primaryCurrencyOverride == null) {
+            transactionRepository.mostFrequentCurrency()?.let { settingsStore.setDetectedCurrency(it) }
+        }
+        val resolved = settingsStore.primaryCurrency()
+        if (settingsStore.lastAppliedCurrency() != resolved) {
+            transactionRepository.recomputeBaseAmounts { amount, currency ->
+                fxRepository.convert(amount, currency, resolved)
+            }
+            settingsStore.setLastAppliedCurrency(resolved)
+        }
     }
 
     fun wipeAllData() {
