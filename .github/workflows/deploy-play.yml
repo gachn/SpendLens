@@ -49,7 +49,6 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          NEW_RELIC_APP_TOKEN: ${{ secrets.NEW_RELIC_APP_TOKEN }}
         run: ./gradlew bundleRelease --no-daemon
 
       - name: Upload to Play Store (production)

@@ -33,11 +33,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.newrelic.agent.android.NewRelic
+import com.google.firebase.FirebaseApp
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.nav.SpendLensRoot
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.util.AppLog
+import com.spendlens.app.util.FirebaseHelper
 import com.spendlens.app.work.AiCategorizeWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -53,13 +56,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (BuildConfig.NEW_RELIC_APP_TOKEN.isNotBlank()) {
-            NewRelic.withApplicationToken(BuildConfig.NEW_RELIC_APP_TOKEN)
-                .start(applicationContext)
-            AppLog.i("New Relic agent started build=${BuildConfig.BUILD_TYPE} version=${BuildConfig.VERSION_NAME}")
-        } else {
-            AppLog.w("New Relic agent skipped — NEW_RELIC_APP_TOKEN not configured")
-        }
+
+        FirebaseApp.initializeApp(this)
+        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
+        FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true)
+        FirebaseHelper.initialize(this)
+        AppLog.i("Firebase Crashlytics and Analytics initialized")
+
         enableEdgeToEdge()
         pendingTxnId.value = intent.getLongExtra(EXTRA_TXN_ID, -1L).takeIf { it != -1L }
         // Cold start: lock immediately if the feature is on.

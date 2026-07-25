@@ -2,6 +2,8 @@
 agp = "8.5.2"
 kotlin = "2.0.20"
 ksp = "2.0.20-1.0.25"
+detekt = "1.23.6"
+ktlint = "12.1.1"
 coreKtx = "1.13.1"
 lifecycle = "2.8.4"
 activityCompose = "1.9.1"
@@ -20,7 +22,8 @@ junit = "4.13.2"
 androidxJunit = "1.2.1"
 sqliteJdbc = "3.46.1.0"
 json = "20240303"
-newrelic = "7.7.6"
+firebaseBom = "33.7.0"
+crashlytics = "3.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -61,11 +64,18 @@ sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlit
 # Real org.json impl for JVM unit tests (android.jar's stub throws "not mocked").
 json = { group = "org.json", name = "json", version.ref = "json" }
 
-newrelic-android-agent = { group = "com.newrelic.agent.android", name = "android-agent", version.ref = "newrelic" }
+firebaseBom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-config-ktx = { group = "com.google.firebase", name = "firebase-config-ktx" }
+firebase-crashlytics-ktx = { group = "com.google.firebase", name = "firebase-crashlytics-ktx" }
+firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
+google-services = { group = "com.google.gms", name = "google-services", version = "4.4.2" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-newrelic = { id = "com.newrelic.agent.android", version.ref = "newrelic" }
+crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "crashlytics" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+google-services = { id = "com.google.gms.google-services", version = "4.4.2" }

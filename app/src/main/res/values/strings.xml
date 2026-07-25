@@ -10,4 +10,5 @@
     <string name="widget_spend_desc">Shows your current month spend vs budget at a glance</string>
     <string name="widget_category_label">SpendLens — Top Categories</string>
     <string name="widget_category_desc">Shows your top 3 spending categories for the current month</string>
+    <string name="accessibility_service_description">SpendLens accessibility service for enhanced screen reader support</string>
 </resources>

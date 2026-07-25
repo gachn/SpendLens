@@ -5,7 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.newrelic)
+    alias(libs.plugins.crashlytics)
+    alias(libs.plugins.google.services)
 }
 
 // OpenRouter API key from local.properties (gitignored) for local builds, or a CI secret env
@@ -21,17 +22,7 @@ val openRouterApiKey: String = run {
         ?: ""
 }
 
-// New Relic mobile app token from local.properties (gitignored) or a CI secret env var —
-// no-op when absent from both.
-val newRelicAppToken: String = run {
-    val props = Properties()
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { props.load(it) }
-    props.getProperty("NEW_RELIC_APP_TOKEN")
-        ?: (project.findProperty("NEW_RELIC_APP_TOKEN") as? String)
-        ?: System.getenv("NEW_RELIC_APP_TOKEN")
-        ?: ""
-}
+
 
 // Release signing credentials from local.properties (gitignored) for local builds, or from
 // environment variables (CI secrets) when local.properties doesn't have them. Signing is
@@ -48,9 +39,18 @@ val releaseKeystorePath: String? = releaseSigningProp("RELEASE_KEYSTORE_PATH")
 // every Play Store upload has a unique versionCode. Local builds default to 1.
 val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 1
 
-android {
-    namespace = "com.spendlens.app"
-    compileSdk = 34
+    android {
+        namespace = "com.spendlens.app"
+        compileSdk = 34
+
+        lint {
+            abortOnError = false
+            checkReleaseBuilds = true
+            warningsAsErrors = false
+            xmlReport = true
+            htmlReport = true
+            explainIssues = true
+        }
 
     if (releaseKeystorePath != null) {
         signingConfigs {
@@ -74,7 +74,6 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
-        buildConfigField("String", "NEW_RELIC_APP_TOKEN", "\"$newRelicAppToken\"")
     }
 
     buildTypes {
@@ -105,6 +104,10 @@ android {
         compose = true
         buildConfig = true
     }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -112,21 +115,9 @@ android {
     }
 }
 
-// Token file consumed by the New Relic Gradle plugin for release ProGuard map upload.
-// Generated from local.properties / -PNEW_RELIC_APP_TOKEN — never commit the file.
-if (newRelicAppToken.isNotBlank()) {
-    file("newrelic.properties").writeText(
-        "com.newrelic.application_token=$newRelicAppToken\n",
-    )
-}
+
 
 dependencies {
-    implementation(libs.newrelic.android.agent)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.activity.compose)
-
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -135,6 +126,16 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     debugImplementation(libs.androidx.ui.tooling)
+
+    implementation(platform(libs.firebaseBom))
+    implementation(libs.firebase.config.ktx)
+    implementation(libs.firebase.crashlytics.ktx)
+    implementation(libs.firebase.analytics.ktx)
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
 
     // Encrypted on-device storage
     implementation(libs.androidx.room.runtime)
@@ -162,4 +163,6 @@ dependencies {
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
+    
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.6")
 }

@@ -45,7 +45,7 @@ Add these under repo **Settings → Secrets and variables → Actions**:
 | `ANDROID_KEY_PASSWORD` | The key's password (same as store password for this repo's PKCS12 keystore) |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Full contents of the service account JSON key file |
 | `OPENROUTER_API_KEY` | Optional — only if you want CI-published builds to ship a default OpenRouter key |
-| `NEW_RELIC_APP_TOKEN` | Optional — only if you want CI-published builds to upload crash symbols to New Relic |
+
 
 To base64-encode the keystore for the secret, without ever printing it to your terminal:
 
