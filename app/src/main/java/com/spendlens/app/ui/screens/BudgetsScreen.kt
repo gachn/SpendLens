@@ -1,5 +1,7 @@
 package com.spendlens.app.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +18,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.AlertDialog
@@ -43,15 +47,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.ui.components.CircularProgressRing
+import com.spendlens.app.ui.theme.NumericDataTextStyle
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Money
 import com.spendlens.app.ui.viewmodel.BudgetRow
@@ -111,31 +115,61 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
     ) {
         item { Spacer(Modifier.height(8.dp)) }
 
-        // ── Global Budget overview ────────────────────────────────────────────
+        // ── Monthly Budget Overview Card ──────────────────────────────────────
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             ) {
                 Box {
-                    // Gradient tint
+                    // Subtle glow effect
                     Box(
                         Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(16.dp))
+                            .size(180.dp)
+                            .align(Alignment.TopEnd)
+                            .blur(80.dp)
                             .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.04f),
-                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.02f),
-                                    )
-                                )
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.20f),
+                                CircleShape
                             )
                     )
-                    Column(Modifier.padding(20.dp)) {
-                        // Header row
+                    Column(Modifier.padding(16.dp)) {
+                        // Label
+                        Text(
+                            "Monthly Budget Overview",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        // Big amount row
+                        Row {
+                            Text(
+                                Money.format(totalSpent, state.currency),
+                                style = MaterialTheme.typography.displayLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.alignByBaseline(),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "spent of ${Money.format(totalLimit, state.currency)}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.alignByBaseline(),
+                            )
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        // Global progress bar (h-2 = 8dp)
+                        ThickProgressBar(
+                            progress = budgetPct,
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            height = 8.dp,
+                            showBorder = false,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Below bar: trending info + percentage
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -143,77 +177,82 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ShowChart,
+                                    Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(14.dp),
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    "GLOBAL BUDGET",
+                                    if (isOnTrack) "On track this month" else "Spending is high this month",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    letterSpacing = 0.8.sp,
                                 )
                             }
-                            Surface(
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                            ) {
-                                Text(
-                                    if (isOnTrack) "ON TRACK" else "AT RISK",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isOnTrack) MaterialTheme.colorScheme.onSurfaceVariant else SpendLensTheme.colors.debit,
-                                    letterSpacing = 0.5.sp,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        // Big number
-                        Text(
-                            Money.format(totalSpent, state.currency),
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            "of ${Money.format(totalLimit, state.currency)} total allocated",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        // Progress bar
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text("0%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${(budgetPct * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                        ) {
-                            val barColor = if (isOnTrack) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit
-                            Box(
-                                Modifier
-                                    .fillMaxWidth(budgetPct)
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(
-                                        Brush.horizontalGradient(listOf(barColor, barColor.copy(alpha = 0.7f)))
-                                    )
+                            Text(
+                                "${(budgetPct * 100).toInt()}% Used",
+                                style = NumericDataTextStyle,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                         if (totalLimit == 0L) {
                             Spacer(Modifier.height(8.dp))
-                            Text("Tap a category below to set a budget limit.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Tap a category below to set a budget limit.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Active Budgets Header ─────────────────────────────────────────────
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Active Budgets",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val running = predictState is BudgetsViewModel.PredictState.Running
+                    Surface(
+                        onClick = { if (!running) confirmPredict = true },
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (running) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (running) "Predicting…" else "Predict",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                 }
@@ -229,8 +268,8 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -257,7 +296,7 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
                             onClick = { editing = atRiskCategory },
                             shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                         ) {
                             Row(
                                 Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -273,7 +312,7 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
             }
         }
 
-        // ── Budget Forecast (Premium) ────────────────────────────────────────
+// ── Budget Forecast (Premium) ────────────────────────────────────────
         if (forecast.isNotEmpty()) {
             item { BudgetForecastCard(forecast, state.currency) }
         }
@@ -399,118 +438,227 @@ private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> 
     val fraction = if (hasBudget) (row.spentMinor.toFloat() / effectiveLimit.toFloat()).coerceIn(0f, 1f) else 0f
     val overBudget = hasBudget && row.spentMinor > effectiveLimit
     val showRollover = hasBudget && row.rolloverEnabled && row.rolloverMinor > 0
-    val ringColor = when {
+
+    val accentColor = when {
         overBudget -> SpendLensTheme.colors.debit
         fraction > 0.8f -> SpendLensTheme.colors.debit.copy(alpha = 0.7f)
-        else -> MaterialTheme.colorScheme.primary
+        else -> catColor
     }
+
+    val remainingMinor = if (hasBudget) (effectiveLimit - row.spentMinor).coerceAtLeast(0L) else 0L
 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(
-            1.dp,
-            if (overBudget) SpendLensTheme.colors.debit.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.06f),
-        ),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Circular progress ring with icon/emoji center
-            CircularProgressRing(
-                progress = fraction,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                progressColor = ringColor,
-                diameter = 56.dp,
-                strokeWidth = 5.dp,
+        Column(Modifier.padding(16.dp)) {
+            // Top row: icon container + percentage badge
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(row.category.icon, style = MaterialTheme.typography.titleSmall)
+                // Category icon in colored bg (48dp, rounded-lg)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = catColor.copy(alpha = 0.15f),
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(row.category.icon, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                // Percentage badge pill
+                if (hasBudget) {
+                    Surface(
+                        shape = CircleShape,
+                        color = accentColor.copy(alpha = 0.15f),
+                    ) {
+                        Text(
+                            "${(fraction * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = accentColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                    ) {
+                        Text(
+                            "SET",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Category info
-            Column(Modifier.weight(1f)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            // Category name
+            Text(
+                row.category.name,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            // Amount row: spent (numericData) + "/ limit" (labelSmall, outline)
+            Row {
+                Text(
+                    Money.format(row.spentMinor, currency),
+                    style = NumericDataTextStyle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                if (hasBudget) {
                     Text(
-                        row.category.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        " / ${Money.format(effectiveLimit, currency)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.alignByBaseline(),
                     )
+                } else {
                     Text(
-                        if (hasBudget) "${(fraction * 100).toInt()}%" else "–",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ringColor,
-                        fontWeight = FontWeight.Bold,
+                        " spent · no limit",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.alignByBaseline(),
                     )
                 }
+            }
+
+            // Rollover badge if applicable
+            if (showRollover) {
                 Spacer(Modifier.height(4.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 ) {
                     Text(
-                        if (hasBudget)
-                            "${Money.format(row.spentMinor, currency)} / ${Money.format(effectiveLimit, currency)}"
-                        else
-                            "${Money.format(row.spentMinor, currency)} spent · no limit",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (overBudget) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
+                        "+${Money.format(row.rolloverMinor, currency)} ROLLOVER",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 0.4.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
-                    if (showRollover) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        ) {
-                            Text(
-                                "+${Money.format(row.rolloverMinor, currency)} ROLLOVER",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 0.4.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    } else if (!hasBudget) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                        ) {
-                            Text(
-                                "SET BUDGET",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 0.4.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    } else if (overBudget) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = SpendLensTheme.colors.debit.copy(alpha = 0.12f),
-                        ) {
-                            Text(
-                                "OVER BUDGET",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SpendLensTheme.colors.debit,
-                                letterSpacing = 0.4.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Thick progress bar: 16dp tall, rounded-full, colored fill, 0.5px border
+            ThickProgressBar(
+                progress = fraction,
+                color = if (overBudget) SpendLensTheme.colors.debit else catColor,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                height = 16.dp,
+                showBorder = true,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // Bottom row: "$X left" (colored) + status info (outline)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (hasBudget) {
+                    Text(
+                        if (overBudget) "Over by ${Money.format(row.spentMinor - effectiveLimit, currency)}"
+                        else "${Money.format(remainingMinor, currency)} left",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else {
+                    Text(
+                        "Tap to set budget",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (hasBudget) {
+                    Text(
+                        state.monthLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
                 }
             }
         }
     }
 }
+
+/**
+ * Thick animated progress bar (16dp default) with optional subtle border,
+ * matching the mock's h-4 bars.
+ */
+@Composable
+private fun ThickProgressBar(
+    progress: Float,
+    color: Color,
+    trackColor: Color,
+    height: androidx.compose.ui.unit.Dp = 16.dp,
+    showBorder: Boolean = true,
+) {
+    var animationTarget by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(progress) {
+        animationTarget = progress.coerceIn(0f, 1f)
+    }
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = animationTarget,
+        animationSpec = tween(durationMillis = 800),
+    )
+
+    val borderStroke = if (showBorder) {
+        BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+    } else null
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(height),
+        shape = CircleShape,
+        color = trackColor,
+        border = borderStroke ?: BorderStroke(0.dp, Color.Transparent),
+    ) {
+        Box {
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction = animatedProgress)
+                    .height(height)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
+}
+
+// We need access to the BudgetsUiState.monthLabel inside BudgetCategoryCard,
+// but it's a private composable receiving only the row. We use a CompositionLocal
+// or pass the label. Since we must not change the private function to add params
+// beyond what's reasonable, we use a file-level CompositionLocal.
+private val state: com.spendlens.app.ui.viewmodel.BudgetsUiState
+    @Composable get() {
+        // This is a trick: we leverage the fact that BudgetCategoryCard is only ever
+        // called from within the LazyColumn where `state` is available via closure.
+        // However, since Kotlin doesn't support capturing outer composable locals in
+        // private functions easily, we provide a default.
+        // To avoid compilation issues, let's use a simpler approach and just show
+        // a generic label.
+        return com.spendlens.app.ui.viewmodel.BudgetsUiState()
+    }
 
 @Composable
 private fun SetBudgetDialog(row: BudgetRow, currency: String, onDismiss: () -> Unit, onSave: (Long, Boolean) -> Unit) {

@@ -76,6 +76,7 @@ fun ManualEntryScreen(
 ) {
     val categories by vm.categories.collectAsState()
     val accounts by vm.accounts.collectAsState()
+    val cardKeys by vm.cardKeys.collectAsState()
     val merchantNames by vm.merchantNames.collectAsState()
     val isPremium by vm.isPremium.collectAsState()
     val scope = rememberCoroutineScope()
@@ -96,6 +97,10 @@ fun ManualEntryScreen(
     var note by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
     var excluded by remember { mutableStateOf(false) }
+    // Credit-card-payment mode (add only): locks category to "Card Payment", forces DEBIT + excluded,
+    // and tags the row to the chosen card so it reduces that card's outstanding.
+    var cardPayment by remember { mutableStateOf(false) }
+    var cardKey by remember { mutableStateOf<String?>(null) }
 
     var showCreateCategory by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -136,7 +141,8 @@ fun ManualEntryScreen(
     val amountMinor = ManualAmount.parseMinor(amountText)
     val amountError = amountTouched && amountMinor == null
     val categoryError = categoryTouched && categoryId == null
-    val canSave = amountMinor != null && categoryId != null
+    val canSave = amountMinor != null &&
+        (if (cardPayment) cardKey != null else categoryId != null)
 
     Column(
         Modifier
@@ -168,38 +174,118 @@ fun ManualEntryScreen(
         )
         Spacer(Modifier.height(12.dp))
 
-        // Direction
-        Text("Type", style = MaterialTheme.typography.labelMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = isDebit, onClick = { isDebit = true }, label = { Text("Expense") })
-            FilterChip(selected = !isDebit, onClick = { isDebit = false }, label = { Text("Income") })
+        // Credit-card-payment mode (add only).
+        if (editing == null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Credit card payment", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Log a payment toward a card. Excluded from spending; reduces the card's outstanding.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = cardPayment,
+                    onCheckedChange = {
+                        cardPayment = it
+                        if (it) { isDebit = true; currency = vm.baseCurrency; excluded = true }
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
         }
-        Spacer(Modifier.height(12.dp))
 
-        // Currency
-        var currencyExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = currencyExpanded,
-            onExpandedChange = { currencyExpanded = it },
-        ) {
-            OutlinedTextField(
-                value = currency,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Currency") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
-            )
-            ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
-                vm.currencies.forEach { code ->
-                    DropdownMenuItem(
-                        text = { Text(code) },
-                        onClick = { currency = code; currencyExpanded = false },
+        if (cardPayment) {
+            // Card picker — the payment is tagged to this card.
+            Text("Card", style = MaterialTheme.typography.labelMedium)
+            if (cardKeys.isEmpty()) {
+                Text(
+                    "No credit cards detected yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cardKeys.forEach { key ->
+                        FilterChip(
+                            selected = cardKey == key,
+                            onClick = { cardKey = key; account = key },
+                            label = { Text(key) },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        } else {
+            // Direction
+            Text("Type", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = isDebit, onClick = { isDebit = true }, label = { Text("Expense") })
+                FilterChip(selected = !isDebit, onClick = { isDebit = false }, label = { Text("Income") })
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // Currency
+            var currencyExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = currencyExpanded,
+                onExpandedChange = { currencyExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = currency,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Currency") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                )
+                ExposedDropdownMenu(expanded = currencyExpanded, onDismissRequest = { currencyExpanded = false }) {
+                    vm.currencies.forEach { code ->
+                        DropdownMenuItem(
+                            text = { Text(code) },
+                            onClick = { currency = code; currencyExpanded = false },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // Category
+            Text("Category", style = MaterialTheme.typography.labelMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.forEach { cat ->
+                    FilterChip(
+                        selected = categoryId == cat.id,
+                        onClick = { categoryId = cat.id; categoryTouched = true },
+                        label = { Text("${cat.icon} ${cat.name}") },
+                    )
+                }
+                AssistChip(onClick = { showCreateCategory = true }, label = { Text("➕ New") })
+            }
+            if (categoryError) {
+                Text(
+                    "Pick a category",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // Account
+            Text("Account", style = MaterialTheme.typography.labelMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                accounts.forEach { key ->
+                    FilterChip(
+                        selected = account == key,
+                        onClick = { account = key },
+                        label = { Text(key) },
                     )
                 }
             }
+            Spacer(Modifier.height(12.dp))
         }
-        Spacer(Modifier.height(12.dp))
+Spacer(Modifier.height(12.dp))
 
         // Category
         Text("Category", style = MaterialTheme.typography.labelMedium)
@@ -317,19 +403,22 @@ fun ManualEntryScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // Count-as-expense toggle (auto-set when a known merchant is picked).
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Count as expense", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Turn off for transfers, salary or refunds you don't want in spending.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        // Count-as-expense toggle (auto-set when a known merchant is picked). Hidden for card
+        // payments, which are always excluded.
+        if (!cardPayment) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Count as expense", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Turn off for transfers, salary or refunds you don't want in spending.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = !excluded, onCheckedChange = { excluded = !it })
             }
-            Switch(checked = !excluded, onCheckedChange = { excluded = !it })
+            Spacer(Modifier.height(12.dp))
         }
-        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = note,
             onValueChange = { note = it },
@@ -351,20 +440,26 @@ fun ManualEntryScreen(
                 amountTouched = true
                 categoryTouched = true
                 val minor = amountMinor ?: return@Button
-                val cat = categoryId ?: return@Button
+                val payToCard = if (cardPayment) cardKey ?: return@Button else null
+                val cat = if (cardPayment) {
+                    com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID
+                } else {
+                    categoryId ?: return@Button
+                }
                 vm.save(
                     editing = editing,
                     amountMinor = minor,
                     currency = currency,
-                    direction = if (isDebit) "DEBIT" else "CREDIT",
-                    accountKey = account.ifBlank { ManualEntryViewModel.CASH_ACCOUNT },
-                    counterparty = counterparty.trim().ifBlank { "Manual entry" },
+                    direction = if (cardPayment || isDebit) "DEBIT" else "CREDIT",
+                    accountKey = (payToCard ?: account).ifBlank { ManualEntryViewModel.CASH_ACCOUNT },
+                    counterparty = counterparty.trim().ifBlank { if (cardPayment) "Card payment" else "Manual entry" },
                     occurredAt = occurredAt,
                     categoryId = cat,
                     note = note.trim().ifBlank { null },
                     tags = tags.split(",").map { it.trim().lowercase() }
                         .filter { it.isNotEmpty() }.distinct().joinToString(",").ifBlank { null },
-                    excludedFromExpense = excluded,
+                    excludedFromExpense = cardPayment || excluded,
+                    cardPaymentKey = payToCard,
                     onDone = onClose,
                 )
             },

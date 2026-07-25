@@ -520,6 +520,12 @@ data class AccountSummary(
     val isStatementPaid: Boolean = false,
     /** Amount paid in minor units if a payment was auto-detected. */
     val paidAmountMinor: Long? = null,
+    /**
+     * Total payments applied to this card's current statement (base minor): the larger of
+     * SMS-auto-detected payment and the sum of transactions the user tagged as payments toward
+     * this card since the statement date. Subtracted from [billTotalDueMinor] for outstanding.
+     */
+    val paidTotalMinor: Long = 0L,
     /** Total DEBIT spend from the last statement date to now (current cycle). */
     val cycleSpendMinor: Long = 0L,
     /** Balance from a standalone balance-notification SMS ([BalanceSnapshotEntity]). */
@@ -529,6 +535,10 @@ data class AccountSummary(
 ) {
     /** Active in the selected month, or a card carrying an outstanding bill. */
     val hasActivity: Boolean get() = txnCount > 0 || billTotalDueMinor != null
+
+    /** Statement total minus payments applied, floored at 0. Null when there is no bill. */
+    val outstandingMinor: Long?
+        get() = billTotalDueMinor?.let { (it - paidTotalMinor).coerceAtLeast(0L) }
 
     /** Effective balance: most-recent of transaction-reported vs. snapshot balance. */
     val effectiveBalanceMinor: Long?
@@ -606,6 +616,39 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
         )
     }
 
+    /**
+     * Record a manual payment toward credit card [cardKey]. Persists an excluded "Card Payment"
+     * transaction (so the spend it settles is not double-counted) tagged to the card, then flips the
+     * statement to PAID — stopping [com.spendlens.app.work.CardPaymentReminderWorker] — once the
+     * tagged payments cover the total due. Outstanding is recomputed reactively from these rows.
+     */
+    fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = viewModelScope.launch {
+        val rates = container.fxRepository.ratesToBase()
+        repo.addManual(
+            amountMinor = amountMinor,
+            currency = "INR",
+            direction = "DEBIT",
+            accountKey = cardKey,
+            counterparty = "Card payment",
+            occurredAt = occurredAt,
+            categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+            note = null,
+            tags = null,
+            receiptUri = null,
+            excludedFromExpense = true,
+            ratesToBase = rates,
+            cardPaymentKey = cardKey,
+        )
+        val bill = container.cardBillDao.get(cardKey) ?: return@launch
+        if (bill.paidAt != null) return@launch
+        val paid = repo.observeAll().first()
+            .filter { it.cardPaymentKey == cardKey && !it.isDuplicate && it.occurredAt >= bill.statementAt }
+            .sumOf { it.amountBaseMinor }
+        if (paid >= bill.totalDueMinor) {
+            container.cardBillDao.markPaid(cardKey, occurredAt, paid)
+        }
+    }
+
     val state: StateFlow<AccountsUiState> = combine(
         repo.observeAll(),
         repo.observeAccountBalances(),
@@ -656,8 +699,19 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
                 val resolvedCycleDay = bill?.statementCycleDay ?: bag.cycleDays[key]
                 val cycleFrom = bill?.statementAt ?: start
                 val cycleSpend = all
-                    .filter { it.direction == "DEBIT" && !it.isDuplicate && it.occurredAt >= cycleFrom }
+                    .filter {
+                        it.direction == "DEBIT" && !it.isDuplicate &&
+                            it.cardPaymentKey == null && it.occurredAt >= cycleFrom
+                    }
                     .sumOf { it.amountBaseMinor }
+                // Payments applied to this card's statement: user-tagged transactions since the
+                // statement date, reconciled with any SMS-auto-detected payment via max() so the
+                // same payment counted twice does not over-reduce the outstanding. Searched across
+                // ALL transactions (a payment is usually debited from a bank, not the card itself).
+                val taggedPaid = txns
+                    .filter { it.cardPaymentKey == key && !it.isDuplicate && it.occurredAt >= cycleFrom }
+                    .sumOf { it.amountBaseMinor }
+                val paidTotal = maxOf(taggedPaid, bill?.paidAmountMinor ?: 0L)
                 val isCard = topChannel.equals("CARD", ignoreCase = true)
                 // When no statement SMS was parsed but a cycle day is known, estimate the bill
                 // from the current cycle's spend so the card is never shown with a blank amount.
@@ -684,8 +738,10 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
                     customName = bag.names[key],
                     statementCycleDay = resolvedCycleDay,
                     isEstimatedBill = estimatedBill,
-                    isStatementPaid = bill?.paidAt != null,
+                    isStatementPaid = bill?.paidAt != null ||
+                        (bill != null && paidTotal >= bill.totalDueMinor),
                     paidAmountMinor = bill?.paidAmountMinor,
+                    paidTotalMinor = paidTotal,
                     cycleSpendMinor = cycleSpend,
                     snapshotBalanceMinor = snapshotByKey[key]?.balanceMinor,
                     snapshotObservedAt = snapshotByKey[key]?.observedAt,
@@ -1262,15 +1318,23 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
         val spentByCat = totals.associate { it.categoryId to it.total }
         val prevSpentByCat = prevTotals.associate { it.categoryId to it.total }
         val budgetByCat = budgets.associate { it.categoryId to it }
-        val rows = categories
+        // Real categories plus a synthetic "Uncategorized" bucket so its spend can be budgeted
+        // too. Uncategorized spend is keyed by a null categoryId in the totals; its budget is
+        // stored against the -1 sentinel id (the budgets table has no FK constraint).
+        val budgetableCats = categories + CategoryEntity(
+            TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID, "Uncategorized", "❓", 0xFF9E9E9EL,
+        )
+        val rows = budgetableCats
             .map { cat ->
+                // Totals key uncategorized spend as null, not the -1 sentinel.
+                val spendKey = if (cat.id == TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID) null else cat.id
                 val budget = budgetByCat[cat.id]
                 val limit = budget?.monthlyLimitMinor ?: 0L
                 val rolloverEnabled = budget?.rolloverEnabled == true
                 val rollover = if (rolloverEnabled && limit > 0L) {
-                    container.budgetRepository.rolloverAmount(limit, prevSpentByCat[cat.id] ?: 0L)
+                    container.budgetRepository.rolloverAmount(limit, prevSpentByCat[spendKey] ?: 0L)
                 } else 0L
-                BudgetRow(cat, limit, spentByCat[cat.id] ?: 0L, rolloverEnabled, rollover)
+                BudgetRow(cat, limit, spentByCat[spendKey] ?: 0L, rolloverEnabled, rollover)
             }
             // Budgeted categories first, then by spend.
             .sortedWith(compareByDescending<BudgetRow> { it.limitMinor > 0 }.thenByDescending { it.spentMinor })
@@ -1433,6 +1497,9 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     private val _senderMap = MutableStateFlow<Map<String, String>>(emptyMap())
     val senderMap: StateFlow<Map<String, String>> = _senderMap.asStateFlow()
 
+    /** User-assigned account/card display names, keyed by accountKey. */
+    val accountNames: StateFlow<Map<String, String>> = container.settingsStore.accountNames
+
     init {
         viewModelScope.launch {
             _senderMap.value = container.transactionRepository.topSenderPerAccount()
@@ -1461,6 +1528,54 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     fun updateAccountKey(txn: TransactionEntity, newKey: String) = viewModelScope.launch {
         container.transactionRepository.update(txn.copy(accountKey = newKey))
     }
+
+    // ── Credit-card payment tagging ──────────────────────────────────────────────
+
+    /** Cards with a parsed statement, for the "tag as card payment" picker. */
+    val cards: StateFlow<List<com.spendlens.app.data.db.CardBillEntity>> =
+        container.cardBillDao.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * An unpaid card statement whose total due exactly equals this debit's amount — the basis for the
+     * "this looks like a card payment" suggestion. Null for credits, already-tagged rows, or no match.
+     */
+    suspend fun matchingUnpaidCardBill(txn: TransactionEntity): com.spendlens.app.data.db.CardBillEntity? {
+        if (txn.direction != "DEBIT" || txn.cardPaymentKey != null) return null
+        return container.cardBillDao.all()
+            .firstOrNull { it.paidAt == null && it.totalDueMinor == txn.amountMinor }
+    }
+
+    /**
+     * Tag [txn] as a payment toward [cardKey] (excluded from spend, filed under "Card Payment").
+     * If the tagged payments now cover an unpaid statement, flip it to PAID so reminders stop.
+     */
+    fun markAsCardPayment(txn: TransactionEntity, cardKey: String, onDone: (TransactionEntity) -> Unit = {}) =
+        viewModelScope.launch {
+            container.transactionRepository.setCardPayment(txn, cardKey)
+            val updated = txn.copy(
+                cardPaymentKey = cardKey,
+                excludedFromExpense = true,
+                categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+            )
+            val bill = container.cardBillDao.get(cardKey)
+            if (bill != null && bill.paidAt == null) {
+                val paid = container.transactionRepository.observeAll().first()
+                    .filter { it.cardPaymentKey == cardKey && !it.isDuplicate && it.occurredAt >= bill.statementAt }
+                    .sumOf { it.amountBaseMinor }
+                if (paid >= bill.totalDueMinor) {
+                    container.cardBillDao.markPaid(cardKey, txn.occurredAt, paid)
+                }
+            }
+            onDone(updated)
+        }
+
+    /** Undo card-payment tagging on [txn]. */
+    fun clearCardPayment(txn: TransactionEntity, onDone: (TransactionEntity) -> Unit = {}) =
+        viewModelScope.launch {
+            container.transactionRepository.clearCardPayment(txn)
+            onDone(txn.copy(cardPaymentKey = null, excludedFromExpense = false, categoryId = null))
+        }
 
     /** Gates the per-transaction AI debug section. Off by default (developer aid). */
     val debugInfoEnabled: StateFlow<Boolean> =
@@ -1669,7 +1784,16 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
             .map { txns -> (listOf(CASH_ACCOUNT) + txns.map { it.accountKey }).distinct().sorted() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), listOf(CASH_ACCOUNT))
 
-    /** Currencies the app can convert to the primary currency. Primary currency first. */
+/** Known credit-card account keys, for the "credit card payment" card picker. */
+    val cardKeys: StateFlow<List<String>> =
+        container.transactionRepository.observeAll()
+            .map { txns ->
+                txns.filter { it.channel.equals("CARD", ignoreCase = true) && it.accountKey != "Unknown" }
+                    .map { it.accountKey }.distinct().sorted()
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Currencies the app can convert to the base currency. Base ("INR") first. */
     val currencies: List<String> =
         listOf(baseCurrency) + (com.spendlens.app.parser.Normalize.CURRENCY_CODES - baseCurrency).sorted()
 
@@ -1698,6 +1822,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
         note: String?,
         tags: String?,
         excludedFromExpense: Boolean,
+        cardPaymentKey: String? = null,
         onDone: () -> Unit,
     ) = viewModelScope.launch {
         val rates = container.fxRepository.ratesToBase()
@@ -1715,10 +1840,11 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                 receiptUri = null,
                 excludedFromExpense = excludedFromExpense,
                 ratesToBase = rates,
-                baseCurrency = baseCurrency,
+baseCurrency = baseCurrency,
+                cardPaymentKey = cardPaymentKey,
             )
         } else {
-            container.transactionRepository.updateManual(
+container.transactionRepository.updateManual(
                 editing.copy(
                     amountMinor = amountMinor,
                     currency = currency,
@@ -1730,6 +1856,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
                     note = note,
                     tags = tags,
                     excludedFromExpense = excludedFromExpense,
+                    cardPaymentKey = cardPaymentKey,
                 ),
                 rates,
                 baseCurrency,

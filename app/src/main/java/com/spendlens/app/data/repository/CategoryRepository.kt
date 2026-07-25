@@ -20,6 +20,17 @@ class CategoryRepository(private val dao: CategoryDao) {
         }
     }
 
+    /**
+     * Ensure the built-in "Card Payment" category row exists. Insert is IGNORE-on-conflict, so this
+     * is a no-op for fresh installs (already seeded) and back-fills the row for upgraded users whose
+     * DB was seeded before this category existed.
+     */
+    suspend fun ensureCardPaymentCategory() {
+        dao.insertCategories(
+            DefaultCategories.categories.filter { it.id == DefaultCategories.CARD_PAYMENT_ID },
+        )
+    }
+
     suspend fun categorizer(): Categorizer =
         Categorizer(dao.allRules().map { Categorizer.Rule(it.matcher, it.categoryId) })
 

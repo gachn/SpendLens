@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.spendlens.app.data.db.CardBillEntity
 import com.spendlens.app.data.db.CategoryEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.data.db.TransactionSplitEntity
@@ -92,15 +93,28 @@ fun TransactionDetailSheet(
     var showRename by remember { mutableStateOf(false) }
     var showSplit by remember { mutableStateOf(false) }
     var showAccountPicker by remember { mutableStateOf(false) }
+    var showCardPicker by remember { mutableStateOf(false) }
     var pendingScope by remember { mutableStateOf<PendingScopeEdit?>(null) }
+    val cardBills by vm.cards.collectAsState()
+    var matchingBill by remember(current.id) { mutableStateOf<CardBillEntity?>(null) }
+    LaunchedEffect(current.id, current.cardPaymentKey, current.amountMinor) {
+        matchingBill = vm.matchingUnpaidCardBill(current)
+    }
     val coroutineScope = rememberCoroutineScope()
     val splits by remember(current.id) { vm.splitsFlow(current.id) }
         .collectAsState(initial = emptyList<TransactionSplitEntity>())
     LaunchedEffect(txn.id) { smsBody = vm.smsBody(txn.rawSmsId) }
 
     val senderMap by vm.senderMap.collectAsState()
+    val accountNames by vm.accountNames.collectAsState()
     val bankName = remember(current.accountKey, senderMap) {
         BankBranding.detectedBankName(senderMap[current.accountKey])
+    }
+    // Friendly account/card label: user name → detected bank → raw key (last 4).
+    val accountDisplayName = remember(current.accountKey, accountNames, senderMap) {
+        accountNames[current.accountKey]
+            ?: BankBranding.detectedBankName(senderMap[current.accountKey])
+            ?: current.accountKey
     }
 
     val debugEnabled by vm.debugInfoEnabled.collectAsState()
@@ -154,7 +168,7 @@ fun TransactionDetailSheet(
             }
             bankName?.let { DetailLine("Bank", it) }
             if (current.accountKey != "Unknown") {
-                DetailLine("Account", current.accountKey)
+                DetailLine("Account", accountDisplayName)
             } else {
                 TextButton(onClick = { showAccountPicker = true }) { Text("Tag with account...") }
             }
@@ -183,6 +197,23 @@ fun TransactionDetailSheet(
                 )
             }
             Spacer(Modifier.height(12.dp))
+
+            if (isDebit) {
+                val cardNameFor: (String) -> String = { key ->
+                    accountNames[key] ?: BankBranding.detectedBankName(senderMap[key]) ?: key
+                }
+                CardPaymentSection(
+                    txn = current,
+                    matchingBill = matchingBill,
+                    nameFor = cardNameFor,
+                    onAccept = { cardKey ->
+                        vm.markAsCardPayment(current, cardKey) { current = it }
+                    },
+                    onTag = { showCardPicker = true },
+                    onRemove = { vm.clearCardPayment(current) { current = it } },
+                )
+                Spacer(Modifier.height(12.dp))
+            }
 
             Text("Category", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
@@ -393,9 +424,34 @@ fun TransactionDetailSheet(
         )
     }
 
+    if (showCardPicker) {
+        val cardKeys = remember(cardBills, knownAccountKeys) {
+            (cardBills.map { it.cardKey } + knownAccountKeys).distinct()
+        }
+        AccountPickerDialog(
+            keys = cardKeys,
+            nameFor = { key ->
+                accountNames[key]
+                    ?: BankBranding.detectedBankName(senderMap[key])
+                    ?: key
+            },
+            onPick = { key ->
+                vm.markAsCardPayment(current, key) { current = it }
+                showCardPicker = false
+            },
+            onDismiss = { showCardPicker = false },
+            title = "Tag as card payment",
+        )
+    }
+
     if (showAccountPicker) {
         AccountPickerDialog(
             keys = knownAccountKeys,
+            nameFor = { key ->
+                accountNames[key]
+                    ?: BankBranding.detectedBankName(senderMap[key])
+                    ?: key
+            },
             onPick = { key ->
                 vm.updateAccountKey(current, key)
                 current = current.copy(accountKey = key)
@@ -543,6 +599,73 @@ private fun ReceiptSection(
             TextButton(onClick = onRemove) { Text("Remove") }
         }
     }
+}
+
+/**
+ * Credit-card-payment controls for a debit. Shows a suggestion when the amount exactly matches an
+ * unpaid statement, the current tag (with a Remove action) when already tagged, or a "Tag as card
+ * payment" button otherwise. Tagging excludes the row from spend and reduces the card's outstanding.
+ */
+@Composable
+private fun CardPaymentSection(
+    txn: TransactionEntity,
+    matchingBill: CardBillEntity?,
+    nameFor: (String) -> String,
+    onAccept: (String) -> Unit,
+    onTag: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    if (txn.cardPaymentKey != null) {
+        Surface(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Credit card payment", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "→ ${nameFor(txn.cardPaymentKey)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = onRemove) { Text("Remove") }
+            }
+        }
+        return
+    }
+
+    if (matchingBill != null) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                Text(
+                    "This matches the ${nameFor(matchingBill.cardKey)} statement of " +
+                        "${Money.format(matchingBill.totalDueMinor, matchingBill.currency)}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "Mark it as a credit card payment?",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onAccept(matchingBill.cardKey) }) { Text("Yes, it's a payment") }
+                    TextButton(onClick = onTag) { Text("Other card…") }
+                }
+            }
+        }
+        return
+    }
+
+    OutlinedButton(onClick = onTag) { Text("💳 Tag as card payment") }
 }
 
 @Composable
@@ -794,14 +917,16 @@ private fun SplitCategoryPicker(
 @Composable
 private fun AccountPickerDialog(
     keys: List<String>,
+    nameFor: (String) -> String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    title: String = "Tag with account",
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Tag with account") },
+        title = { Text(title) },
         text = {
             if (keys.isEmpty()) {
                 Text("No known accounts found.", style = MaterialTheme.typography.bodyMedium)
@@ -812,7 +937,11 @@ private fun AccountPickerDialog(
                             onClick = { onPick(key) },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(key, modifier = Modifier.weight(1f))
+                            val label = nameFor(key)
+                            Text(
+                                if (label != key) "$label  ·  $key" else key,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }

@@ -10,18 +10,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.ui.components.GlassCard
+import com.spendlens.app.ui.components.ProChip
+import com.spendlens.app.ui.components.ProProgressBar
 import com.spendlens.app.ui.components.TransactionRow
 import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Money
@@ -77,60 +75,94 @@ fun DashboardScreen(
     ) {
         item { Spacer(Modifier.height(8.dp)) }
 
-        // ── Total Spent card ─────────────────────────────────────────────────
+        // ── Hero Spend Card ──────────────────────────────────────────────────
         item {
-            GlassCard {
-                Box {
-                    // Subtle decorative glow
-                    Box(
-                        Modifier
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            ) {
+                Box(
+                    Modifier
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                )
+                            )
+                        )
+                ) {
+                    // Decorative faded icon in top-right corner
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier
                             .size(120.dp)
                             .align(Alignment.TopEnd)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.04f))
+                            .offset(x = 20.dp, y = (-20).dp),
                     )
+
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             "TOTAL SPENT THIS MONTH",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.sp,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.8f),
+                            letterSpacing = 1.2.sp,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
                             Money.format(state.spendMinor, state.currency),
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 40.sp),
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = Color.White,
                         )
-                        Spacer(Modifier.height(10.dp))
-                        // Trend chip
-                        val net = state.incomeMinor - state.spendMinor
-                        val isSaving = net >= 0
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+                        Spacer(Modifier.height(16.dp))
+                        // White/20 divider
+                        HorizontalDivider(
+                            color = Color.White.copy(alpha = 0.2f),
+                            thickness = 0.5.dp,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        // 2-column grid: Total Income & Outstanding
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = if (isSaving) Icons.Filled.TrendingDown else Icons.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    tint = if (isSaving) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    if (isSaving) "On track · net ${Money.format(net, state.currency)}"
-                                    else "Over income by ${Money.format(-net, state.currency)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (isSaving) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit,
+                                    "Total Income",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    Money.format(state.incomeMinor, state.currency),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White,
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Outstanding",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                val outstanding = (state.spendMinor - state.incomeMinor).coerceAtLeast(0L)
+                                Text(
+                                    Money.format(outstanding, state.currency),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White,
                                 )
                             }
                         }
@@ -139,52 +171,44 @@ fun DashboardScreen(
             }
         }
 
-        // ── Smart Insight card ───────────────────────────────────────────────
+        // ── Smart Insight Card ───────────────────────────────────────────────
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
             ) {
                 Row(modifier = Modifier.padding(16.dp)) {
-                    // Gradient left accent bar
+                    // Left accent bar (4dp wide)
                     Box(
                         Modifier
-                            .width(3.dp)
-                            .height(60.dp)
+                            .width(4.dp)
+                            .height(56.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.tertiary,
-                                    )
-                                )
-                            )
+                            .background(MaterialTheme.colorScheme.primary)
                     )
                     Spacer(Modifier.width(12.dp))
-                    // Icon avatar
+                    // 48dp icon container
                     Surface(
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Filled.AutoAwesome,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Smart Insight",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(4.dp))
@@ -200,7 +224,7 @@ fun DashboardScreen(
                         }
                         Text(
                             insightText,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -208,7 +232,7 @@ fun DashboardScreen(
             }
         }
 
-        // ── AI Monthly Recap (Premium) ───────────────────────────────────────
+// ── AI Monthly Recap (Premium) ───────────────────────────────────────
         item { AiRecapCard(recap, onGenerate = vm::generateRecap) }
 
         // ── Monthly Budget progress ──────────────────────────────────────────
@@ -220,36 +244,32 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Monthly Budget", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            "${(budgetPct * 100).toInt()}% Used",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            "Monthly Budget",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        ProChip(
+                            text = "${(budgetPct * 100).toInt()}% Used",
+                            color = if (budgetPct > 0.9f)
+                                MaterialTheme.colorScheme.errorContainer
+                            else
+                                MaterialTheme.colorScheme.primaryContainer,
+                            textColor = if (budgetPct > 0.9f)
+                                MaterialTheme.colorScheme.onErrorContainer
+                            else
+                                MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                     Spacer(Modifier.height(12.dp))
-                    // Progress bar
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    ) {
-                        val barColor = if (budgetPct > 0.9f) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.primary
-                        Box(
-                            Modifier
-                                .fillMaxWidth(budgetPct)
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(barColor, barColor.copy(alpha = 0.8f))
-                                    )
-                                )
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
+                    // 4dp progress bar with rounded full shape
+                    val barColor = if (budgetPct > 0.9f) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.primary
+                    ProProgressBar(
+                        progress = budgetPct,
+                        color = barColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "Spent: ${Money.format(totalSpent, state.currency)}",
@@ -266,16 +286,24 @@ fun DashboardScreen(
             }
         }
 
-        // ── Recent transactions ──────────────────────────────────────────────
+        // ── Recent Transactions ──────────────────────────────────────────────
         item {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Recent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    "Recent",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 TextButton(onClick = onViewAll) {
-                    Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        "View All",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                 }
             }
         }
@@ -287,8 +315,8 @@ fun DashboardScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                 ) {
                     Column {
                         state.recent.take(5).forEachIndexed { index, txn ->
@@ -301,7 +329,8 @@ fun DashboardScreen(
                             if (index < (state.recent.size - 1).coerceAtMost(4)) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
-                                    color = Color.White.copy(alpha = 0.05f),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                                 )
                             }
                         }

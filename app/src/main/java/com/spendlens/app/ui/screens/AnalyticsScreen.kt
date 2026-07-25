@@ -70,6 +70,24 @@ fun AnalyticsScreen(
     ) {
         item { Spacer(Modifier.height(8.dp)) }
 
+        // ── Header ───────────────────────────────────────────────────────────
+        item {
+            Column {
+                Text(
+                    "Financial Insights",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Analyze your cash flow and spending patterns.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         // ── Tab selector ─────────────────────────────────────────────────────
         item {
             AnalyticsTabRow(
@@ -79,44 +97,51 @@ fun AnalyticsScreen(
         }
 
         if (state.activeTab == AnalyticsTab.Spend) {
-            // ── Cash Flow chart ───────────────────────────────────────────────
+            // ── Cash Flow chart (Main chart card) ────────────────────────────
             item {
-                GlassCard {
-                    Column {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            Column {
-                                Text("Cash Flow", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Last 6 months", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("NET SAVINGS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.5.sp)
-                                val netSavings = state.months.sumOf { it.creditMinor - it.debitMinor }
-                                Text(
-                                    (if (netSavings >= 0) "+" else "") + Money.format(netSavings, state.currency),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = if (netSavings >= 0) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        // Section label
+                        Text(
+                            "LAST 6 MONTHS",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.5.sp,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Spent vs Received",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        // Legend row
+                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            LegendDot(color = MaterialTheme.colorScheme.primary, label = "Spent")
+                            LegendDot(color = MaterialTheme.colorScheme.secondary, label = "Received")
                         }
                         Spacer(Modifier.height(16.dp))
+                        // Grouped bar chart
                         GroupedBarChart(
                             labels = state.months.map { it.label },
                             series1 = state.months.map { it.debitMinor.toFloat() },
                             series2 = state.months.map { it.creditMinor.toFloat() },
-                            color1 = SpendLensTheme.colors.debit,
-                            color2 = SpendLensTheme.colors.credit,
+                            color1 = MaterialTheme.colorScheme.primary,
+                            color2 = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.fillMaxWidth(),
-                            height = 160.dp,
+                            height = 180.dp,
                             series1Label = "Spent",
                             series2Label = "Received",
                             formatValue = { Money.format(it.toLong(), state.currency) },
                         )
                         Spacer(Modifier.height(8.dp))
+                        // Month labels
                         Row(Modifier.fillMaxWidth()) {
                             state.months.forEach { m ->
                                 Text(
@@ -128,10 +153,116 @@ fun AnalyticsScreen(
                                 )
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            LegendPill(color = SpendLensTheme.colors.debit, label = "Spent")
-                            LegendPill(color = SpendLensTheme.colors.credit, label = "Received")
+                    }
+                }
+            }
+
+            // ── Category Breakdown Card ──────────────────────────────────────
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Section label
+                        Text(
+                            "CATEGORY BREAKDOWN",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.5.sp,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                Dates.label(state.selectedMonth),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            MonthDropdown(state.selectedMonth, state.monthOptions, vm::setMonth)
+                        }
+                        Spacer(Modifier.height(16.dp))
+
+                        if (state.slices.isEmpty()) {
+                            Text(
+                                "No spending recorded yet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            val totalSpend = state.slices.sumOf { it.amountMinor }
+                            // Donut chart with total in center
+                            DonutChart(
+                                values = state.slices.map { it.amountMinor.toFloat() },
+                                colors = state.slices.map { it.color },
+                                diameter = 160.dp,
+                                strokeWidth = 28.dp,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        Money.format(totalSpend, state.currency),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    Text(
+                                        "total",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(20.dp))
+                            // Legend items
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                state.slices.sortedByDescending { it.amountMinor }.forEach { slice ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .then(
+                                                slice.categoryId?.let { id ->
+                                                    Modifier.clickable { onCategoryClick(id) }
+                                                } ?: Modifier
+                                            ),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = slice.color,
+                                            modifier = Modifier.size(10.dp),
+                                        ) {}
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            slice.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Text(
+                                            Money.format(slice.amountMinor, state.currency),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -144,16 +275,31 @@ fun AnalyticsScreen(
 
             // ── Month-over-month comparison (issue #15) ───────────────────────
             item {
-                GlassCard {
-                    Column {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column {
-                                Text("Compare Months", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                                Text("See where spending changed by category", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "COMPARE MONTHS",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 1.5.sp,
+                                )
+                                Text(
+                                    "See where spending changed by category",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                             Switch(checked = state.compareMode, onCheckedChange = vm::setCompareMode)
                         }
@@ -184,74 +330,61 @@ fun AnalyticsScreen(
                 }
             }
 
-            // ── Spending by category bento ────────────────────────────────────
-            item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Spending by Category", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    MonthDropdown(state.selectedMonth, state.monthOptions, vm::setMonth)
-                }
-            }
-
-            item {
-                if (state.slices.isEmpty()) {
-                    GlassCard { Text("No spending recorded yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                } else {
-                    val topSlices = state.slices.sortedByDescending { it.amountMinor }.take(4)
-                    val maxAmount = topSlices.maxOfOrNull { it.amountMinor }?.toFloat() ?: 1f
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        topSlices.chunked(2).forEach { pair ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                pair.forEach { slice ->
-                                    CategoryBentoCard(
-                                        slice,
-                                        maxAmount,
-                                        Modifier.weight(1f),
-                                        onClick = slice.categoryId?.let { id -> { onCategoryClick(id) } },
-                                    )
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-
             // ── Top Merchants ─────────────────────────────────────────────────
             item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                 ) {
-                    Text("Top Merchants · ${Dates.label(state.selectedMonth)}", style = MaterialTheme.typography.titleSmall)
-                    TextButton(onClick = onViewAllMerchants) {
-                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-
-            item {
-                if (state.topMerchants.isEmpty()) {
-                    GlassCard { Text("No merchants yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                } else {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
-                    ) {
-                        Column {
-                            state.topMerchants.forEachIndexed { i, merchant ->
-                                MerchantRow(merchant, state.currency, onClick = { onMerchantClick(merchant.name) })
-                                if (i < state.topMerchants.size - 1) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        color = Color.White.copy(alpha = 0.05f),
-                                    )
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "TOP MERCHANTS",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.5.sp,
+                            )
+                            TextButton(onClick = onViewAllMerchants) {
+                                Text(
+                                    "View All",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        if (state.topMerchants.isEmpty()) {
+                            Text(
+                                "No merchants yet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            // Merchant cards in a 2-column grid
+                            val merchantChunks = state.topMerchants.chunked(2)
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                merchantChunks.forEach { pair ->
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        pair.forEach { merchant ->
+                                            MerchantCard(
+                                                merchant = merchant,
+                                                currency = state.currency,
+                                                modifier = Modifier.weight(1f),
+                                                onClick = { onMerchantClick(merchant.name) },
+                                            )
+                                        }
+                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -263,19 +396,39 @@ fun AnalyticsScreen(
 
             // 6-month income bar chart
             item {
-                GlassCard {
-                    Column {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             Column {
-                                Text("Income", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Last 6 months", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "INCOME",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 1.5.sp,
+                                )
+                                Text(
+                                    "Last 6 months",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("TOTAL INCOME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.5.sp)
+                                Text(
+                                    "TOTAL INCOME",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    letterSpacing = 0.5.sp,
+                                )
                                 val totalIncome = state.months.sumOf { it.creditMinor }
                                 Text(
                                     Money.format(totalIncome, state.currency),
@@ -312,7 +465,7 @@ fun AnalyticsScreen(
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            LegendPill(color = SpendLensTheme.colors.credit, label = "Income")
+                            LegendDot(color = SpendLensTheme.colors.credit, label = "Income")
                         }
                     }
                 }
@@ -320,28 +473,35 @@ fun AnalyticsScreen(
 
             // Income sources donut chart + breakdown
             item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                 ) {
-                    Text("Income Sources", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    MonthDropdown(state.selectedMonth, state.monthOptions, vm::setMonth)
-                }
-            }
-
-            item {
-                if (state.incomeSlices.isEmpty()) {
-                    GlassCard {
-                        Text(
-                            "No income recorded for ${Dates.label(state.selectedMonth)}.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    GlassCard {
-                        Column {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "INCOME SOURCES",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.5.sp,
+                            )
+                            MonthDropdown(state.selectedMonth, state.monthOptions, vm::setMonth)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        if (state.incomeSlices.isEmpty()) {
+                            Text(
+                                "No income recorded for ${Dates.label(state.selectedMonth)}.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
                             val totalIncome = state.incomeSlices.sumOf { it.amountMinor }
                             Row(
                                 Modifier.fillMaxWidth(),
@@ -386,39 +546,43 @@ fun AnalyticsScreen(
 
             // Savings rate per month
             item {
-                Text("Savings Rate", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            }
-
-            item {
-                if (state.months.all { it.creditMinor == 0L }) {
-                    GlassCard {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
                         Text(
-                            "No income data to compute savings rate.",
-                            style = MaterialTheme.typography.bodyMedium,
+                            "SAVINGS RATE",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.5.sp,
                         )
-                    }
-                } else {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
-                    ) {
-                        Column {
-                            state.months.zip(state.monthlySavingsRates).forEachIndexed { i, (month, rate) ->
-                                SavingsRateRow(
-                                    month = month.label,
-                                    incomeMinor = month.creditMinor,
-                                    spendMinor = month.debitMinor,
-                                    savingsRate = rate,
-                                    currency = state.currency,
-                                )
-                                if (i < state.months.size - 1) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        color = Color.White.copy(alpha = 0.05f),
+                        Spacer(Modifier.height(12.dp))
+                        if (state.months.all { it.creditMinor == 0L }) {
+                            Text(
+                                "No income data to compute savings rate.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Column {
+                                state.months.zip(state.monthlySavingsRates).forEachIndexed { i, (month, rate) ->
+                                    SavingsRateRow(
+                                        month = month.label,
+                                        incomeMinor = month.creditMinor,
+                                        spendMinor = month.debitMinor,
+                                        savingsRate = rate,
+                                        currency = state.currency,
                                     )
+                                    if (i < state.months.size - 1) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(horizontal = 0.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -441,8 +605,8 @@ private fun AnalyticsTabRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
     ) {
         Row(
             modifier = Modifier.padding(4.dp),
@@ -514,7 +678,7 @@ private fun SavingsRateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -548,92 +712,53 @@ private fun SavingsRateRow(
     }
 }
 
-// ── Spend tab sub-components ─────────────────────────────────────────────────
+// ── Merchant card (grid layout) ──────────────────────────────────────────────
 
 @Composable
-private fun CategoryBentoCard(
-    slice: CategorySlice,
-    maxAmount: Float,
+private fun MerchantCard(
+    merchant: CategorySlice,
+    currency: String,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
+    onClick: () -> Unit = {},
 ) {
-    val fillFraction = (slice.amountMinor.toFloat() / maxAmount).coerceIn(0f, 1f)
     Surface(
-        modifier = modifier
-            .aspectRatio(1f)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.BottomCenter,
+            // Merchant icon
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = merchant.color.copy(alpha = 0.15f),
+                border = BorderStroke(0.5.dp, merchant.color.copy(alpha = 0.2f)),
+                modifier = Modifier.size(44.dp),
             ) {
-                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)).padding(0.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth().fillMaxSize(fillFraction),
-                    shape = RoundedCornerShape(8.dp),
-                    color = slice.color.copy(alpha = 0.75f),
-                ) {}
+                Box(contentAlignment = Alignment.Center) {
+                    Text("🏪", style = MaterialTheme.typography.titleMedium)
+                }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            // Merchant name
             Text(
-                slice.name,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                merchant.name,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
             )
+            Spacer(Modifier.height(2.dp))
+            // Category label
             Text(
-                Money.format(slice.amountMinor, LocalPrimaryCurrency.current),
+Money.format(slice.amountMinor, LocalPrimaryCurrency.current),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
             )
         }
-    }
-}
-
-@Composable
-private fun MerchantRow(merchant: CategorySlice, currency: String, onClick: () -> Unit = {}) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = merchant.color.copy(alpha = 0.15f),
-            border = BorderStroke(1.dp, merchant.color.copy(alpha = 0.2f)),
-            modifier = Modifier.size(48.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("🏪", style = MaterialTheme.typography.titleMedium)
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(merchant.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-        }
-        Text(
-            "-" + Money.format(merchant.amountMinor, currency),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
     }
 }
 
@@ -661,10 +786,10 @@ private fun ComparisonTable(
             Text("To", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
             Text("Δ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End, modifier = Modifier.weight(1.1f))
         }
-        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
         rows.forEach { row ->
             ComparisonRow(row, currency, onCategoryClick)
-            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
         }
     }
 }
@@ -776,7 +901,7 @@ private fun UnusualActivityCard(
 }
 
 @Composable
-private fun LegendPill(color: Color, label: String) {
+private fun LegendDot(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = CircleShape, color = color, modifier = Modifier.size(10.dp)) {}
         Spacer(Modifier.width(6.dp))

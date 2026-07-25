@@ -94,6 +94,7 @@ fun AccountsScreen(vm: AccountsViewModel, onTransactionClick: (TransactionEntity
             onTransactionClick = onTransactionClick,
             onSetStatementCycleDay = { day -> vm.setStatementCycleDay(open.accountKey, day) },
             onSetBalance = { minor -> vm.setManualBalance(open.accountKey, minor, open.isCard) },
+            onRecordPayment = { minor, occurredAt -> vm.recordCardPayment(open.accountKey, minor, occurredAt) },
         )
         return
     }
@@ -254,7 +255,7 @@ private fun NetLiquidBalanceCard(
 ) {
     val primaryCurrency = LocalPrimaryCurrency.current
     val cashMinor = bankAccounts.mapNotNull { it.effectiveBalanceMinor }.sum()
-    val outstandingMinor = cards.mapNotNull { it.billTotalDueMinor }.sum()
+    val outstandingMinor = cards.mapNotNull { it.outstandingMinor }.sum()
     val netMinor = cashMinor - outstandingMinor
     val hasCash = bankAccounts.any { it.effectiveBalanceMinor != null }
     val hasOutstanding = cards.any { it.billTotalDueMinor != null }
@@ -457,7 +458,7 @@ private fun CreditCardRow(
     onRename: (String?) -> Unit,
 ) {
     val brand = BankBranding.forAccount(acct.accountKey, acct.topSender)
-    val outstanding = acct.billTotalDueMinor
+    val outstanding = acct.outstandingMinor
     val displayName = acct.customName ?: acct.detectedBankName ?: acct.accountKey
     val primaryCurrency = LocalPrimaryCurrency.current
     var showRename by remember { mutableStateOf(false) }
@@ -597,7 +598,7 @@ private fun CreditCardRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         when {
                             outstanding == null -> "DEBIT"
@@ -607,15 +608,23 @@ private fun CreditCardRow(
                         style = MaterialTheme.typography.labelSmall,
                         color = brand.onCard.copy(alpha = 0.6f),
                         letterSpacing = 0.8.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     // Always render this line (empty when no min due) so all cards have same height
                     Text(
                         acct.billMinDueMinor?.let { "Min: ${Money.format(it, primaryCurrency)}" } ?: "",
                         style = MaterialTheme.typography.labelSmall,
                         color = brand.onCard.copy(alpha = 0.75f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Spacer(Modifier.width(8.dp))
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     acct.billDueDate?.let {
                         Text(
                             "DUE ${Dates.date(it).uppercase()}",
@@ -623,12 +632,16 @@ private fun CreditCardRow(
                             fontWeight = FontWeight.SemiBold,
                             color = brand.onCard.copy(alpha = 0.85f),
                             letterSpacing = 0.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     Text(
-                        "${acct.txnCount} txns this month",
+                        "${acct.txnCount} txns",
                         style = MaterialTheme.typography.labelSmall,
                         color = brand.onCard.copy(alpha = 0.55f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -717,9 +730,22 @@ private fun AccountDetail(
     onTransactionClick: (TransactionEntity) -> Unit,
     onSetStatementCycleDay: (Int) -> Unit = {},
     onSetBalance: (Long) -> Unit = {},
+    onRecordPayment: (Long, Long) -> Unit = { _, _ -> },
 ) {
     var showCyclePicker by remember { mutableStateOf(false) }
     var showBalanceEditor by remember { mutableStateOf(false) }
+    var showPaymentDialog by remember { mutableStateOf(false) }
+
+    if (showPaymentDialog) {
+        RecordPaymentDialog(
+            defaultMinor = account.outstandingMinor ?: account.billTotalDueMinor ?: 0L,
+            onDismiss = { showPaymentDialog = false },
+            onConfirm = { minor, occurredAt ->
+                onRecordPayment(minor, occurredAt)
+                showPaymentDialog = false
+            },
+        )
+    }
 
     if (showBalanceEditor) {
         BalanceEditDialog(
@@ -782,6 +808,7 @@ private fun AccountDetail(
                 acct = account,
                 onEditCycleDay = { showCyclePicker = true },
                 onEditBalance = { showBalanceEditor = true },
+                onRecordPayment = { showPaymentDialog = true },
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -805,6 +832,7 @@ private fun AccountStats(
     acct: AccountSummary,
     onEditCycleDay: () -> Unit = {},
     onEditBalance: () -> Unit = {},
+    onRecordPayment: () -> Unit = {},
 ) {
     val primaryCurrency = LocalPrimaryCurrency.current
     Column {
@@ -843,6 +871,27 @@ private fun AccountStats(
                     modifier = Modifier.weight(1f),
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                SummaryStat(
+                    label = "Paid",
+                    value = Money.format(acct.paidTotalMinor, "INR"),
+                    accent = SpendLensTheme.colors.credit,
+                    modifier = Modifier.weight(1f),
+                )
+                SummaryStat(
+                    label = "Outstanding",
+                    value = Money.format(acct.outstandingMinor ?: acct.billTotalDueMinor, "INR"),
+                    accent = if ((acct.outstandingMinor ?: 0L) == 0L)
+                        SpendLensTheme.colors.credit else SpendLensTheme.colors.debit,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.OutlinedButton(
+                onClick = onRecordPayment,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("💳 Record payment") }
             Spacer(Modifier.height(8.dp))
             Row(
                 Modifier.fillMaxWidth(),
@@ -1029,6 +1078,55 @@ private fun BalanceEditDialog(
         confirmButton = {
             TextButton(
                 onClick = { parsedMinor?.let(onConfirm) },
+                enabled = parsedMinor != null,
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+/**
+ * Record a manual credit-card payment. Amount pre-fills to the current outstanding; the payment is
+ * dated today. Excluded from spend and filed under "Card Payment" by the ViewModel.
+ */
+@Composable
+private fun RecordPaymentDialog(
+    defaultMinor: Long,
+    onDismiss: () -> Unit,
+    onConfirm: (Long, Long) -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(if (defaultMinor > 0L) (defaultMinor / 100.0).toString() else "")
+    }
+    val parsedMinor: Long? = text.trim().replace(",", "").toBigDecimalOrNull()
+        ?.movePointRight(2)?.toLong()?.takeIf { it > 0 }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Record card payment") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Log a payment made toward this card. It is excluded from spending and reduces " +
+                        "the card's outstanding.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Amount (₹)") },
+                    singleLine = true,
+                    isError = text.isNotBlank() && parsedMinor == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { parsedMinor?.let { onConfirm(it, System.currentTimeMillis()) } },
                 enabled = parsedMinor != null,
             ) { Text("Save") }
         },

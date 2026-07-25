@@ -20,7 +20,11 @@ object DefaultCategories {
         CategoryEntity(9, "Income", "💰", 0xFF2E9E7B),
         CategoryEntity(10, "Transfers", "🔁", 0xFF8D9CA8),
         CategoryEntity(11, "Other", "📦", 0xFF90A4AE),
+        CategoryEntity(CARD_PAYMENT_ID, "Card Payment", "💳", 0xFF5C6BC0),
     )
+
+    /** Category for credit-card bill payments — assigned only when a txn is tagged as a card payment. */
+    const val CARD_PAYMENT_ID = 12L
 
     /** matcher keyword (lowercase, substring) → categoryId. */
     val rules: List<Pair<String, Long>> = listOf(

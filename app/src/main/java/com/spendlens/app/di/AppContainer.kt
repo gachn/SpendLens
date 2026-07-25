@@ -147,6 +147,7 @@ class AppContainer(context: Context) {
     suspend fun seed() {
         patternRepository.seedIfEmpty()
         categoryRepository.seedIfEmpty()
+        categoryRepository.ensureCardPaymentCategory()
         promotionalChecker.loadExclusions()
         refreshPrimaryCurrency()
     }

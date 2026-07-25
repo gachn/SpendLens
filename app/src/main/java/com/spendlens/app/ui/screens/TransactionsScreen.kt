@@ -3,6 +3,7 @@ package com.spendlens.app.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MoreVert
@@ -27,7 +29,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,139 +99,243 @@ fun TransactionsScreen(
         .groupBy { Dates.date(it.occurredAt) }
         .entries.toList()
 
+    val glassBorder = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
     Column(Modifier.fillMaxSize()) {
 
-        // ── Search + filter row ──────────────────────────────────────────────
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        // ── Search & Filter Glass Panel ──────────────────────────────────────
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+            border = glassBorder,
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                // Search bar row
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextField(
-                        value = displayQuery,
-                        onValueChange = vm::setQuery,
-                        singleLine = true,
-                        placeholder = {
-                            Text(
-                                "Search merchant, account, note…",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = glassBorder,
+                    ) {
+                        TextField(
+                            value = displayQuery,
+                            onValueChange = vm::setQuery,
+                            singleLine = true,
+                            placeholder = {
+                                Text(
+                                    "Search merchants, accounts, or tags…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor   = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor   = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor        = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor      = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    // More menu button
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = glassBorder,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = "More",
+                                tint = MaterialTheme.colorScheme.onSurface,
                             )
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor   = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor   = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor        = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor      = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        textStyle = MaterialTheme.typography.bodySmall,
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Export as CSV") },
+                                onClick = { showMenu = false; vm.exportCsv(context) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export as PDF") },
+                                onClick = { showMenu = false; vm.exportPdf(context) },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Filter chips row — pill-shaped
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Direction chips (All, Debit, Credit)
+                    TxnFilter.entries.forEach { f ->
+                        val selected = state.filters.direction == f
+                        FilterChip(
+                            selected = selected,
+                            onClick = { vm.setDirection(f) },
+                            label = {
+                                Text(
+                                    f.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            shape = CircleShape,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                                containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = selected,
+                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                selectedBorderWidth = 0.dp,
+                                borderWidth = 0.5.dp,
+                            ),
+                        )
+                    }
+
+                    // Divider between direction chips and utility chips
+                    VerticalDivider(
+                        modifier = Modifier.height(24.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                     )
-                }
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (state.filters.activeCount > 0)
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    else
-                        MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = BorderStroke(
-                        1.dp,
-                        if (state.filters.activeCount > 0)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        else
-                            Color.White.copy(alpha = 0.06f),
-                    ),
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    IconButton(onClick = { showFilters = !showFilters }) {
-                        Icon(
-                            Icons.Filled.FilterList,
-                            contentDescription = "Filter",
-                            tint = if (state.filters.activeCount > 0)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(
-                            Icons.Filled.MoreVert,
-                            contentDescription = "More",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Export as CSV") },
-                            onClick = { showMenu = false; vm.exportCsv(context) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Export as PDF") },
-                            onClick = { showMenu = false; vm.exportPdf(context) },
-                        )
-                    }
-                }
-            }
 
-            Spacer(Modifier.height(8.dp))
-
-            // Direction chips
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TxnFilter.entries.forEach { f ->
+                    // "This Month" chip with calendar icon
+                    val dateSelected = state.filters.dateRange != DateRangeFilter.ANY
                     FilterChip(
-                        selected = state.filters.direction == f,
-                        onClick = { vm.setDirection(f) },
-                        label = { Text(f.label, style = MaterialTheme.typography.labelMedium) },
+                        selected = dateSelected,
+                        onClick = {
+                            if (state.filters.dateRange == DateRangeFilter.THIS_MONTH)
+                                vm.setDateRange(DateRangeFilter.ANY)
+                            else
+                                vm.setDateRange(DateRangeFilter.THIS_MONTH)
+                        },
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (dateSelected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    state.filters.dateRange.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        },
+                        shape = CircleShape,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
                             containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
                             labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
-                            selected = state.filters.direction == f,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                            borderColor = Color.White.copy(alpha = 0.06f),
+                            selected = dateSelected,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            selectedBorderWidth = 0.dp,
+                            borderWidth = 0.5.dp,
                         ),
                     )
-                }
-                if (state.filters.activeCount > 0) {
-                    TextButton(onClick = { vm.clearFilters() }) {
-                        Text(
-                            "Clear (${state.filters.activeCount})",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+
+                    // "More Filters" chip with filter icon
+                    val hasExtraFilters = state.filters.activeCount > 0
+                    FilterChip(
+                        selected = hasExtraFilters,
+                        onClick = { showFilters = !showFilters },
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.FilterList,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (hasExtraFilters) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    if (hasExtraFilters) "Filters (${state.filters.activeCount})"
+                                    else "More Filters",
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        },
+                        shape = CircleShape,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                            containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = hasExtraFilters,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            selectedBorderWidth = 0.dp,
+                            borderWidth = 0.5.dp,
+                        ),
+                    )
+
+                    if (state.filters.activeCount > 0) {
+                        TextButton(onClick = { vm.clearFilters() }) {
+                            Text(
+                                "Clear (${state.filters.activeCount})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
-            }
 
-            // Expanded filter panel
-            if (showFilters) {
-                FilterPanel(vm, state.filters.activeCount)
+                // Expanded filter panel
+                if (showFilters) {
+                    Spacer(Modifier.height(8.dp))
+                    FilterPanel(vm, state.filters.activeCount)
+                }
             }
         }
 
-        // ── Feed ─────────────────────────────────────────────────────────────
+        // ── Transaction Feed ─────────────────────────────────────────────────
         LazyColumn(
             Modifier
                 .fillMaxSize()
@@ -241,9 +347,9 @@ fun TransactionsScreen(
                     Surface(
                         onClick = onOpenReview,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -289,43 +395,42 @@ fun TransactionsScreen(
             if (grouped.isEmpty()) {
                 item { EmptyHint("No matching transactions.") }
             } else {
-                grouped.forEach { (dateLabel, txns) ->
+                grouped.forEachIndexed { groupIndex, (dateLabel, txns) ->
+                    // Date group header
                     item {
+                        if (groupIndex > 0) {
+                            Spacer(Modifier.height(24.dp))
+                        }
                         Text(
                             dateLabel.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 0.8.sp,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.outline,
+                            letterSpacing = 1.2.sp,
                             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                         )
                     }
-                    item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
-                        ) {
-                            Column {
-                                txns.forEachIndexed { i, txn ->
-                                    // Manual rows open the editable entry form; parsed rows open the detail sheet.
-                                    val isManual = txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL
-                                    TransactionRow(
-                                        txn,
-                                        state.categories,
-                                        merchantEmojis = state.merchantEmojis,
-                                        onClick = { if (isManual) onEditTransaction(txn) else onTransactionClick(txn) },
-                                    )
-                                    if (i < txns.size - 1) {
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(horizontal = 16.dp),
-                                            color = Color.White.copy(alpha = 0.05f),
-                                        )
-                                    }
-                                }
+
+                    // Individual transaction cards
+                    txns.forEachIndexed { i, txn ->
+                        item {
+                            val isManual = txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                border = glassBorder,
+                            ) {
+                                TransactionRow(
+                                    txn,
+                                    state.categories,
+                                    merchantEmojis = state.merchantEmojis,
+                                    onClick = { if (isManual) onEditTransaction(txn) else onTransactionClick(txn) },
+                                )
+                            }
+                            if (i < txns.size - 1) {
+                                Spacer(Modifier.height(4.dp))
                             }
                         }
-                        Spacer(Modifier.height(16.dp))
                     }
                 }
             }
@@ -361,9 +466,20 @@ private fun FilterPanel(vm: TransactionsViewModel, activeCount: Int) {
                     selected = f.dateRange == r,
                     onClick = { vm.setDateRange(r) },
                     label = { Text(r.label, style = MaterialTheme.typography.labelSmall) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                        containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = f.dateRange == r,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderWidth = 0.dp,
+                        borderWidth = 0.5.dp,
                     ),
                 )
             }
@@ -376,28 +492,62 @@ private fun FilterPanel(vm: TransactionsViewModel, activeCount: Int) {
                     selected = f.categoryId == null,
                     onClick = { vm.setCategory(null) },
                     label = { Text("All", style = MaterialTheme.typography.labelSmall) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                        containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = f.categoryId == null,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderWidth = 0.dp,
+                        borderWidth = 0.5.dp,
                     ),
                 )
                 FilterChip(
                     selected = f.categoryId == TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID,
                     onClick = { vm.setCategory(TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID) },
                     label = { Text("Uncategorized", style = MaterialTheme.typography.labelSmall) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                        containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = f.categoryId == TransactionsViewModel.UNCATEGORIZED_CATEGORY_ID,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderWidth = 0.dp,
+                        borderWidth = 0.5.dp,
                     ),
                 )
                 state.categories.values.forEach { cat ->
+                    val catSelected = f.categoryId == cat.id
                     FilterChip(
-                        selected = f.categoryId == cat.id,
+                        selected = catSelected,
                         onClick = { vm.setCategory(cat.id) },
                         label = { Text(cat.name, style = MaterialTheme.typography.labelSmall) },
+                        shape = CircleShape,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                            containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = catSelected,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            selectedBorderWidth = 0.dp,
+                            borderWidth = 0.5.dp,
                         ),
                     )
                 }
@@ -411,19 +561,42 @@ private fun FilterPanel(vm: TransactionsViewModel, activeCount: Int) {
                     selected = f.accountKey == null,
                     onClick = { vm.setAccount(null) },
                     label = { Text("All", style = MaterialTheme.typography.labelSmall) },
+                    shape = CircleShape,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                        containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = f.accountKey == null,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderWidth = 0.dp,
+                        borderWidth = 0.5.dp,
                     ),
                 )
                 state.accounts.forEach { acct ->
+                    val acctSelected = f.accountKey == acct
                     FilterChip(
-                        selected = f.accountKey == acct,
+                        selected = acctSelected,
                         onClick = { vm.setAccount(acct) },
                         label = { Text(acct, style = MaterialTheme.typography.labelSmall) },
+                        shape = CircleShape,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            selectedLabelColor     = MaterialTheme.colorScheme.primary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                            containerColor         = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = acctSelected,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            selectedBorderWidth = 0.dp,
+                            borderWidth = 0.5.dp,
                         ),
                     )
                 }

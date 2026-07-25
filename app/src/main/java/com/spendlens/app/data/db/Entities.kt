@@ -92,6 +92,12 @@ data class TransactionEntity(
      * Cleared in bulk only when the user explicitly asks for a re-run.
      */
     val aiCategorizeAttempted: Boolean = false,
+    /**
+     * When non-null, this row is a payment toward the credit card with this cardKey
+     * (matches [CardBillEntity.cardKey]). Such rows are excluded from spend totals and
+     * filed under the "Card Payment" category, never a bill.
+     */
+    val cardPaymentKey: String? = null,
 )
 
 /**

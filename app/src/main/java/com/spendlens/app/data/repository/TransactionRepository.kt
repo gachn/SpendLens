@@ -79,7 +79,8 @@ class TransactionRepository(
         receiptUri: String?,
         excludedFromExpense: Boolean = false,
         ratesToBase: Map<String, Double>,
-        baseCurrency: String,
+baseCurrency: String,
+        cardPaymentKey: String? = null,
     ): Long = dao.insert(
         TransactionEntity(
             rawSmsId = null,
@@ -101,7 +102,26 @@ class TransactionRepository(
             note = note,
             tags = tags,
             receiptUri = receiptUri,
+            cardPaymentKey = cardPaymentKey,
         ),
+    )
+
+    /**
+     * Tag [txn] as a payment toward the credit card [cardKey]: file it under the "Card Payment"
+     * category and exclude it from spend totals (the original purchases already counted). The
+     * card's outstanding is recomputed from these tagged payments in the Accounts ViewModel.
+     */
+    suspend fun setCardPayment(txn: TransactionEntity, cardKey: String) = dao.update(
+        txn.copy(
+            cardPaymentKey = cardKey,
+            excludedFromExpense = true,
+            categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+        ),
+    )
+
+    /** Undo card-payment tagging: clear the link, re-include in spend, drop the category. */
+    suspend fun clearCardPayment(txn: TransactionEntity) = dao.update(
+        txn.copy(cardPaymentKey = null, excludedFromExpense = false, categoryId = null),
     )
 
     /**
