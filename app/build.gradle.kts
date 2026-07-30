@@ -22,8 +22,6 @@ val openRouterApiKey: String = run {
         ?: ""
 }
 
-
-
 // Release signing credentials from local.properties (gitignored) for local builds, or from
 // environment variables (CI secrets) when local.properties doesn't have them. Signing is
 // skipped (release build stays unsigned) if neither source has a keystore configured.
@@ -39,18 +37,18 @@ val releaseKeystorePath: String? = releaseSigningProp("RELEASE_KEYSTORE_PATH")
 // every Play Store upload has a unique versionCode. Local builds default to 1.
 val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 1
 
-    android {
-        namespace = "com.spendlens.app"
-        compileSdk = 34
+android {
+    namespace = "com.spendlens.app"
+    compileSdk = 34
 
-        lint {
-            abortOnError = false
-            checkReleaseBuilds = true
-            warningsAsErrors = false
-            xmlReport = true
-            htmlReport = true
-            explainIssues = true
-        }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+        xmlReport = true
+        htmlReport = true
+        explainIssues = true
+    }
 
     if (releaseKeystorePath != null) {
         signingConfigs {
@@ -64,7 +62,7 @@ val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull
     }
 
     defaultConfig {
-        applicationId = "com.spendlens.app"
+        applicationId = "com.gachn.spendlens"
         minSdk = 26
         targetSdk = 34
         versionCode = releaseVersionCode
@@ -114,8 +112,6 @@ val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull
         }
     }
 }
-
-
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))

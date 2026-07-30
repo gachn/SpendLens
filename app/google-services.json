@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:908171171178:android:4c1266c4ebb92c44648113",
         "android_client_info": {
-          "package_name": "com.spendlens.app"
+          "package_name": "com.gachn.spendlens"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:908171171178:android:4c1266c4ebb92c44648113",
         "android_client_info": {
-          "package_name": "com.spendlens.app.debug"
+          "package_name": "com.gachn.spendlens.debug"
         }
       },
       "oauth_client": [],

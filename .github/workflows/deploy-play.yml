@@ -55,7 +55,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.spendlens.app
+          packageName: com.gachn.spendlens
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           track: production
           status: completed
