@@ -35,3 +35,7 @@ graphify-out/
 portfolio/
 portfolio_site.zip
 
+# Google Firebase project config (keep local, off public repo)
+app/google-services.json
+
+
