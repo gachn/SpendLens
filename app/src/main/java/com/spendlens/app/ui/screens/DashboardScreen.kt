@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,7 @@ import com.spendlens.app.ui.theme.SpendLensTheme
 import com.spendlens.app.ui.util.Money
 import com.spendlens.app.ui.viewmodel.BudgetsViewModel
 import com.spendlens.app.ui.viewmodel.DashboardViewModel
+import com.spendlens.app.ui.viewmodel.DashboardUiState
 
 @Composable
 fun DashboardScreen(
@@ -171,69 +173,8 @@ fun DashboardScreen(
             }
         }
 
-        // ── Smart Insight Card ───────────────────────────────────────────────
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-            ) {
-                Row(modifier = Modifier.padding(16.dp)) {
-                    // Left accent bar (4dp wide)
-                    Box(
-                        Modifier
-                            .width(4.dp)
-                            .height(56.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    // 48dp icon container
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Filled.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Smart Insight",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        val hasIncome = state.incomeMinor > 0
-                        val insightText = when {
-                            !hasIncome -> "Import your SMS messages to unlock personalised spending insights."
-                            state.spendMinor == 0L -> "No spending recorded yet this month. Tap the bell to review pending SMS."
-                            else -> {
-                                val savePct = ((state.incomeMinor - state.spendMinor) * 100 / state.incomeMinor).coerceAtLeast(0L)
-                                "You're saving $savePct% of income this month. " +
-                                    if (state.slices.isNotEmpty()) "Top category: ${state.slices.maxByOrNull { it.amountMinor }?.name}." else ""
-                            }
-                        }
-                        Text(
-                            insightText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-
-// ── AI Monthly Recap (Premium) ───────────────────────────────────────
-        item { AiRecapCard(recap, onGenerate = vm::generateRecap) }
+        // ── Smart Insight Card (includes AI Recap) ───────────────────────────────────────
+        item { SmartInsightCard(recap, onGenerateRecap = vm::generateRecap, state = state) }
 
         // ── Monthly Budget progress ──────────────────────────────────────────
         item {
@@ -371,78 +312,72 @@ fun DashboardScreen(
     }
 }
 
-/** Premium "AI Monthly Recap" card — a 1-3 sentence natural-language spending summary. */
+/** Consolidated Smart Insight Card (includes AI Recap for Premium) */
 @Composable
-private fun AiRecapCard(recap: DashboardViewModel.RecapState, onGenerate: () -> Unit) {
+private fun SmartInsightCard(
+    recap: DashboardViewModel.RecapState,
+    onGenerateRecap: () -> Unit,
+    state: DashboardUiState
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp),
+                    // Left accent bar (4dp wide)
+                    Box(
+                        Modifier
+                            .width(4.dp)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.primary)
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text("AI Monthly Recap", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.width(12.dp))
+                    // 40dp icon container
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Smart Insight",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
+                
+                // Show refresh button for AI recap when available
                 if (recap is DashboardViewModel.RecapState.Ready || recap is DashboardViewModel.RecapState.Error) {
-                    IconButton(onClick = onGenerate, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = onGenerateRecap, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Regenerate", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            
+            Spacer(Modifier.height(12.dp))
+            
+            // Show AI recap content when available, otherwise show basic insights
             when (recap) {
-                is DashboardViewModel.RecapState.Idle -> {
-                    Text(
-                        "Get a quick AI-written summary of this month's spending.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onGenerate, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                        Text("Generate insight", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                is DashboardViewModel.RecapState.Loading -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Thinking…",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                is DashboardViewModel.RecapState.Unavailable -> {
-                    Text(
-                        "AI features require the Premium plan with a configured API key (see Settings).",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                is DashboardViewModel.RecapState.NoData -> {
-                    Text(
-                        "Not enough transactions this month yet to summarise.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                is DashboardViewModel.RecapState.Error -> {
-                    Text(
-                        "Couldn't generate a recap (${recap.message}). Tap refresh to retry.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SpendLensTheme.colors.debit,
-                    )
-                }
                 is DashboardViewModel.RecapState.Ready -> {
                     Text(
                         recap.text,
@@ -450,9 +385,78 @@ private fun AiRecapCard(recap: DashboardViewModel.RecapState, onGenerate: () -> 
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+                is DashboardViewModel.RecapState.Loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Generating AI insight…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                is DashboardViewModel.RecapState.Error -> {
+                    Column {
+                        Text(
+                            "Couldn't generate AI insight (${recap.message}).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SpendLensTheme.colors.debit,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        TextButton(onClick = onGenerateRecap, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                            Text("Retry", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                is DashboardViewModel.RecapState.Unavailable -> {
+                    // Show basic insight when AI is unavailable
+                    BasicInsight(state)
+                }
+                is DashboardViewModel.RecapState.NoData -> {
+                    Text(
+                        "Not enough transactions this month yet to generate insights.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                is DashboardViewModel.RecapState.Idle -> {
+                    Column {
+                        BasicInsight(state)
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = onGenerateRecap, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                            Text("Generate AI insight", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun BasicInsight(state: DashboardUiState) {
+    val hasIncome = state.incomeMinor > 0
+    val insightText = when {
+        !hasIncome -> "Import your SMS messages to unlock personalised spending insights."
+        state.spendMinor == 0L -> "No spending recorded yet this month. Tap the bell to review pending SMS."
+        else -> {
+            val savingsRate = if (state.incomeMinor > 0) {
+                ((state.incomeMinor - state.spendMinor) * 100L) / state.incomeMinor
+            } else 0L
+            when {
+                savingsRate > 20 -> "Great job! You're saving ${savingsRate.toInt()}% of your income this month."
+                savingsRate > 0 -> "You're saving ${savingsRate.toInt()}% of your income this month."
+                else -> "Your spending matches your income this month. Consider reviewing your expenses."
+            }
+        }
+    }
+    Text(
+        insightText,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
+    )
 }
 
 @Composable

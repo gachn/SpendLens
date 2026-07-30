@@ -54,8 +54,8 @@ class OpenRouterClient {
 
                 val localConn = (URL(OpenRouter.BASE_URL).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = 15_000
-                    readTimeout = 60_000
+                    connectTimeout = 10_000
+                    readTimeout = 45_000
                     doOutput = true
                     setRequestProperty("Authorization", "Bearer $apiKey")
                     setRequestProperty("Content-Type", "application/json")

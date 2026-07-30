@@ -5,6 +5,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.spendlens.app.BuildConfig
 import com.spendlens.app.ai.AiConfig
+import com.spendlens.app.config.RemoteConfigManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ data class AiPrefs(
     val buildKeyPresent: Boolean = false,
     val maxTokensPerRequest: Int = AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST,
     val concurrentRequests: Int = AiConfig.DEFAULT_CONCURRENT_REQUESTS,
+    val maxItemsPerBatch: Int = AiConfig.DEFAULT_MAX_ITEMS_PER_BATCH,
 )
 
 /**
@@ -36,6 +38,7 @@ data class AiPrefs(
 class AiConfigStore(context: Context, private val planStore: PlanStore) {
 
     private val appContext = context.applicationContext
+    private val remoteConfig = RemoteConfigManager.getInstance()
 
     private val prefs = appContext.getSharedPreferences("spendlens_ai", Context.MODE_PRIVATE)
 
@@ -56,39 +59,37 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
     val prefsFlow: StateFlow<AiPrefs> = _prefs.asStateFlow()
 
     private fun load(): AiPrefs = AiPrefs(
-        enabled = prefs.getBoolean(KEY_ENABLED, true),
-        model = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium()),
+        enabled = remoteConfig.isAiEnabled(),
+        model = remoteConfig.getAiModel(),
         hasOverrideKey = !overrideKey().isNullOrBlank(),
         buildKeyPresent = BuildConfig.OPENROUTER_API_KEY.isNotBlank(),
-        maxTokensPerRequest = clampedMaxTokens(),
-        concurrentRequests = clampedConcurrentRequests(),
+        maxTokensPerRequest = remoteConfig.getAiMaxTokensPerRequest(),
+        concurrentRequests = remoteConfig.getAiConcurrentRequests(),
+        maxItemsPerBatch = remoteConfig.getAiMaxItemsPerBatch(),
     )
 
     /** Synchronous read used off the main thread when deciding whether to use the AI path. */
-    fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, true)
+    fun isEnabled(): Boolean = remoteConfig.isAiEnabled()
 
-    fun effectiveModel(): String = AiConfig.effectiveModel(prefs.getString(KEY_MODEL, null), planStore.isPremium())
+    fun effectiveModel(): String = remoteConfig.getAiModel()
 
     /**
      * Token budget for one batched AI request — drives how many SMS AiSmsBatchWorker packs per
-     * call. Clamped on read too (not just in [setMaxTokens]) so a value stored before [MAX_TOKENS]
-     * existed — or edited directly in prefs — can never produce an oversized single request that
-     * risks exceeding a free-tier model's context window.
+     * call. Retrieved from Firebase Remote Config.
      */
-    fun maxTokensPerRequest(): Int = clampedMaxTokens()
-
-    private fun clampedMaxTokens(): Int =
-        prefs.getInt(KEY_MAX_TOKENS, AiConfig.DEFAULT_MAX_TOKENS_PER_REQUEST).coerceIn(MIN_TOKENS, MAX_TOKENS)
+    fun maxTokensPerRequest(): Int = remoteConfig.getAiMaxTokensPerRequest()
 
     /**
      * How many [com.spendlens.app.work.AiSmsBatchWorker] batch calls may be in flight at once.
-     * Clamped on read too, so a value stored before this setting existed defaults sanely.
+     * Retrieved from Firebase Remote Config.
      */
-    fun concurrentRequests(): Int = clampedConcurrentRequests()
+    fun concurrentRequests(): Int = remoteConfig.getAiConcurrentRequests()
 
-    private fun clampedConcurrentRequests(): Int =
-        prefs.getInt(KEY_CONCURRENT_REQUESTS, AiConfig.DEFAULT_CONCURRENT_REQUESTS)
-            .coerceIn(MIN_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS)
+    /**
+     * Maximum number of SMS messages per AI batch request — balances prompt size against
+     * output generation time. Retrieved from Firebase Remote Config.
+     */
+    fun maxItemsPerBatch(): Int = remoteConfig.getAiMaxItemsPerBatch()
 
     /** The key to use for requests, or null if neither an override nor a build default is set. */
     fun effectiveKey(): String? = AiConfig.effectiveKey(overrideKey(), BuildConfig.OPENROUTER_API_KEY)
@@ -111,14 +112,13 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
     }
 
     fun setEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
-        _prefs.value = _prefs.value.copy(enabled = enabled)
+        // No-op - now managed by Remote Config
+        _prefs.value = _prefs.value.copy(enabled = remoteConfig.isAiEnabled())
     }
 
     fun setModel(model: String) {
-        val cleaned = model.trim()
-        prefs.edit().putString(KEY_MODEL, cleaned).apply()
-        _prefs.value = _prefs.value.copy(model = AiConfig.effectiveModel(cleaned, planStore.isPremium()))
+        // No-op - now managed by Remote Config
+        _prefs.value = _prefs.value.copy(model = remoteConfig.getAiModel())
     }
 
     /** Store (or clear, when [key] is blank) the user's own API key. */
@@ -131,15 +131,18 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
     }
 
     fun setMaxTokens(tokens: Int) {
-        val clamped = tokens.coerceIn(MIN_TOKENS, MAX_TOKENS)
-        prefs.edit().putInt(KEY_MAX_TOKENS, clamped).apply()
-        _prefs.value = _prefs.value.copy(maxTokensPerRequest = clamped)
+        // No-op - now managed by Remote Config
+        _prefs.value = _prefs.value.copy(maxTokensPerRequest = remoteConfig.getAiMaxTokensPerRequest())
     }
 
     fun setConcurrentRequests(count: Int) {
-        val clamped = count.coerceIn(MIN_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS)
-        prefs.edit().putInt(KEY_CONCURRENT_REQUESTS, clamped).apply()
-        _prefs.value = _prefs.value.copy(concurrentRequests = clamped)
+        // No-op - now managed by Remote Config
+        _prefs.value = _prefs.value.copy(concurrentRequests = remoteConfig.getAiConcurrentRequests())
+    }
+
+    fun setMaxItemsPerBatch(count: Int) {
+        // No-op - now managed by Remote Config
+        _prefs.value = _prefs.value.copy(maxItemsPerBatch = remoteConfig.getAiMaxItemsPerBatch())
     }
 
     private companion object {
@@ -157,5 +160,10 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
         // Ceiling: past this, a free-tier model's per-key rate limit is nearly guaranteed to start
         // rejecting requests rather than speed anything up further.
         const val MAX_CONCURRENT_REQUESTS = 8
+        const val KEY_MAX_ITEMS_PER_BATCH = "ai_max_items_per_batch"
+        const val MIN_ITEMS_PER_BATCH = 5
+        // Ceiling: each SMS in the batch generates one JSON object in the response; past this the
+        // output generation time dominates and requests routinely time out at 90s.
+        const val MAX_ITEMS_PER_BATCH = 50
     }
 }

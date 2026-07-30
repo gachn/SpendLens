@@ -174,6 +174,13 @@ object PatternSource {
     const val USER = "USER"
 }
 
+object PatternSyncStatus {
+    const val LOCAL_ONLY = "LOCAL_ONLY"
+    const val UPLOADING = "UPLOADING"
+    const val UPLOADED = "UPLOADED"
+    const val DOWNLOADED = "DOWNLOADED"
+}
+
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

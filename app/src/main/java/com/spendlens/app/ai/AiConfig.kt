@@ -34,7 +34,14 @@ object AiConfig {
      * time (the old behaviour) is slow; raising this trades that for a higher chance of tripping a
      * free-tier model's per-key rate limit. Kept low by default; changeable from the debug menu.
      */
-    const val DEFAULT_CONCURRENT_REQUESTS = 2
+    const val DEFAULT_CONCURRENT_REQUESTS = 6
+
+    /**
+     * Default maximum number of SMS messages per AI batch request. Balances prompt size against
+     * output generation time — each SMS in the batch generates one JSON object in the response.
+     * Kept moderate by default; changeable from the debug menu.
+     */
+    const val DEFAULT_MAX_ITEMS_PER_BATCH = 30
 
     /**
      * Effective API key: a non-blank Settings override wins; otherwise the build-baked default;

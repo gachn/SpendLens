@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,6 +94,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.di.AppContainer
+import com.spendlens.app.SpendLensApp
 import com.spendlens.app.ui.components.LocalPrimaryCurrency
 import com.spendlens.app.ui.components.TransactionDetailSheet
 import com.spendlens.app.ui.screens.AccountsScreen
@@ -109,6 +111,7 @@ import com.spendlens.app.ui.screens.MerchantsScreen
 import com.spendlens.app.ui.screens.PatternsScreen
 import com.spendlens.app.ui.screens.SendersScreen
 import com.spendlens.app.ui.screens.OnboardingScreen
+import com.spendlens.app.ui.screens.OnboardingFlowScreen
 import com.spendlens.app.ui.screens.ReviewScreen
 import com.spendlens.app.ui.screens.SettingsScreen
 import com.spendlens.app.ui.screens.SubscriptionsScreen
@@ -172,6 +175,12 @@ fun SpendLensRoot(
     val processingProgress by container.smsProcessor.progress.collectAsState()
     var showProgressPopup by remember { mutableStateOf(false) }
 
+    // Overall SMS progress: total PARSED vs total SMS count (persists across screen switches)
+    val parsedCountFlow = remember { container.rawSmsDao.observeParsedCount() }
+    val parsedCount by parsedCountFlow.collectAsState(initial = 0)
+    val totalCountFlow = remember { container.rawSmsDao.observeTotalCount() }
+    val totalCount by totalCountFlow.collectAsState(initial = 0)
+
     // SMS queued for the Premium AI batch (PENDING_AI) but not yet picked up by
     // AiSmsBatchWorker — e.g. still inside its debounce window, or waiting for WorkManager to run
     // it. Without this, the progress popup only appears once the worker is actually mid-call,
@@ -183,6 +192,7 @@ fun SpendLensRoot(
     val aiRunning by container.aiCategorizer.running.collectAsState()
     val appearance by container.settingsStore.appearance.collectAsState()
     val showAiBanner = aiRunning && appearance.aiBannerEnabled
+    val showSmsQueueSection = appearance.smsQueueSectionEnabled
 
     // Recomputed whenever the override is set/cleared OR auto-detect resolves differently (e.g.
     // once enough transactions exist to outvote an initial locale guess) so every screen's
@@ -208,8 +218,16 @@ fun SpendLensRoot(
         if (pendingAiCount > 0) showProgressPopup = true
     }
 
+    // Show progress popup when there are unprocessed SMS (parsed count < total count)
+    LaunchedEffect(parsedCount, totalCount) {
+        if (parsedCount < totalCount && totalCount > 0) {
+            showProgressPopup = true
+        }
+    }
+
 
     val context = LocalContext.current
+    val hasCompletedOnboarding by container.settingsStore.onboarding.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
@@ -421,50 +439,22 @@ fun SpendLensRoot(
                     factory = factory,
                     selected = selected,
                     onSelectedChanged = { selected = it },
+                    showAiBanner = showAiBanner,
+                    showSmsQueueSection = showSmsQueueSection,
+                    onToggleSmsQueueSection = {
+                        container.settingsStore.setSmsQueueSectionEnabled(!showSmsQueueSection)
+                    },
                 )
             }
 
-            // AI auto-categorisation banner (top, below the app bar).
-            if (showAiBanner) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 72.dp, start = 16.dp, end = 16.dp)
-                        .fillMaxWidth(0.9f),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(12.dp),
-                    tonalElevation = 4.dp,
-                    shadowElevation = 6.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Text(
-                            text = "AI is analysing your transactions…",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                }
-            }
-
-            // Processing progress — covers bulk reprocess AND the Premium AI batch worker
-            // (SmsProcessor.beginExternalProgress/advanceExternalProgress/endExternalProgress), plus
-            // SMS that are merely queued (PENDING_AI) and waiting on the worker's debounce window —
-            // isProcessing alone would leave that wait silent. Anchored at the top so it's visible
-            // whenever SMS are pending, not just while a batch call is actually in flight.
+            // Processing progress — shows overall SMS parsing progress (PARSED vs total SMS count)
+            // Persists across screen switches and shows the complete picture of SMS processing.
+            // Only visible when there's active processing or pending SMS to process.
             val isQueuedOnly = !processingProgress.isProcessing && pendingAiCount > 0
-            if (showProgressPopup && (processingProgress.isProcessing || isQueuedOnly)) {
-                val displayCurrent = if (processingProgress.isProcessing) processingProgress.current else 0
-                val displayTotal = if (processingProgress.isProcessing) processingProgress.total else pendingAiCount
+            val hasUnprocessed = (parsedCount < totalCount) || isQueuedOnly
+            if (showProgressPopup && hasUnprocessed) {
+                val displayCurrent = parsedCount
+                val displayTotal = totalCount
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -535,6 +525,9 @@ fun SpendLensRoot(
 @Composable
 private fun PermissionGate(content: @Composable () -> Unit) {
     val context = LocalContext.current
+    val container = (context.applicationContext as SpendLensApp).container
+    val hasCompletedOnboarding by container.settingsStore.onboarding.collectAsState()
+    
     val required = buildList {
         add(Manifest.permission.READ_SMS)
         add(Manifest.permission.RECEIVE_SMS)
@@ -550,6 +543,7 @@ private fun PermissionGate(content: @Composable () -> Unit) {
         .firstOrNull { it.permission == Manifest.permission.POST_NOTIFICATIONS }
         ?.status?.isGranted ?: true
     var requested by rememberSaveable { mutableStateOf(false) }
+    var showPermissionOnboarding by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(smsGranted) {
         if (smsGranted) {
@@ -561,24 +555,55 @@ private fun PermissionGate(content: @Composable () -> Unit) {
         if (smsGranted && !notifGranted) permState.launchMultiplePermissionRequest()
     }
 
-    if (smsGranted) {
-        content()
-    } else {
-        val permanentlyDenied = requested && !permState.shouldShowRationale
-        OnboardingScreen(
-            permanentlyDenied = permanentlyDenied,
-            onGrant = {
-                if (permanentlyDenied) {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
-                } else {
-                    requested = true
-                    permState.launchMultiplePermissionRequest()
+    when {
+        !hasCompletedOnboarding.hasCompletedOnboarding -> {
+            OnboardingFlowScreen(
+                onGrantPermissions = {
+                    showPermissionOnboarding = true
+                },
+                onComplete = { currencyCode ->
+                    container.settingsStore.setPrimaryCurrency(currencyCode)
+                    container.settingsStore.setOnboardingCompleted(true)
                 }
-            },
-        )
+            )
+        }
+        showPermissionOnboarding -> {
+            val permanentlyDenied = requested && !permState.shouldShowRationale
+            OnboardingScreen(
+                permanentlyDenied = permanentlyDenied,
+                onGrant = {
+                    if (permanentlyDenied) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } else {
+                        requested = true
+                        permState.launchMultiplePermissionRequest()
+                    }
+                },
+            )
+        }
+        smsGranted -> {
+            content()
+        }
+        else -> {
+            val permanentlyDenied = requested && !permState.shouldShowRationale
+            OnboardingScreen(
+                permanentlyDenied = permanentlyDenied,
+                onGrant = {
+                    if (permanentlyDenied) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } else {
+                        requested = true
+                        permState.launchMultiplePermissionRequest()
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -589,6 +614,9 @@ private fun MainScaffold(
     factory: SpendLensViewModelFactory,
     selected: TransactionEntity?,
     onSelectedChanged: (TransactionEntity?) -> Unit,
+    showAiBanner: Boolean = false,
+    showSmsQueueSection: Boolean = true,
+    onToggleSmsQueueSection: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -626,7 +654,48 @@ private fun MainScaffold(
                         if (pending > 0) nav.navigate(ROUTE_REVIEW) { launchSingleTop = true }
                     },
                     onSettingsClick = { nav.navigate(ROUTE_SETTINGS) { launchSingleTop = true } },
+                    onToggleSmsQueueSection = onToggleSmsQueueSection,
+                    showSmsQueueSection = showSmsQueueSection,
                 )
+                
+                // AI auto-categorisation banner (shown below top bar when enabled)
+                if (showAiBanner && showSmsQueueSection) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            Text(
+                                text = "AI is analysing your transactions…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = onToggleSmsQueueSection,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Hide",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+                
                 if (scanProgress != null) {
                     if (scanProgress > 0f) {
                         LinearProgressIndicator(
@@ -832,6 +901,8 @@ private fun LuminousTopBar(
     pending: Int,
     onNotificationsClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onToggleSmsQueueSection: () -> Unit = {},
+    showSmsQueueSection: Boolean = true,
 ) {
     TopAppBar(
         navigationIcon = {
@@ -880,6 +951,13 @@ private fun LuminousTopBar(
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
+            }
+            IconButton(onClick = onToggleSmsQueueSection) {
+                Icon(
+                    if (showSmsQueueSection) Icons.Filled.Notifications else Icons.Filled.Close,
+                    contentDescription = if (showSmsQueueSection) "Hide SMS Queue" else "Show SMS Queue",
+                    tint = if (showSmsQueueSection) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onSettingsClick) {
                 Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)

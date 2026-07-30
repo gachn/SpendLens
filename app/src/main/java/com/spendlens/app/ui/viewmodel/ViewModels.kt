@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.spendlens.app.data.db.CategoryEntity
+import com.spendlens.app.data.db.PatternSource
 import com.spendlens.app.data.db.RawSmsEntity
 import com.spendlens.app.data.db.RawStatus
 import com.spendlens.app.data.db.SmsPatternEntity
 import com.spendlens.app.data.db.TransactionEntity
 import com.spendlens.app.parser.Categorizer
+import com.spendlens.app.sms.SmsProcessingStats
 import com.spendlens.app.data.repository.MerchantRepository
 import com.spendlens.app.data.repository.CategoryRepository
 import com.spendlens.app.data.repository.TransactionRepository
@@ -27,7 +29,6 @@ import com.spendlens.app.ui.util.Dates
 import androidx.work.WorkManager
 import com.spendlens.app.work.SmsSyncWorker
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -622,11 +624,12 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
      * statement to PAID — stopping [com.spendlens.app.work.CardPaymentReminderWorker] — once the
      * tagged payments cover the total due. Outstanding is recomputed reactively from these rows.
      */
-    fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = viewModelScope.launch {
+fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = viewModelScope.launch {
+        val baseCurrency = container.settingsStore.primaryCurrency()
         val rates = container.fxRepository.ratesToBase()
         repo.addManual(
             amountMinor = amountMinor,
-            currency = "INR",
+            currency = baseCurrency,
             direction = "DEBIT",
             accountKey = cardKey,
             counterparty = "Card payment",
@@ -637,6 +640,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
             receiptUri = null,
             excludedFromExpense = true,
             ratesToBase = rates,
+            baseCurrency = baseCurrency,
             cardPaymentKey = cardKey,
         )
         val bill = container.cardBillDao.get(cardKey) ?: return@launch
@@ -1070,6 +1074,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setAiConcurrentRequests(count: Int) = container.aiConfigStore.setConcurrentRequests(count)
 
+    fun setAiMaxItemsPerBatch(count: Int) = container.aiConfigStore.setMaxItemsPerBatch(count)
+
     /** OpenRouter model slugs for autocompleting the Model field; empty until [loadAiModels] runs. */
     private val _aiModels = MutableStateFlow<List<String>>(emptyList())
     val aiModels: StateFlow<List<String>> = _aiModels.asStateFlow()
@@ -1149,6 +1155,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         container.billRepository.clear()
         container.cardBillDao.clear()
         SmsSyncWorker.enqueueImport(context)
+    }
+
+    /** Resets the onboarding completion flag so the onboarding flow shows again on app launch. */
+    fun resetOnboarding() {
+        container.settingsStore.setOnboardingCompleted(false)
     }
 
     // ----- Encrypted backup / restore (issue #13) -----
@@ -1264,6 +1275,94 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
             onSuccess = { ExportState.Success(it) },
             onFailure = { ExportState.Failed(it.message ?: "Unknown error") },
         )
+    }
+
+    // ----- Pipeline metrics (Developer options) -----
+
+    /**
+     * Live session telemetry straight from [com.spendlens.app.sms.SmsProcessor] — in-memory, so it
+     * resets every process start. Updates as AI batches and regex reprocess runs complete.
+     */
+    val processingStats: StateFlow<SmsProcessingStats> = container.smsProcessor.stats
+
+    /**
+     * DB-backed counts surfaced on the Developer-options screen. Loaded on demand via
+     * [loadDebugCounts] (the screen triggers it on entry) rather than observed as a Flow, since most
+     * of these are aggregations over JOINs and only change when the pipeline actually runs.
+     */
+    data class DebugCounts(
+        val totalRawSms: Int = 0,
+        val parsedCount: Int = 0,
+        val unparsedCount: Int = 0,
+        val ignoredCount: Int = 0,
+        val pendingAiCount: Int = 0,
+        /** PARSED by a direct AI call (no pattern matched). */
+        val aiParsedCount: Int = 0,
+        /** PARSED by an AI-generated pattern (may or may not have involved an AI call this run). */
+        val aiPatternParsedCount: Int = 0,
+        val totalTransactions: Int = 0,
+        val duplicateTransactions: Int = 0,
+        val patternBuiltin: Int = 0,
+        val patternAi: Int = 0,
+        val patternHeuristic: Int = 0,
+        val patternUser: Int = 0,
+        val patternFirebase: Int = 0,
+        val firebaseSyncLastRun: String = "",
+        val firebaseSyncPatternsDownloaded: Int = 0,
+        val firebaseSyncSendersScanned: Int = 0,
+        val firebaseSyncPatternsUploaded: Int = 0,
+    )
+
+    private val _debugCounts = MutableStateFlow(DebugCounts())
+    val debugCounts: StateFlow<DebugCounts> = _debugCounts.asStateFlow()
+
+    /** Re-query every DB-backed metric. Safe to call repeatedly; cheap relative to a reprocess run. */
+    fun loadDebugCounts() = viewModelScope.launch {
+        val raw = container.rawSmsDao
+        val txn = container.database.transactionDao()
+        val pat = container.patternRepository
+        
+        // Count uploadable patterns for Firebase sync
+        val uploadablePatterns = countUploadablePatterns(pat)
+        
+        _debugCounts.value = DebugCounts(
+            totalRawSms = raw.count(),
+            parsedCount = raw.countByStatus(RawStatus.PARSED),
+            unparsedCount = raw.countByStatus(RawStatus.UNPARSED),
+            ignoredCount = raw.countByStatus(RawStatus.IGNORED),
+            pendingAiCount = raw.countByStatus(RawStatus.PENDING_AI),
+            aiParsedCount = raw.countAiParsed(),
+            aiPatternParsedCount = raw.countAiPatternParsed(),
+            totalTransactions = txn.count(),
+            duplicateTransactions = txn.countDuplicates(),
+            patternBuiltin = pat.countBySource(PatternSource.BUILTIN),
+            patternAi = pat.countBySource(PatternSource.AI),
+            patternHeuristic = pat.countBySource(PatternSource.HEURISTIC),
+            patternUser = pat.countBySource(PatternSource.USER),
+            patternFirebase = uploadablePatterns,
+            firebaseSyncLastRun = container.syncStore.getLastSyncTime(),
+            firebaseSyncPatternsDownloaded = container.syncStore.getFirebasePatternsDownloaded(),
+            firebaseSyncSendersScanned = container.syncStore.getFirebaseSendersScanned(),
+            firebaseSyncPatternsUploaded = container.syncStore.getFirebasePatternsUploaded(),
+        )
+    }
+    
+    private suspend fun countUploadablePatterns(patternRepository: PatternRepository): Int {
+        val allPatterns = patternRepository.compiled()
+        val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        
+        return allPatterns.count { pattern ->
+            // Count enabled patterns from AI/HEURISTIC/USER sources
+            // with sufficient matches and recent activity
+            val patternEntity = patternRepository.observeAll().first()
+                .find { it.id == pattern.id }
+            
+            patternEntity?.let { entity ->
+                entity.source in listOf(PatternSource.AI, PatternSource.HEURISTIC, PatternSource.USER) &&
+                entity.matchCount >= 5 &&
+                (entity.lastMatchedAt ?: 0) > thirtyDaysAgo
+            } ?: false
+        }
     }
 }
 

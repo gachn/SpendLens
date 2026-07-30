@@ -29,3 +29,9 @@ graphify-out/
 
 # Kotlin compiler artifacts
 .kotlin/
+
+# Temporary artifacts and non-project files
+.adb_shots/
+portfolio/
+portfolio_site.zip
+

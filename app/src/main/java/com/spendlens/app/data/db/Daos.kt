@@ -46,6 +46,10 @@ interface RawSmsDao {
     @Query("SELECT COUNT(*) FROM raw_sms WHERE status = :status")
     fun observeCountByStatus(status: String): Flow<Int>
 
+    /** Live count of PARSED SMS — used for overall progress tracking across the SMS corpus. */
+    @Query("SELECT COUNT(*) FROM raw_sms WHERE status = '${RawStatus.PARSED}'")
+    fun observeParsedCount(): Flow<Int>
+
     /**
      * Bulk-requeues every UNPARSED row for the Premium AI batch in one statement — used to give
      * the AI a shot at backlog that was stuck UNPARSED before AI was ever enabled (or before this
@@ -71,6 +75,34 @@ interface RawSmsDao {
 
     @Query("SELECT COUNT(*) FROM raw_sms")
     suspend fun count(): Int
+
+    /** Live count of all SMS rows — used for progress tracking across the entire SMS corpus. */
+    @Query("SELECT COUNT(*) FROM raw_sms")
+    fun observeTotalCount(): Flow<Int>
+
+    /** One-shot count of rows in [status] — used by the Developer-options metrics panel. */
+    @Query("SELECT COUNT(*) FROM raw_sms WHERE status = :status")
+    suspend fun countByStatus(status: String): Int
+
+    /**
+     * PARSED rows that were classified/parsed via an AI call — i.e. the Premium AI batch worker
+     * ([com.spendlens.app.work.AiSmsBatchWorker]) or the AI pattern generator wrote the
+     * [RawSmsEntity.aiPrompt] for them. Heuristic-only fallback leaves aiPrompt null.
+     */
+    @Query("SELECT COUNT(*) FROM raw_sms WHERE aiPrompt IS NOT NULL AND status = 'PARSED'")
+    suspend fun countAiParsed(): Int
+
+    /**
+     * PARSED rows whose matched pattern was AI-generated ([SmsPatternEntity.source] = AI).
+     * Distinct from [countAiParsed]: a row can be parsed by an AI-generated pattern that was
+     * learned earlier (no AI call this run), or parsed by a direct AI call whose own regex later
+     * got persisted — this counts the former, [countAiParsed] counts the latter.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM raw_sms r INNER JOIN sms_patterns p ON r.patternId = p.id " +
+            "WHERE p.source = 'AI' AND r.status = 'PARSED'",
+    )
+    suspend fun countAiPatternParsed(): Int
 
     /** Every stored raw SMS, oldest first. Used for one-off backfills (e.g. balance snapshots). */
     @Query("SELECT * FROM raw_sms ORDER BY receivedAt ASC")
@@ -321,6 +353,10 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun count(): Int
 
+    /** Rows flagged as duplicates (including merchant echoes) — Developer-options metric. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE isDuplicate = 1")
+    suspend fun countDuplicates(): Int
+
     /**
      * The currency the most transactions are recorded in — used to auto-detect a primary
      * currency from actual usage instead of the (often wrong/generic) device locale. Null when
@@ -521,11 +557,21 @@ interface PatternDao {
     @Query("SELECT COUNT(*) FROM sms_patterns")
     suspend fun count(): Int
 
+    /** Count of patterns from a given [PatternSource] — Developer-options breakdown. */
+    @Query("SELECT COUNT(*) FROM sms_patterns WHERE source = :source")
+    suspend fun countBySource(source: String): Int
+
     @Query("SELECT name FROM sms_patterns")
     suspend fun names(): List<String>
 
     @Query("DELETE FROM sms_patterns")
     suspend fun clear()
+
+    @Query("SELECT DISTINCT senderRegex FROM sms_patterns WHERE senderRegex IS NOT NULL")
+    suspend fun getAllSenders(): List<String>
+
+    @Query("SELECT * FROM sms_patterns WHERE bodyRegex = :bodyRegex LIMIT 1")
+    suspend fun findByBodyRegex(bodyRegex: String): SmsPatternEntity?
 }
 
 @Dao

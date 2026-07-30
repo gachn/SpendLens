@@ -754,7 +754,7 @@ private fun MerchantCard(
             Spacer(Modifier.height(2.dp))
             // Category label
             Text(
-Money.format(slice.amountMinor, LocalPrimaryCurrency.current),
+Money.format(merchant.amountMinor, currency),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )

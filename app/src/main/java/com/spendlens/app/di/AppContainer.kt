@@ -59,6 +59,9 @@ class AppContainer(context: Context) {
     /** Per-category throttle for spending-velocity alerts (issue #3). */
     val velocityAlertStore by lazy { VelocityAlertStore(appContext) }
 
+    /** Firebase pattern sync preferences and state. */
+    val syncStore by lazy { com.spendlens.app.data.prefs.SyncStore(appContext) }
+
     val patternRepository by lazy { PatternRepository(database.patternDao()) }
     val transactionRepository by lazy { TransactionRepository(database.transactionDao(), database.transactionSplitDao()) }
     val categoryRepository by lazy { CategoryRepository(database.categoryDao()) }

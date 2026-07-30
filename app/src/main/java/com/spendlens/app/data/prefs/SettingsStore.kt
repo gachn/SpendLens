@@ -6,6 +6,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.spendlens.app.config.RemoteConfigManager
 
 /** How the app decides between light and dark colours. */
 enum class ThemeMode(val label: String) {
@@ -26,6 +27,8 @@ data class AppearancePrefs(
      * categorised). Off by default — a developer aid that stays hidden in real use.
      */
     val debugInfoEnabled: Boolean = false,
+    /** Show the SMS queue processing section at the top of the app. On by default. */
+    val smsQueueSectionEnabled: Boolean = true,
 )
 
 /** App-lock choices, surfaced in Settings → Security. */
@@ -40,6 +43,12 @@ data class SecurityPrefs(
 data class CurrencyPrefs(
     /** User-chosen ISO-4217 override, or null to auto-detect from the device locale. */
     val primaryCurrencyOverride: String? = null,
+)
+
+/** Onboarding state, tracks if user has completed initial setup. */
+data class OnboardingPrefs(
+    /** Whether the user has completed the onboarding flow. */
+    val hasCompletedOnboarding: Boolean = false,
 )
 
 /** SMS-parsing choices, surfaced in Settings → SMS Filtering. */
@@ -67,6 +76,8 @@ class SettingsStore(context: Context) {
 
     private val prefs = context.applicationContext
         .getSharedPreferences("spendlens_settings", Context.MODE_PRIVATE)
+    
+    private val remoteConfig = RemoteConfigManager.getInstance()
 
     private val _appearance = MutableStateFlow(load())
     val appearance: StateFlow<AppearancePrefs> = _appearance.asStateFlow()
@@ -79,6 +90,9 @@ class SettingsStore(context: Context) {
 
     private val _currency = MutableStateFlow(loadCurrency())
     val currency: StateFlow<CurrencyPrefs> = _currency.asStateFlow()
+
+    private val _onboarding = MutableStateFlow(loadOnboarding())
+    val onboarding: StateFlow<OnboardingPrefs> = _onboarding.asStateFlow()
 
     /**
      * Reactive twin of [detectedCurrency] — a plain synchronous getter isn't observable, so
@@ -98,7 +112,8 @@ class SettingsStore(context: Context) {
             themeMode = mode,
             dynamicColor = prefs.getBoolean(KEY_DYNAMIC_COLOR, false),
             aiBannerEnabled = prefs.getBoolean(KEY_AI_BANNER, true),
-            debugInfoEnabled = prefs.getBoolean(KEY_DEBUG_INFO, false),
+            debugInfoEnabled = remoteConfig.isDebugInfoEnabled(),
+            smsQueueSectionEnabled = prefs.getBoolean(KEY_SMS_QUEUE_SECTION, true),
         )
     }
 
@@ -114,6 +129,9 @@ class SettingsStore(context: Context) {
 
     private fun loadCurrency(): CurrencyPrefs =
         CurrencyPrefs(primaryCurrencyOverride = prefs.getString(KEY_PRIMARY_CURRENCY, null))
+
+    private fun loadOnboarding(): OnboardingPrefs =
+        OnboardingPrefs(hasCompletedOnboarding = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false))
 
     /**
      * Device locale's currency — only a fallback for the very first read, before
@@ -183,8 +201,13 @@ class SettingsStore(context: Context) {
     }
 
     fun setDebugInfoEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_DEBUG_INFO, enabled).apply()
-        _appearance.value = _appearance.value.copy(debugInfoEnabled = enabled)
+        // No-op - now managed by Remote Config
+        _appearance.value = _appearance.value.copy(debugInfoEnabled = remoteConfig.isDebugInfoEnabled())
+    }
+
+    fun setSmsQueueSectionEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SMS_QUEUE_SECTION, enabled).apply()
+        _appearance.value = _appearance.value.copy(smsQueueSectionEnabled = enabled)
     }
 
     fun setAppLockEnabled(enabled: Boolean) {
@@ -212,6 +235,15 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_PRIMARY_CURRENCY, code).apply()
         _currency.value = _currency.value.copy(primaryCurrencyOverride = code)
     }
+
+    /** Mark onboarding as completed. */
+    fun setOnboardingCompleted(completed: Boolean) {
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
+        _onboarding.value = _onboarding.value.copy(hasCompletedOnboarding = completed)
+    }
+
+    /** Synchronous read for app-launch gating (before any flow is collected). */
+    fun hasCompletedOnboarding(): Boolean = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
 
     // Account display-name overrides — user can rename "••••9496" to "HDFC Credit" etc.
     private fun loadAccountNames(): Map<String, String> =
@@ -266,6 +298,7 @@ class SettingsStore(context: Context) {
         const val KEY_DYNAMIC_COLOR = "dynamic_color"
         const val KEY_AI_BANNER = "ai_banner_enabled"
         const val KEY_DEBUG_INFO = "debug_info_enabled"
+        const val KEY_SMS_QUEUE_SECTION = "sms_queue_section_enabled"
         const val KEY_APP_LOCK = "app_lock_enabled"
         const val KEY_GRACE_SEC = "app_lock_grace_sec"
         const val KEY_LAST_BACKUP = "last_backup_at"
@@ -274,6 +307,7 @@ class SettingsStore(context: Context) {
         const val KEY_PRIMARY_CURRENCY = "primary_currency_override"
         const val KEY_DETECTED_CURRENCY = "primary_currency_detected"
         const val KEY_LAST_APPLIED_CURRENCY = "primary_currency_last_applied"
+        const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         const val KEY_ACCT_NAME_PREFIX = "acct_name_"
         const val KEY_CYCLE_DAY_PREFIX = "cycle_day_"
     }

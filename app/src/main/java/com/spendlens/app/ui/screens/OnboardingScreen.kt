@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.spendlens.app.ui.components.ProPrimaryButton
 
 @Composable
 fun OnboardingScreen(permanentlyDenied: Boolean, onGrant: () -> Unit) {
@@ -44,9 +45,11 @@ fun OnboardingScreen(permanentlyDenied: Boolean, onGrant: () -> Unit) {
             Bullet("📵", "No internet permission — nothing is uploaded anywhere.")
             Bullet("🧠", "Learns new SMS formats automatically as they arrive.")
             Spacer(Modifier.height(28.dp))
-            Button(onClick = onGrant, modifier = Modifier.fillMaxWidth()) {
-                Text(if (permanentlyDenied) "Open settings to allow SMS" else "Allow SMS access")
-            }
+            ProPrimaryButton(
+                text = if (permanentlyDenied) "Open settings to allow SMS" else "Allow SMS access",
+                onClick = onGrant,
+                modifier = Modifier.fillMaxWidth()
+            )
             if (permanentlyDenied) {
                 Spacer(Modifier.height(8.dp))
                 Text(

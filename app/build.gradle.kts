@@ -131,6 +131,7 @@ dependencies {
     implementation(libs.firebase.config.ktx)
     implementation(libs.firebase.crashlytics.ktx)
     implementation(libs.firebase.analytics.ktx)
+    implementation(libs.firebase.firestore.ktx)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

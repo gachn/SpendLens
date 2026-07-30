@@ -62,6 +62,7 @@ import com.spendlens.app.data.prefs.ThemeMode
 import com.spendlens.app.ui.components.ElevatedSurfaceCard
 import com.spendlens.app.ui.components.SectionHeader
 import com.spendlens.app.ui.viewmodel.SettingsViewModel
+import com.spendlens.app.config.RemoteConfigManager
 
 /** Grace-period choices (seconds → label) for the app-lock re-lock delay. */
 private val GRACE_OPTIONS = listOf(
@@ -91,6 +92,9 @@ fun SettingsScreen(
     val backupState by vm.backupState.collectAsState()
     val lastBackupAt by vm.lastBackupAt.collectAsState()
     val context = LocalContext.current
+    val remoteConfig = RemoteConfigManager.getInstance()
+
+    LaunchedEffect(Unit) { remoteConfig.fetchAndActivate() }
 
     // Encrypted backup/restore (issue #13). A picked file uri + mode opens the password dialog.
     var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -553,19 +557,20 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Use AI (OpenRouter)", style = MaterialTheme.typography.bodyLarge)
+                            Text("Use AI (OpenRouter) - Managed by Remote Config", style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 "Generate SMS parsing patterns and consolidate merchant names with an " +
                                     "AI model. When off, SpendLens uses the on-device / copy-to-clipboard " +
-                                    "flow. Sends SMS templates and merchant names to OpenRouter.",
+                                    "flow. Sends SMS templates and merchant names to OpenRouter. " +
+                                    "AI enablement is managed via Firebase Remote Config.",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Switch(
                             checked = ai.enabled,
-                            enabled = plan == Plan.PREMIUM,
-                            onCheckedChange = { vm.setAiEnabled(it) },
+                            enabled = false,
+                            onCheckedChange = { },
                         )
                     }
 
@@ -579,54 +584,21 @@ fun SettingsScreen(
                         // Pull the catalogue once so the Model field can autocomplete slugs.
                         LaunchedEffect(Unit) { vm.loadAiModels() }
 
-                        var model by remember(ai.model) { mutableStateOf(ai.model) }
-                        var modelExpanded by remember { mutableStateOf(false) }
-                        // Suggest slugs containing what the user typed; cap so the menu stays usable.
-                        val modelSuggestions by remember(model, aiModels) {
-                            derivedStateOf {
-                                val q = model.trim()
-                                aiModels.filter {
-                                    it.contains(q, ignoreCase = true) && !it.equals(q, ignoreCase = true)
-                                }.take(8)
-                            }
-                        }
-                        // Plain Box + DropdownMenu with focusable = false (same as MerchantSuggestField):
-                        // the suggestion overlay never steals the TextField's focus, so typing stays smooth.
-                        Box {
-                            OutlinedTextField(
-                                value = model,
-                                onValueChange = { model = it; vm.setAiModel(it); modelExpanded = true },
-                                singleLine = true,
-                                label = { Text("Model") },
-                                placeholder = { Text("provider/model-slug") },
-                                supportingText = {
-                                    Text(
-                                        if (aiModels.isEmpty()) {
-                                            "Any OpenRouter model slug, e.g. openai/gpt-latest or a :free model."
-                                        } else {
-                                            "Type to search ${aiModels.size} OpenRouter models, or enter any slug."
-                                        },
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            DropdownMenu(
-                                expanded = modelExpanded && modelSuggestions.isNotEmpty(),
-                                onDismissRequest = { modelExpanded = false },
-                                properties = PopupProperties(focusable = false),
-                            ) {
-                                modelSuggestions.forEach { slug ->
-                                    DropdownMenuItem(
-                                        text = { Text(slug) },
-                                        onClick = {
-                                            model = slug
-                                            vm.setAiModel(slug)
-                                            modelExpanded = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
+                        var model by remember { mutableStateOf(remoteConfig.getAiModel()) }
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = { },
+                            singleLine = true,
+                            readOnly = true,
+                            label = { Text("Model - Managed by Remote Config") },
+                            placeholder = { Text("provider/model-slug") },
+                            supportingText = {
+                                Text(
+                                    "AI model is managed via Firebase Remote Config. Current model: ${remoteConfig.getAiModel()}",
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
 
                         var apiKey by remember { mutableStateOf("") }
                         OutlinedTextField(

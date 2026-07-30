@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -43,6 +44,7 @@ import com.spendlens.app.util.AppLog
 import com.spendlens.app.util.FirebaseHelper
 import com.spendlens.app.work.AiCategorizeWorker
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
 
@@ -62,12 +64,24 @@ class MainActivity : FragmentActivity() {
         FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true)
         FirebaseHelper.initialize(this)
         AppLog.i("Firebase Crashlytics and Analytics initialized")
+        
+        val container = (application as SpendLensApp).container
+        // Check for Firebase sync on app startup
+        lifecycleScope.launch {
+            try {
+                com.spendlens.app.sync.FirebaseStartupSync.checkAndSyncIfNeeded(
+                    context = applicationContext,
+                    patternDao = container.database.patternDao()
+                )
+            } catch (e: Exception) {
+                AppLog.e("Firebase sync check failed on startup", "MainActivity", e)
+            }
+        }
 
         enableEdgeToEdge()
         pendingTxnId.value = intent.getLongExtra(EXTRA_TXN_ID, -1L).takeIf { it != -1L }
         // Cold start: lock immediately if the feature is on.
         locked.value = settingsStore.isAppLockEnabled()
-        val container = (application as SpendLensApp).container
         // AI auto-categorisation runs only on app launch (never from background SMS workers), and is
         // itself throttled + capped, so opening the app spends at most one off-device call per minute.
         AiCategorizeWorker.enqueue(applicationContext)

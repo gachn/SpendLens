@@ -4,6 +4,10 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
 import com.spendlens.app.di.AppContainer
 import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.CoroutineScope
@@ -16,10 +20,15 @@ class SpendLensApp : Application() {
     lateinit var container: AppContainer
         private set
 
+    lateinit var analytics: FirebaseAnalytics
+        private set
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
+        FirebaseApp.initializeApp(this)
+        analytics = Firebase.analytics
         AppLog.i("SpendLensApp starting version=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         container = AppContainer(this)
         createNotificationChannels()

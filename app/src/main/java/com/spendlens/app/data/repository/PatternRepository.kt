@@ -54,6 +54,9 @@ class PatternRepository(private val dao: PatternDao) {
 
     suspend fun incrementMatch(id: Long) = dao.incrementMatch(id, System.currentTimeMillis())
 
+    /** Count of patterns from a given [PatternSource] — surfaced on the Developer-options screen. */
+    suspend fun countBySource(source: String): Int = dao.countBySource(source)
+
     suspend fun setEnabled(id: Long, enabled: Boolean) {
         dao.setEnabled(id, enabled)
         invalidate()

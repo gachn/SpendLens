@@ -50,6 +50,31 @@ data class SmsProcessingProgress(
     val isProcessing: Boolean = false
 )
 
+/**
+ * In-memory pipeline telemetry surfaced on the Developer-options screen. Resets every process
+ * start — these are runtime/session metrics, not historical stats (those are queried from the DB).
+ */
+data class SmsProcessingStats(
+    /** Number of Premium AI batch runs ([com.spendlens.app.work.AiSmsBatchWorker] completions) this session. */
+    val aiBatchCount: Int = 0,
+    /** Cumulative wall-clock time spent in AI batch runs this session (ms). */
+    val aiBatchTotalMs: Long = 0L,
+    /** Wall-clock time of the most recent AI batch run (ms). */
+    val aiBatchLastMs: Long = 0L,
+    /** SMS rows resolved in the most recent AI batch run. */
+    val aiBatchLastSmsCount: Int = 0,
+    /** Epoch millis when the last AI batch run completed. */
+    val aiBatchLastAt: Long = 0L,
+
+    /** Number of regex-pipeline batch runs (reprocess*) this session. */
+    val regexRunCount: Int = 0,
+    /** Cumulative wall-clock time spent in regex batch runs this session (ms). */
+    val regexTotalMs: Long = 0L,
+    val regexLastMs: Long = 0L,
+    val regexLastSmsCount: Int = 0,
+    val regexLastAt: Long = 0L,
+)
+
 
 /**
  * Orchestrates the full pipeline for one SMS: idempotent insert → financial filter →
@@ -93,6 +118,9 @@ class SmsProcessor(
     private val _progress = MutableStateFlow(SmsProcessingProgress())
     val progress: StateFlow<SmsProcessingProgress> = _progress.asStateFlow()
 
+    private val _stats = MutableStateFlow(SmsProcessingStats())
+    val stats: StateFlow<SmsProcessingStats> = _stats.asStateFlow()
+
     /** Drives [progress] for external batch drivers (currently [com.spendlens.app.work.AiSmsBatchWorker]). */
     fun beginExternalProgress(total: Int) {
         _progress.value = SmsProcessingProgress(current = 0, total = total, isProcessing = true)
@@ -104,6 +132,32 @@ class SmsProcessor(
 
     fun endExternalProgress() {
         _progress.value = SmsProcessingProgress(isProcessing = false)
+    }
+
+    /** Records a completed Premium AI batch run — called by [com.spendlens.app.work.AiSmsBatchWorker]. */
+    fun recordAiBatchRun(durationMs: Long, smsCount: Int) {
+        _stats.value = _stats.value.let { s ->
+            s.copy(
+                aiBatchCount = s.aiBatchCount + 1,
+                aiBatchTotalMs = s.aiBatchTotalMs + durationMs,
+                aiBatchLastMs = durationMs,
+                aiBatchLastSmsCount = smsCount,
+                aiBatchLastAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    /** Records a completed regex-pipeline batch run (reprocess*). */
+    private fun recordRegexRun(durationMs: Long, smsCount: Int) {
+        _stats.value = _stats.value.let { s ->
+            s.copy(
+                regexRunCount = s.regexRunCount + 1,
+                regexTotalMs = s.regexTotalMs + durationMs,
+                regexLastMs = durationMs,
+                regexLastSmsCount = smsCount,
+                regexLastAt = System.currentTimeMillis(),
+            )
+        }
     }
 
     suspend fun process(msg: SmsMessage): TransactionEntity? {
@@ -277,6 +331,7 @@ class SmsProcessor(
      * backlog clearing stays offline and free. Returns how many rows changed status.
      */
     suspend fun reprocessUnparsed(): Int {
+        val startedAt = System.currentTimeMillis()
         val patterns = patternRepo.compiled()
         var changed = 0
         for (raw in rawDao.listByStatus(RawStatus.UNPARSED)) {
@@ -297,6 +352,7 @@ class SmsProcessor(
             rawDao.updateStatus(raw.id, RawStatus.PARSED, result.patternId)
             changed++
         }
+        recordRegexRun(System.currentTimeMillis() - startedAt, changed)
         return changed
     }
 
@@ -335,6 +391,7 @@ class SmsProcessor(
     suspend fun reprocessForPatterns(patternIds: List<Long>): Int = withContext(Dispatchers.IO) {
         if (patternIds.isEmpty()) return@withContext reprocessAllSms()
 
+        val startedAt = System.currentTimeMillis()
         val patterns = patternRepo.compiled()
         var changed = 0
 
@@ -402,10 +459,12 @@ class SmsProcessor(
         }
 
         _progress.value = SmsProcessingProgress(isProcessing = false)
+        recordRegexRun(System.currentTimeMillis() - startedAt, toProcess.size)
         return@withContext changed
     }
 
     suspend fun reprocessAllSms(): Int = withContext(Dispatchers.IO) {
+        val startedAt = System.currentTimeMillis()
         val patterns = patternRepo.compiled()
         val userPatterns = patterns.filter { it.priority >= LEARNED_PRIORITY }
         var changed = 0
@@ -479,6 +538,7 @@ class SmsProcessor(
             }
         }
         _progress.value = SmsProcessingProgress(isProcessing = false)
+        recordRegexRun(System.currentTimeMillis() - startedAt, rawMessages.size)
         return@withContext changed
     }
 
