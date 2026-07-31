@@ -1,0 +1,49 @@
+name: Deploy website to GitHub Pages
+
+# Publishes the static marketing/legal site in /website to GitHub Pages.
+# Only the contents of /website are uploaded — the Android app sources are
+# never deployed to Pages (and the website is not a Gradle module, so it is
+# never packaged into the APK either).
+#
+# One-time setup:
+#   Repo → Settings → Pages → Build and deployment → Source: "GitHub Actions"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write   # required to publish the Pages deployment
+
+# Let a new deploy cancel an in-flight one for the same site.
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website   # deploy ONLY the website folder
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

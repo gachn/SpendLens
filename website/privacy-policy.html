@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — SpendLens</title>
+<meta name="description" content="SpendLens Privacy Policy: how we handle your transaction SMS data. Everything is processed on-device and encrypted with SQLCipher. No data leaves your phone." />
+<meta name="theme-color" content="#0E1514" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E1514'/%3E%3Cpath d='M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z' fill='none' stroke='%232DD4BF' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.4' fill='%232DD4BF'/%3E%3C/svg%3E" />
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="index.html" aria-label="SpendLens home">
+      <svg class="logo" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#16201E"/><path d="M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z" stroke="#2DD4BF" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="16" r="3.4" fill="#2DD4BF"/></svg>
+      SpendLens
+    </a>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="index.html#features">Features</a>
+      <a href="index.html#privacy">Privacy</a>
+      <a href="index.html#faq">FAQ</a>
+      <a href="support.html">Support</a>
+      <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.gachn.spendlens" target="_blank" rel="noopener">Get the app</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="legal-hero">
+  <div class="wrap">
+    <span class="eyebrow">Legal</span>
+    <h1>Privacy Policy</h1>
+    <div class="meta"><span>Last updated: July 31, 2026</span><span>Effective date: July 31, 2026</span></div>
+  </div>
+</section>
+
+<main class="wrap">
+  <div class="legal-body">
+
+    <div class="legal-callout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <p><strong>The short version:</strong> SpendLens is a privacy-first personal-finance app. We process your transaction SMS <strong>entirely on your device</strong>. We do not collect, sell, or share your personal data. Your database is encrypted, and cloud backup is disabled.</p>
+    </div>
+
+    <nav class="legal-toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#collect">Data we collect</a></li>
+        <li><a href="#no-account">No account required</a></li>
+        <li><a href="#storage">Data storage &amp; security</a></li>
+        <li><a href="#internet">Internet usage</a></li>
+        <li><a href="#permissions">Permissions we use</a></li>
+        <li><a href="#rights">Your rights &amp; choices</a></li>
+        <li><a href="#deletion">Data deletion</a></li>
+        <li><a href="#third-parties">Third-party services</a></li>
+        <li><a href="#children">Children's privacy</a></li>
+        <li><a href="#changes">Changes to this policy</a></li>
+        <li><a href="#contact">Contact us</a></li>
+      </ol>
+    </nav>
+
+    <h2 class="toc-link" id="overview">1. Overview</h2>
+    <p>SpendLens ("we", "us", or "the app") is a privacy-first personal-finance application that helps you track expenses by analysing your transaction SMS messages. This Privacy Policy explains what data the app accesses, how it is processed, and the choices you have.</p>
+    <p>Because SpendLens is designed to run <strong>fully on your device</strong>, the processing model is different from typical apps that send your data to a server. In short: your data stays with you.</p>
+
+    <h2 class="toc-link" id="collect">2. Data we collect</h2>
+    <h3>SMS messages</h3>
+    <ul>
+      <li><strong>What we access:</strong> Transaction SMS messages from banks, payment apps, and credit cards.</li>
+      <li><strong>How we access it:</strong> With your explicit permission, via Android's <code>READ_SMS</code> and <code>RECEIVE_SMS</code> permissions, requested at runtime.</li>
+      <li><strong>What we extract:</strong> Transaction amount, date, merchant name, category, and a masked account/card reference.</li>
+      <li><strong>What we do NOT collect:</strong> Full personal SMS conversations, full account numbers, or any personally identifiable identity information sent off-device.</li>
+    </ul>
+    <p>All extraction happens locally on your device. Extracted data is stored only in the app's local, encrypted database.</p>
+
+    <h2 class="toc-link" id="no-account">3. No account required</h2>
+    <p>SpendLens does not require you to create an account or provide personal information such as:</p>
+    <ul>
+      <li>Email address</li>
+      <li>Phone number</li>
+      <li>Name or address</li>
+      <li>Financial account numbers</li>
+    </ul>
+    <p>The app works without any login, registration, or sign-in of any kind.</p>
+
+    <h2 class="toc-link" id="storage">4. Data storage &amp; security</h2>
+    <h3>On-device storage only</h3>
+    <ul>
+      <li>All data is stored <strong>exclusively on your device</strong>.</li>
+      <li>No transaction data is transmitted to any server or cloud service.</li>
+      <li>No internet connection is required for core functionality.</li>
+    </ul>
+    <h3>Encryption</h3>
+    <ul>
+      <li>The database is encrypted using <strong>SQLCipher</strong> with 256-bit AES encryption.</li>
+      <li>Encryption keys are generated on-device and protected by the <strong>Android Keystore</strong> system.</li>
+      <li>Data is encrypted at rest.</li>
+    </ul>
+    <h3>No cloud backup</h3>
+    <ul>
+      <li>Cloud backup (<code>allowBackup</code>) is explicitly disabled.</li>
+      <li>Device-to-device data transfer is not supported.</li>
+      <li>Your data never leaves your device.</li>
+    </ul>
+
+    <h2 class="toc-link" id="internet">5. Internet usage</h2>
+    <p>The standard functionality of SpendLens does not require an internet connection. Some optional features may use network access, and only when you enable them:</p>
+    <h3>Optional features (if enabled)</h3>
+    <ul>
+      <li><strong>Merchant name resolution:</strong> If enabled, the app may send only a cleaned merchant-name token to a lookup service to standardise merchant names. <em>No amounts, accounts, or SMS content are ever sent.</em></li>
+      <li><strong>Crash reporting:</strong> If enabled, anonymous crash reports may be sent to help improve the app.</li>
+    </ul>
+    <h3>No personal data transmitted</h3>
+    <p>When the internet is used, we never transmit:</p>
+    <ul>
+      <li>Transaction amounts</li>
+      <li>Account or card information</li>
+      <li>Full SMS content</li>
+      <li>Any personally identifiable information</li>
+    </ul>
+    <p>Sensitive values are masked before any text leaves the device.</p>
+
+    <h2 class="toc-link" id="permissions">6. Permissions we use</h2>
+    <ul>
+      <li><strong>READ_SMS / RECEIVE_SMS</strong> — to read existing transaction SMS and detect new ones. Requested at runtime with an explanation.</li>
+      <li><strong>POST_NOTIFICATIONS</strong> (Android 13+) — to notify you when new transactions are detected, bills are due, or budgets are exceeded.</li>
+      <li><strong>INTERNET / ACCESS_NETWORK_STATE</strong> — used <em>only</em> by the optional merchant-name lookup and anonymous crash reporting.</li>
+    </ul>
+    <p>You can revoke any of these permissions at any time through Android Settings. The app remains installed; only the affected features stop working.</p>
+
+    <h2 class="toc-link" id="rights">7. Your rights &amp; choices</h2>
+    <ul>
+      <li><strong>Access:</strong> View all of your transactions within the app at any time.</li>
+      <li><strong>Edit &amp; correct:</strong> Edit any extracted field or mark a message as "not a transaction".</li>
+      <li><strong>Export:</strong> Export your transaction data to a file (user-initiated).</li>
+      <li><strong>Delete:</strong> Delete individual transactions or all data at once via Settings.</li>
+      <li><strong>Opt-out:</strong> Revoke SMS permissions at any time through Android settings.</li>
+    </ul>
+
+    <h2 class="toc-link" id="deletion">8. Data deletion</h2>
+    <p>You can permanently delete your data at any time:</p>
+    <ol>
+      <li>Open SpendLens.</li>
+      <li>Go to <strong>Settings</strong>.</li>
+      <li>Select <strong>Delete All Data</strong>.</li>
+      <li>Confirm the deletion.</li>
+    </ol>
+    <p>This permanently removes all transactions and app data from your device. Because we never hold your data on a server, no separate deletion request is needed. See our <a href="data-deletion.html">Data Deletion guide</a> for details.</p>
+
+    <h2 class="toc-link" id="third-parties">9. Third-party services</h2>
+    <h3>Google Play Services</h3>
+    <p>Required for app distribution and functionality on Android devices. Google's privacy policy applies: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.</p>
+    <h3>Crash reporting (if enabled)</h3>
+    <p>Anonymous crash data and basic device information may be collected to improve stability. This can be disabled in app settings.</p>
+
+    <h2 class="toc-link" id="children">10. Children's privacy</h2>
+    <p>SpendLens is not intended for children under 13. We do not knowingly collect any information from children under 13. If you believe a child has provided information, please contact us so we can delete it.</p>
+
+    <h2 class="toc-link" id="changes">11. Changes to this policy</h2>
+    <p>We may update this Privacy Policy from time to time. Significant changes will be:</p>
+    <ul>
+      <li>Notified within the app where practical.</li>
+      <li>Posted with an updated "Last updated" date on this page.</li>
+      <li>Effective immediately upon posting.</li>
+    </ul>
+
+    <h2 class="toc-link" id="contact">12. Contact us</h2>
+    <p>If you have questions about this Privacy Policy or how your data is handled, please contact us:</p>
+    <ul>
+      <li><strong>Privacy email:</strong> <a href="mailto:privacy@spendlens.app">privacy@spendlens.app</a></li>
+      <li><strong>Support email:</strong> <a href="mailto:support@spendlens.app">support@spendlens.app</a></li>
+      <li><strong>Support page:</strong> <a href="support.html">spendlens.app/support</a></li>
+    </ul>
+
+    <div class="legal-callout" style="margin-top:34px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <p><strong>Google Play Data Safety.</strong> Data types collected: financial information (transaction amounts) and SMS messages — stored locally only. Data sharing: none. Data security: on-device encrypted storage. Data deletion: available in-app at any time.</p>
+    </div>
+
+    <p style="margin-top:30px;"><a href="index.html">&larr; Back to SpendLens home</a></p>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="index.html"><svg class="logo" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#16201E"/><path d="M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z" stroke="#2DD4BF" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="16" r="3.4" fill="#2DD4BF"/></svg> SpendLens</a>
+        <p>A privacy-first personal finance app that turns your transaction SMS into instant, on-device insights.</p>
+      </div>
+      <div class="footer-col"><h5>Product</h5><ul><li><a href="index.html#features">Features</a></li><li><a href="index.html#privacy">Privacy</a></li><li><a href="index.html#how">How it works</a></li><li><a href="index.html#faq">FAQ</a></li></ul></div>
+      <div class="footer-col"><h5>Legal</h5><ul><li><a href="privacy-policy.html">Privacy Policy</a></li><li><a href="terms.html">Terms of Service</a></li><li><a href="data-deletion.html">Data Deletion</a></li><li><a href="data-deletion.html#safety">Data Safety</a></li></ul></div>
+      <div class="footer-col"><h5>Support</h5><ul><li><a href="support.html">Help center</a></li><li><a href="mailto:support@spendlens.app">support@spendlens.app</a></li><li><a href="mailto:privacy@spendlens.app">privacy@spendlens.app</a></li></ul></div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="yr">2026</span> SpendLens. All rights reserved.</span>
+      <span>Made with privacy in mind · <a href="privacy-policy.html">Privacy Policy</a> · <a href="terms.html">Terms</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

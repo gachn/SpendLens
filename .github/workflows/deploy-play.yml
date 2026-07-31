@@ -6,6 +6,11 @@ name: Deploy to Play Store
 on:
   push:
     branches: [main]
+    # Skip the Android build + Play Store upload when only the website (or this
+    # Pages workflow) changes — the website is not part of the app bundle.
+    paths-ignore:
+      - 'website/**'
+      - '.github/workflows/deploy-pages.yml'
 
 permissions:
   contents: read

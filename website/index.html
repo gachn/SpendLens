@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SpendLens — Track every spend automatically. Privately.</title>
+<meta name="description" content="SpendLens is a privacy-first Android app that reads your bank, UPI & card transaction SMS, categorises them automatically, and shows beautiful insights — with everything processed on your device and encrypted with SQLCipher." />
+<meta name="theme-color" content="#0E1514" />
+<meta property="og:title" content="SpendLens — Privacy-first expense tracking" />
+<meta property="og:description" content="Your transactions, automatically tracked from SMS. Your data never leaves your phone." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E1514'/%3E%3Cpath d='M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z' fill='none' stroke='%232DD4BF' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.4' fill='%232DD4BF'/%3E%3C/svg%3E" />
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="index.html" aria-label="SpendLens home">
+      <svg class="logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#16201E"/>
+        <path d="M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z" fill="none" stroke="#2DD4BF" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="16" cy="16" r="3.4" fill="#2DD4BF"/>
+      </svg>
+      SpendLens
+    </a>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+      <a href="support.html">Support</a>
+      <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=com.gachn.spendlens" target="_blank" rel="noopener">Get the app</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow reveal">Privacy-first finance</span>
+      <h1 class="reveal">Track every spend <span class="gradient-text">automatically.</span> Privately.</h1>
+      <p class="lead reveal">SpendLens reads your bank, UPI &amp; card transaction SMS, parses them with a self-learning engine, and turns them into beautiful insights — all on your device. No accounts. No cloud. No tracking.</p>
+      <div class="hero-cta reveal">
+        <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.gachn.spendlens" target="_blank" rel="noopener" aria-label="Get it on Google Play">
+          <svg class="pt-logo" viewBox="0 0 512 512" aria-hidden="true"><path fill="#00d4ff" d="M48 32l284 224L48 480z"/><path fill="#00f176" d="M48 32l324 256-66 52z"/><path fill="#ffce00" d="M368 284l72-56-104-40z"/><path fill="#ff3a44" d="M48 480l324-256 72 56z"/></svg>
+          <span><span class="pt-tiny">GET IT ON</span><br><span class="pt-big">Google Play</span></span>
+        </a>
+        <a class="btn btn-ghost" href="#features">See features</a>
+      </div>
+      <div class="hero-trust reveal">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9"/></svg> No account needed</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke-linejoin="round"/></svg> 100% on-device</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> SQLCipher encrypted</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 15-6.7M21 12a9 9 0 0 1-15 6.7"/><path d="M3 5v4h4M21 19v-4h-4" stroke-linecap="round" stroke-linejoin="round"/></svg> Self-learning</span>
+      </div>
+    </div>
+
+    <!-- Phone mockup -->
+    <div class="phone-wrap reveal">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="app-pad">
+            <div class="app-top">
+              <div><div class="app-hello">Good morning</div><div class="app-name">Your spending</div></div>
+              <div class="app-avatar"></div>
+            </div>
+            <div class="app-balance-card">
+              <div class="lbl">Spent this month</div>
+              <div class="amt">₹ 24,860</div>
+              <div class="row">
+                <div class="app-mini in"><div class="l">Income</div><div class="v">₹62,400</div></div>
+                <div class="app-mini out"><div class="l">Expenses</div><div class="v">₹24,860</div></div>
+              </div>
+            </div>
+            <div class="app-section-title">Top categories <small>July</small></div>
+            <div class="donut-row">
+              <div class="donut"></div>
+              <div class="donut-info">
+                <div class="t">Across 5 categories</div>
+                <div class="legend">
+                  <div><i style="background:#3CDDC7"></i>Food &amp; Dining <small style="color:var(--muted)">38%</small></div>
+                  <div><i style="background:#316BF3"></i>Shopping <small style="color:var(--muted)">22%</small></div>
+                  <div><i style="background:#EF4444"></i>Bills <small style="color:var(--muted)">18%</small></div>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-title">Recent <small>auto-captured</small></div>
+            <div class="tx"><div class="ic r">🛒</div><div class="meta"><div class="m1">BigBasket</div><div class="m2">UPI · Groceries</div></div><div class="amt neg">−₹1,240</div></div>
+            <div class="tx"><div class="ic t">💰</div><div class="meta"><div class="m1">Salary Credit</div><div class="m2">Bank · Income</div></div><div class="amt pos">+₹62,400</div></div>
+            <div class="tx"><div class="ic b">⚡</div><div class="meta"><div class="m1">Electricity Bill</div><div class="m2">Card · Utilities</div></div><div class="amt neg">−₹2,150</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust strip -->
+  <div class="wrap">
+    <div class="trust-strip reveal">
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v6c0 5-4 8-9 10-5-2-9-5-9-10z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="l"><b>Bank-grade</b><small>AES-256 via SQLCipher</small></div></div>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg><div class="l"><b>Android native</b><small>Kotlin + Jetpack Compose</small></div></div>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg><div class="l"><b>Real-time</b><small>Parses SMS as they arrive</small></div></div>
+      <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round"/></svg><div class="l"><b>Smart insights</b><small>Trends, budgets, categories</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Features</span>
+      <h2>Everything you need to understand your money</h2>
+      <p>SpendLens does the boring work — capturing, deduplicating, and categorising every transaction — so you can focus on the insights.</p>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L4 21l1.1-4.5A8.5 8.5 0 1 1 21 11.5Z" stroke-linejoin="round"/></svg></div>
+        <h3>Automatic SMS capture</h3>
+        <p>Reads bank, UPI &amp; card transaction SMS the moment they arrive and on first import — no manual entry, ever.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <h3>Self-learning pattern engine</h3>
+        <p>A pluggable engine ships with generic built-in patterns and learns new SMS formats over time — so parsing keeps improving.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="13" height="16" rx="2"/><path d="M8 9h3M8 13h3M16 9l4 2v3l-4 2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Smart duplicate detection</h3>
+        <p>Re-delivered SMS and double notifications from bank + card networks are detected and merged — your totals stay accurate.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l2-7h14l2 7M3 11h18v8H3z" stroke-linejoin="round"/><circle cx="7" cy="15" r="1.4"/><circle cx="17" cy="15" r="1.4"/></svg></div>
+        <h3>Auto-categorisation</h3>
+        <p>Transactions are sorted into Food, Transport, Shopping, Bills and more — and your corrections are remembered per merchant.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke-linecap="round"/></svg></div>
+        <h3>Beautiful analytics</h3>
+        <p>Monthly trends, spend-by-category breakdowns, top merchants, and debit-vs-credit views in a clean Material 3 interface.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12" /></svg></div>
+        <h3>Home-screen widgets</h3>
+        <p>Glanceable widgets show your month's spend vs budget and your top categories right on your home screen.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></div>
+        <h3>Bill &amp; budget alerts</h3>
+        <p>Get reminded before recurring bills are due and warned when a category is on pace to exceed its monthly budget.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" stroke-linejoin="round"/><path d="M12 8v4M12 15.5h.01" stroke-linecap="round"/></svg></div>
+        <h3>Encrypted vault</h3>
+        <p>Your database is encrypted at rest with SQLCipher and keys are sealed in the Android Keystore. Cloud backup is disabled.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H7l-3 3z" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke-linecap="round"/></svg></div>
+        <h3>Review &amp; correct</h3>
+        <p>Unparsed messages and probable duplicates land in a review queue. Your edits create smarter rules for future parsing.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRIVACY ============ -->
+<section id="privacy">
+  <div class="wrap privacy-wrap">
+    <div>
+      <span class="eyebrow reveal">Privacy by design</span>
+      <h2 class="reveal" style="font-size:clamp(28px,4vw,42px);margin-top:16px;">Your data never leaves your phone.</h2>
+      <p class="reveal" style="color:var(--text-soft);font-size:17px;margin-top:14px;">Most finance apps sync everything to the cloud. SpendLens doesn't. Every transaction is parsed, stored, and analysed locally. No account, no login, no server.</p>
+      <ul class="privacy-list">
+        <li class="reveal"><span class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><div><b>On-device only</b><p>No raw SMS, account numbers, or amounts are transmitted. Core features need no internet connection.</p></div></li>
+        <li class="reveal"><span class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>SQLCipher + Android Keystore</b><p>AES-256 encryption at rest with keys protected by hardware-backed Android Keystore.</p></div></li>
+        <li class="reveal"><span class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span><div><b>No cloud backup</b><p>Backup and device-to-device transfer are explicitly disabled. Your data stays where you put it.</p></div></li>
+        <li class="reveal"><span class="pi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></span><div><b>You're in control</b><p>Revoke SMS permission anytime, export your data, or wipe everything with one tap. Read our <a href="privacy-policy.html">Privacy Policy</a>.</p></div></li>
+      </ul>
+    </div>
+    <div class="shield-art reveal">
+      <div class="orbit"><span class="dot"></span></div>
+      <div class="shield">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section id="how" style="background:linear-gradient(180deg,transparent,rgba(45,212,191,.03));">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>From SMS to insight in seconds</h2>
+      <p>Set it up once and forget manual expense tracking forever.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="num">1</div><h4>Grant SMS access</h4><p>Approve SMS permission after a clear explanation of exactly what's read and why. No other permissions needed.</p></div>
+      <div class="step reveal"><div class="num">2</div><h4>Auto-import</h4><p>SpendLens scans your inbox once in the background, filters to financial messages, and builds your transaction history.</p></div>
+      <div class="step reveal"><div class="num">3</div><h4>It learns</h4><p>New SMS are parsed live. Unrecognised formats are learned over time so future messages are captured automatically.</p></div>
+      <div class="step reveal"><div class="num">4</div><h4>Get insights</h4><p>Open the app (or a widget) for live spending, trends, and budgets — all stored encrypted on your device.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">FAQ</span>
+      <h2>Questions, answered</h2>
+    </div>
+    <div class="faq">
+      <details class="faq-item reveal"><summary class="faq-q">Does SpendLens send my data to a server? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">No. All parsing, storage, and analytics happen on your device. The app's core functionality needs no internet connection. The only optional network use is merchant-name lookups, which send just the cleaned merchant token — never amounts, accounts, or full SMS.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">Why does it need to read my SMS? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">Transaction details live in the SMS your bank, UPI app, and card network send you. SpendLens reads only those messages to extract amount, date, and merchant — and never your personal conversations.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">Is my data encrypted? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">Yes. The local database is encrypted with SQLCipher (AES-256) and the encryption key is generated and stored using the Android Keystore. Cloud backup is disabled.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">Do I need to create an account? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">No account, email, or phone number is required. Install, grant SMS permission, and you're set.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">What if a bank's SMS format isn't recognised? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">Unrecognised messages go to the Review queue. The self-learning engine proposes a new pattern from the message structure, validates it, and uses it for all future messages from that format.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">Can I delete my data? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">Anytime. Delete individual transactions, or wipe everything from Settings → Delete All Data. See our <a href="data-deletion.html">Data Deletion guide</a>.</div></details>
+      <details class="faq-item reveal"><summary class="faq-q">Which Android versions are supported? <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="faq-a">SpendLens supports Android 8.0 (API 26) and newer, targeting the latest Android SDK.</div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section>
+  <div class="wrap">
+    <div class="cta-banner reveal">
+      <h2>Take control of your spending today</h2>
+      <p>Free, private, and built to run entirely on your phone. Your money, your data, your rules.</p>
+      <div class="hero-cta">
+        <a class="btn btn-lg btn-primary" href="https://play.google.com/store/apps/details?id=com.gachn.spendlens" target="_blank" rel="noopener" style="background:#fff;color:#003731;">Download on Google Play</a>
+        <a class="btn btn-lg btn-ghost" href="support.html" style="border-color:rgba(255,255,255,.4);color:#fff;">Contact support</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="index.html">
+          <svg class="logo" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#16201E"/><path d="M5 16a11 11 0 0 1 18-8.5L16 16l7 8.5A11 11 0 0 1 5 16Z" stroke="#2DD4BF" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="16" r="3.4" fill="#2DD4BF"/></svg>
+          SpendLens
+        </a>
+        <p>A privacy-first personal finance app that turns your transaction SMS into instant, on-device insights.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Product</h5>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <ul>
+          <li><a href="privacy-policy.html">Privacy Policy</a></li>
+          <li><a href="terms.html">Terms of Service</a></li>
+          <li><a href="data-deletion.html">Data Deletion</a></li>
+          <li><a href="data-deletion.html#safety">Data Safety</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Support</h5>
+        <ul>
+          <li><a href="support.html">Help center</a></li>
+          <li><a href="mailto:support@spendlens.app">support@spendlens.app</a></li>
+          <li><a href="mailto:privacy@spendlens.app">privacy@spendlens.app</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="yr">2026</span> SpendLens. All rights reserved.</span>
+      <span>Made with privacy in mind · <a href="privacy-policy.html">Privacy Policy</a> · <a href="terms.html">Terms</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
