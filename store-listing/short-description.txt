@@ -1,0 +1,1 @@
+SpendLens: Track expenses automatically from bank SMS. Secure, private finance tracking.

@@ -32,6 +32,7 @@ class RemoteConfigManager {
         private const val DEFAULT_AI_CONCURRENT_REQUESTS = 6L
         private const val DEFAULT_AI_MAX_ITEMS_PER_BATCH = 30L
         private const val DEFAULT_FIREBASE_SYNC_THRESHOLD = 50L
+        private const val DEFAULT_DEBUG_ANALYTICS_SYNC_PERIOD_HOURS = 5L
         
         @Volatile
         private var instance: RemoteConfigManager? = null
@@ -68,7 +69,8 @@ class RemoteConfigManager {
             KEY_AI_MAX_TOKENS_PER_REQUEST to DEFAULT_AI_MAX_TOKENS_PER_REQUEST,
             KEY_AI_CONCURRENT_REQUESTS to DEFAULT_AI_CONCURRENT_REQUESTS,
             KEY_AI_MAX_ITEMS_PER_BATCH to DEFAULT_AI_MAX_ITEMS_PER_BATCH,
-            KEY_FIREBASE_SYNC_THRESHOLD to DEFAULT_FIREBASE_SYNC_THRESHOLD
+            KEY_FIREBASE_SYNC_THRESHOLD to DEFAULT_FIREBASE_SYNC_THRESHOLD,
+            KEY_DEBUG_ANALYTICS_SYNC_PERIOD_HOURS to DEFAULT_DEBUG_ANALYTICS_SYNC_PERIOD_HOURS
         )
         remoteConfig.setDefaultsAsync(defaults)
         
@@ -114,6 +116,11 @@ class RemoteConfigManager {
         return remoteConfig.getLong(KEY_FIREBASE_SYNC_THRESHOLD).toInt().coerceIn(10, 100)
     }
     
+    fun getDebugAnalyticsSyncPeriodHours(): Long {
+        return remoteConfig.getLong(KEY_DEBUG_ANALYTICS_SYNC_PERIOD_HOURS).takeIf { it > 0 } 
+            ?: DEFAULT_DEBUG_ANALYTICS_SYNC_PERIOD_HOURS
+    }
+    
     fun getCacheExpirationSeconds(): Long {
         return remoteConfig.getLong(KEY_CACHE_EXPIRATION_SECONDS)
             .takeIf { it > 0 } ?: DEFAULT_CACHE_EXPIRATION_SECONDS
@@ -127,7 +134,8 @@ class RemoteConfigManager {
             "ai_model" to getAiModel(),
             "ai_max_tokens_per_request" to getAiMaxTokensPerRequest(),
             "ai_concurrent_requests" to getAiConcurrentRequests(),
-            "ai_max_items_per_batch" to getAiMaxItemsPerBatch()
+            "ai_max_items_per_batch" to getAiMaxItemsPerBatch(),
+            "debug_analytics_sync_period_hours" to getDebugAnalyticsSyncPeriodHours()
         )
     }
 }

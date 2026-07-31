@@ -8,7 +8,10 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
+import com.spendlens.app.config.RemoteConfigManager
 import com.spendlens.app.di.AppContainer
+import com.spendlens.app.sms.SmsProcessingStats
+import com.spendlens.app.ui.viewmodel.DebugCounts
 import com.spendlens.app.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,16 +40,58 @@ class SpendLensApp : Application() {
         com.spendlens.app.work.VelocityAlertWorker.schedule(this)
         com.spendlens.app.work.WidgetRefreshWorker.schedule(this)
         com.spendlens.app.work.MerchantConsolidationWorker.schedule(this)
+        
+        setupDebugAnalyticsSync()
+        
         appScope.launch {
             container.seed()
-            runCatching { container.fxRepository.refresh() } // refresh FX rates best-effort
-            // Resume any Premium AI-batch backlog left behind by a killed/interrupted process —
-            // PENDING_AI rows otherwise only get re-queued when a new SMS arrives.
+            runCatching { container.fxRepository.refresh() }
             val stranded = container.rawSmsDao.listByStatus(com.spendlens.app.data.db.RawStatus.PENDING_AI)
             if (stranded.isNotEmpty()) {
                 AppLog.i("SpendLensApp: resuming ${stranded.size} AI-batch rows stranded from a prior run")
                 com.spendlens.app.work.AiSmsBatchWorker.enqueue(this@SpendLensApp)
             }
+        }
+    }
+    
+    private fun setupDebugAnalyticsSync() {
+        appScope.launch(Dispatchers.IO) {
+            try {
+                RemoteConfigManager.getInstance().fetchAndActivate()
+                
+                val raw = container.rawSmsDao
+                val txn = container.database.transactionDao()
+                val pat = container.patternRepository
+                val stats = container.smsProcessor.stats.value
+                
+                val counts = DebugCounts(
+                    totalRawSms = raw.count(),
+                    parsedCount = raw.countByStatus(com.spendlens.app.data.db.RawStatus.PARSED),
+                    unparsedCount = raw.countByStatus(com.spendlens.app.data.db.RawStatus.UNPARSED),
+                    ignoredCount = raw.countByStatus(com.spendlens.app.data.db.RawStatus.IGNORED),
+                    pendingAiCount = raw.countByStatus(com.spendlens.app.data.db.RawStatus.PENDING_AI),
+                    aiParsedCount = raw.countAiParsed(),
+                    aiPatternParsedCount = raw.countAiPatternParsed(),
+                    totalTransactions = txn.count(),
+                    duplicateTransactions = txn.countDuplicates(),
+                    patternBuiltin = pat.countBySource(com.spendlens.app.data.db.PatternSource.BUILTIN),
+                    patternAi = pat.countBySource(com.spendlens.app.data.db.PatternSource.AI),
+                    patternHeuristic = pat.countBySource(com.spendlens.app.data.db.PatternSource.HEURISTIC),
+                    patternUser = pat.countBySource(com.spendlens.app.data.db.PatternSource.USER),
+                    patternFirebase = 0,
+                    firebaseSyncLastRun = "",
+                    firebaseSyncPatternsDownloaded = 0,
+                    firebaseSyncSendersScanned = 0,
+                    firebaseSyncPatternsUploaded = 0,
+                )
+                
+                container.debugAnalyticsManager.syncDebugAnalytics(counts, stats)
+                
+            } catch (e: Exception) {
+                AppLog.e("SpendLensApp", "Failed to sync debug analytics: ${e.message}", e)
+            }
+        }
+    }
         }
     }
 

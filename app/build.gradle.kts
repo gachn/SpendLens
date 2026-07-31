@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.crashlytics)
     alias(libs.plugins.google.services)
+    kotlin("plugin.serialization") version "2.0.20"
 }
 
 // OpenRouter API key from local.properties (gitignored) for local builds, or a CI secret env
@@ -34,12 +35,12 @@ fun releaseSigningProp(key: String): String? =
 val releaseKeystorePath: String? = releaseSigningProp("RELEASE_KEYSTORE_PATH")
 
 // CI (see .github/workflows/deploy-play.yml) passes a strictly increasing build number here so
-// every Play Store upload has a unique versionCode. Local builds default to 1.
-val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 1
+// every Play Store upload has a unique versionCode. Local builds default to 3.
+val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 3
 
 android {
     namespace = "com.spendlens.app"
-    compileSdk = 34
+    compileSdk = 35
 
     lint {
         abortOnError = false
@@ -64,7 +65,7 @@ android {
     defaultConfig {
         applicationId = "com.gachn.spendlens"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = releaseVersionCode
         versionName = "1.0.0"
 
@@ -133,6 +134,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     // Encrypted on-device storage
     implementation(libs.androidx.room.runtime)

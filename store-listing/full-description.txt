@@ -1,0 +1,87 @@
+📱 **SpendLens — Automatic Expense Tracker via SMS**
+
+Stop manually entering every transaction. SpendLens reads your bank and payment SMS messages automatically and categorizes your spending — so you can focus on managing your money, not logging it.
+
+✨ **KEY FEATURES**
+
+🔹 **Automatic Transaction Capture**
+- Reads transaction SMS from banks, UPI apps, wallets, and credit cards
+- Extracts amount, merchant, category, and account details instantly
+- No manual entry required — works in the background
+
+🔹 **Smart Categorization**
+- AI-powered auto-categorization learns your spending habits
+- Pre-built patterns for 100+ Indian banks and payment providers
+- Customize categories and rules to match your preferences
+
+🔹 **Privacy-First Design**
+- All data stored locally on your device (SQLCipher encrypted)
+- No account required — your data stays on your phone
+- Works offline — no internet needed for core features
+
+🔹 **Comprehensive Spending Insights**
+- Track spending by category, merchant, and time period
+- Visual charts and graphs to understand your financial habits
+- Set budget goals and monitor progress
+
+🔹 **Secure & Protected**
+- App lock with biometric authentication (fingerprint/face unlock)
+- Encrypted database prevents unauthorized access
+- No cloud storage unless you explicitly enable backup
+
+🔹 **Backup & Restore**
+- Export encrypted backups to your device
+- Restore anytime when switching phones
+- Your data remains under your control
+
+🎯 **WHO IS THIS FOR?**
+
+- Want to track spending without manual entry
+- Use multiple bank accounts and cards
+- Need quick insights into where your money goes
+- Value privacy and don't want cloud-based finance apps
+- Want a simple, ad-free expense tracker
+
+🏦 **SUPPORTED PROVIDERS**
+
+Works with major Indian banks and payment services:
+- Banks: HDFC, ICICI, SBI, Axis, Kotak, and 100+ more
+- UPI: GPay, PhonePe, Paytm, BharatPe, Cred, and others
+- Credit Cards: All major card providers
+- Wallets: Paytm Wallet, Amazon Pay, Mobikwik
+
+🔒 **PERMISSIONS EXPLAINED**
+
+- **READ_SMS**: Required to read transaction messages from banks/payment apps
+- **RECEIVE_SMS**: Needed to capture new transactions automatically
+- **INTERNET**: Used only for optional features (AI categorization, pattern sync, analytics)
+
+📊 **HOW IT WORKS**
+
+1. Install SpendLens and grant SMS permission
+2. The app automatically detects and reads transaction SMS
+3. Transactions are parsed and categorized instantly
+4. View your spending analytics in beautiful charts
+5. Set budgets and track your financial goals
+
+💡 **PRO TIPS**
+
+- Keep SMS permissions enabled for automatic capture
+- Enable biometric lock for extra security
+- Review categorized transactions and adjust as needed
+- Use pattern sync to get the latest bank SMS formats
+
+🌟 **NO ACCOUNT REQUIRED**
+
+Unlike other finance apps, SpendLens works without creating an account. Your data lives on your device and stays private. Optionally backup to your personal storage.
+
+📥 **DOWNLOAD NOW**
+
+Start tracking your expenses automatically today. No signup, no ads, no data selling — just simple, private financial tracking.
+
+---
+
+**Have questions or feedback?**
+Email: chauhangaurav101@gmail.com
+Privacy Policy: https://gachn.github.io/SpendLens/privacy-policy.html
+Data Deletion: https://gachn.github.io/SpendLens/data-deletion.html

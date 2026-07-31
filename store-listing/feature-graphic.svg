@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="featureBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2DD4BF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#006B5F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0051D5;stop-opacity:1" />
+    </linearGradient>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+    <filter id="cardShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="500" fill="url(#featureBg)" />
+
+  <!-- Decorative elements -->
+  <circle cx="900" cy="100" r="80" fill="#ffffff" opacity="0.1"/>
+  <circle cx="100" cy="400" r="60" fill="#ffffff" opacity="0.1"/>
+  <circle cx="800" cy="450" r="40" fill="#ffffff" opacity="0.05"/>
+
+  <!-- Left content - App branding -->
+  <g transform="translate(80, 80)">
+    <!-- Logo circle -->
+    <circle cx="120" cy="100" r="80" fill="#ffffff" filter="url(#cardShadow)"/>
+    <text x="120" y="130" font-family="Arial, sans-serif" font-size="60" font-weight="bold" fill="#0051D5" text-anchor="middle">₹</text>
+
+    <!-- App name -->
+    <text x="120" y="240" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="#ffffff" text-anchor="middle" filter="url(#textShadow)">SpendLens</text>
+
+    <!-- Tagline -->
+    <text x="120" y="290" font-family="Arial, sans-serif" font-size="28" font-weight="normal" fill="#ffffff" text-anchor="middle" opacity="0.9" filter="url(#textShadow)">Automatic Expense Tracker</text>
+  </g>
+
+  <!-- Right content - Phone mockup with SMS -->
+  <g transform="translate(600, 50)">
+    <!-- Phone frame -->
+    <rect x="0" y="0" width="280" height="400" rx="30" ry="30" fill="#1a1a1a" filter="url(#cardShadow)"/>
+    <rect x="10" y="10" width="260" height="380" rx="22" ry="22" fill="#ffffff"/>
+
+    <!-- Phone screen content -->
+    <rect x="20" y="30" width="240" height="80" rx="10" fill="#f5f5f5"/>
+    <text x="40" y="60" font-family="Arial, sans-serif" font-size="14" fill="#666" font-weight="bold">HDFCBK</text>
+    <text x="40" y="85" font-family="Arial, sans-serif" font-size="16" fill="#333">₹2,500 spent at Amazon</text>
+
+    <!-- Arrow to transaction card -->
+    <path d="M140 120 L140 150" stroke="#2DD4BF" stroke-width="3" marker-end="url(#arrowhead)"/>
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#2DD4BF"/>
+      </marker>
+    </defs>
+
+    <!-- Transaction card -->
+    <rect x="20" y="160" width="240" height="200" rx="10" fill="#e0f2f1" stroke="#2DD4BF" stroke-width="2"/>
+    <text x="40" y="200" font-family="Arial, sans-serif" font-size="18" fill="#006B5F" font-weight="bold">Transaction Captured</text>
+    <rect x="40" y="220" width="200" height="30" rx="5" fill="#2DD4BF"/>
+    <text x="50" y="240" font-family="Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold">Shopping - Amazon</text>
+    <text x="40" y="280" font-family="Arial, sans-serif" font-size="32" fill="#0051D5" font-weight="bold">₹2,500</text>
+    <text x="40" y="330" font-family="Arial, sans-serif" font-size="12" fill="#666">HDFC Credit Card •••• 9496</text>
+  </g>
+
+  <!-- Bottom promotional text -->
+  <text x="512" y="470" font-family="Arial, sans-serif" font-size="20" fill="#ffffff" text-anchor="middle" opacity="0.8" filter="url(#textShadow)">No manual entry • 100% Private • Offline-first</text>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2DD4BF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#006B5F;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.95" />
+      <stop offset="100%" style="stop-color:#e0f2f1;stop-opacity:0.95" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle with gradient -->
+  <circle cx="256" cy="256" r="230" fill="url(#bgGradient)" />
+
+  <!-- SMS bubble icon -->
+  <g filter="url(#shadow)">
+    <path d="M156 160 Q156 140 176 140 L336 140 Q356 140 356 160 L356 280 Q356 300 336 300 L196 300 L156 340 L156 300 L176 300 Q156 300 156 280 Z" 
+          fill="url(#iconGradient)" stroke="#ffffff" stroke-width="4"/>
+
+    <!-- Dollar/Symbol inside SMS bubble -->
+    <text x="256" y="250" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#0051D5" text-anchor="middle">₹</text>
+  </g>
+
+  <!-- SpendLens text below icon -->
+  <text x="256" y="420" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#ffffff" text-anchor="middle">SpendLens</text>
+</svg>

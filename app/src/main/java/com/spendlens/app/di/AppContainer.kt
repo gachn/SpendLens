@@ -1,6 +1,7 @@
 package com.spendlens.app.di
 
 import android.content.Context
+import com.spendlens.app.analytics.DebugAnalyticsManager
 import com.spendlens.app.ai.AiPatternGenerator
 import com.spendlens.app.ai.HeuristicPatternGenerator
 import com.spendlens.app.ai.GatedMerchantResolver
@@ -11,7 +12,9 @@ import com.spendlens.app.ai.PatternGenerator
 import com.spendlens.app.ai.PromotionalChecker
 import com.spendlens.app.ai.SenderClassifier
 import com.spendlens.app.ai.WebMerchantResolver
+import com.spendlens.app.config.RemoteConfigManager
 import com.spendlens.app.data.prefs.AiConfigStore
+import com.spendlens.app.data.prefs.DebugAnalyticsStore
 import com.spendlens.app.data.ReceiptStore
 import com.spendlens.app.data.crypto.DatabaseKeyManager
 import com.spendlens.app.data.db.AppDatabase
@@ -61,6 +64,22 @@ class AppContainer(context: Context) {
 
     /** Firebase pattern sync preferences and state. */
     val syncStore by lazy { com.spendlens.app.data.prefs.SyncStore(appContext) }
+
+    /** Remote configuration manager. */
+    val remoteConfig by lazy { RemoteConfigManager.getInstance() }
+
+    /** Debug analytics storage and state. */
+    val debugAnalyticsStore by lazy { DebugAnalyticsStore(appContext) }
+
+    /** Debug analytics manager for syncing debug data to Firebase. */
+    val debugAnalyticsManager by lazy { 
+        DebugAnalyticsManager(
+            context = appContext,
+            remoteConfig = remoteConfig,
+            analyticsStore = debugAnalyticsStore,
+            patternRepository = patternRepository
+        )
+    }
 
     val patternRepository by lazy { PatternRepository(database.patternDao()) }
     val transactionRepository by lazy { TransactionRepository(database.transactionDao(), database.transactionSplitDao()) }
