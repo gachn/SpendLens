@@ -42,7 +42,7 @@ jobs:
           enablement: automatic   # auto-enable GitHub Pages if not already enabled
 
       - name: Upload website artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: website   # deploy ONLY the website folder
 
