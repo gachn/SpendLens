@@ -38,6 +38,8 @@ jobs:
 
       - name: Set up Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: automatic   # auto-enable GitHub Pages if not already enabled
 
       - name: Upload website artifact
         uses: actions/upload-pages-artifact@v3
