@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # write needed to auto-enable Pages
   pages: write
   id-token: write   # required to publish the Pages deployment
 
