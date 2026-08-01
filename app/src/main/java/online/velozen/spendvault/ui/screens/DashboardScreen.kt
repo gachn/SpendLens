@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,16 +41,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.components.GlassCard
-import com.spendlens.app.ui.components.ProChip
-import com.spendlens.app.ui.components.ProProgressBar
-import com.spendlens.app.ui.components.TransactionRow
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.BudgetsViewModel
-import com.spendlens.app.ui.viewmodel.DashboardViewModel
-import com.spendlens.app.ui.viewmodel.DashboardUiState
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.components.GlassCard
+import online.velozen.spendvault.ui.components.ProChip
+import online.velozen.spendvault.ui.components.ProProgressBar
+import online.velozen.spendvault.ui.components.TransactionRow
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.BudgetsViewModel
+import online.velozen.spendvault.ui.viewmodel.DashboardViewModel
+import online.velozen.spendvault.ui.viewmodel.DashboardUiState
 
 @Composable
 fun DashboardScreen(

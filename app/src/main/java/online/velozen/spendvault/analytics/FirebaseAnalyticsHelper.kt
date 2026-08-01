@@ -1,4 +1,4 @@
-package com.spendlens.app.analytics
+package online.velozen.spendvault.analytics
 
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics

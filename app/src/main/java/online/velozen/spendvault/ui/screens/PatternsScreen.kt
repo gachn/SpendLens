@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,11 +42,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.viewmodel.SettingsViewModel
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 

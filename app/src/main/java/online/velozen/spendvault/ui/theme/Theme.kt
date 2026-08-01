@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.theme
+package online.velozen.spendvault.ui.theme
 
 import android.app.Activity
 import androidx.compose.material3.MaterialTheme

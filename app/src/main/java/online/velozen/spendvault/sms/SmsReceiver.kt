@@ -1,10 +1,10 @@
-package com.spendlens.app.sms
+package online.velozen.spendvault.sms
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
-import com.spendlens.app.work.SmsSyncWorker
+import online.velozen.spendvault.work.SmsSyncWorker
 
 /**
  * Receives new SMS and does the minimum: reconstruct the (possibly multipart) message

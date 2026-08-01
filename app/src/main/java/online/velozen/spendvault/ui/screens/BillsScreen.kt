@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,12 +30,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.BillItem
-import com.spendlens.app.ui.viewmodel.BillsViewModel
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.BillItem
+import online.velozen.spendvault.ui.viewmodel.BillsViewModel
 
 @Composable
 fun BillsScreen(vm: BillsViewModel) {

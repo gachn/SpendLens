@@ -1,4 +1,4 @@
-package com.spendlens.app.accessibility
+package online.velozen.spendvault.accessibility
 
 import android.content.Context
 import android.view.View

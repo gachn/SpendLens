@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,9 +10,9 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.MainActivity
-import com.spendlens.app.R
-import com.spendlens.app.SpendLensApp
+import online.velozen.spendvault.MainActivity
+import online.velozen.spendvault.R
+import online.velozen.spendvault.SpendLensApp
 import java.util.concurrent.TimeUnit
 
 /**

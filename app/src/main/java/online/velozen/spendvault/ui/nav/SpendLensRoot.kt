@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.nav
+package online.velozen.spendvault.ui.nav
 
 import android.Manifest
 import android.content.Intent
@@ -91,48 +91,48 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.di.AppContainer
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.ui.components.LocalPrimaryCurrency
-import com.spendlens.app.ui.components.TransactionDetailSheet
-import com.spendlens.app.ui.screens.AccountsScreen
-import com.spendlens.app.ui.screens.AnalyticsScreen
-import com.spendlens.app.ui.screens.BillsScreen
-import com.spendlens.app.ui.screens.BudgetsScreen
-import com.spendlens.app.ui.screens.CategoriesScreen
-import com.spendlens.app.ui.screens.DashboardScreen
-import com.spendlens.app.ui.screens.DebugScreen
-import com.spendlens.app.ui.screens.GoalsScreen
-import com.spendlens.app.ui.screens.ManualEntryScreen
-import com.spendlens.app.ui.screens.MerchantDetailScreen
-import com.spendlens.app.ui.screens.MerchantsScreen
-import com.spendlens.app.ui.screens.PatternsScreen
-import com.spendlens.app.ui.screens.SendersScreen
-import com.spendlens.app.ui.screens.OnboardingScreen
-import com.spendlens.app.ui.screens.OnboardingFlowScreen
-import com.spendlens.app.ui.screens.ReviewScreen
-import com.spendlens.app.ui.screens.SettingsScreen
-import com.spendlens.app.ui.screens.SubscriptionsScreen
-import com.spendlens.app.ui.screens.TransactionsScreen
-import com.spendlens.app.ui.viewmodel.AccountsViewModel
-import com.spendlens.app.ui.viewmodel.AnalyticsViewModel
-import com.spendlens.app.ui.viewmodel.BillsViewModel
-import com.spendlens.app.ui.viewmodel.BudgetsViewModel
-import com.spendlens.app.ui.viewmodel.CategoriesViewModel
-import com.spendlens.app.ui.viewmodel.DashboardViewModel
-import com.spendlens.app.ui.viewmodel.GoalsViewModel
-import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
-import com.spendlens.app.ui.viewmodel.MerchantsViewModel
-import com.spendlens.app.ui.viewmodel.ReviewViewModel
-import com.spendlens.app.ui.viewmodel.SenderClassificationsViewModel
-import com.spendlens.app.ui.viewmodel.SettingsViewModel
-import com.spendlens.app.ui.viewmodel.SpendLensViewModelFactory
-import com.spendlens.app.ui.viewmodel.SubscriptionsViewModel
-import com.spendlens.app.ui.viewmodel.TransactionDetailViewModel
-import com.spendlens.app.ui.viewmodel.TransactionsViewModel
-import com.spendlens.app.work.SmsSyncWorker
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.di.AppContainer
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.ui.components.LocalPrimaryCurrency
+import online.velozen.spendvault.ui.components.TransactionDetailSheet
+import online.velozen.spendvault.ui.screens.AccountsScreen
+import online.velozen.spendvault.ui.screens.AnalyticsScreen
+import online.velozen.spendvault.ui.screens.BillsScreen
+import online.velozen.spendvault.ui.screens.BudgetsScreen
+import online.velozen.spendvault.ui.screens.CategoriesScreen
+import online.velozen.spendvault.ui.screens.DashboardScreen
+import online.velozen.spendvault.ui.screens.DebugScreen
+import online.velozen.spendvault.ui.screens.GoalsScreen
+import online.velozen.spendvault.ui.screens.ManualEntryScreen
+import online.velozen.spendvault.ui.screens.MerchantDetailScreen
+import online.velozen.spendvault.ui.screens.MerchantsScreen
+import online.velozen.spendvault.ui.screens.PatternsScreen
+import online.velozen.spendvault.ui.screens.SendersScreen
+import online.velozen.spendvault.ui.screens.OnboardingScreen
+import online.velozen.spendvault.ui.screens.OnboardingFlowScreen
+import online.velozen.spendvault.ui.screens.ReviewScreen
+import online.velozen.spendvault.ui.screens.SettingsScreen
+import online.velozen.spendvault.ui.screens.SubscriptionsScreen
+import online.velozen.spendvault.ui.screens.TransactionsScreen
+import online.velozen.spendvault.ui.viewmodel.AccountsViewModel
+import online.velozen.spendvault.ui.viewmodel.AnalyticsViewModel
+import online.velozen.spendvault.ui.viewmodel.BillsViewModel
+import online.velozen.spendvault.ui.viewmodel.BudgetsViewModel
+import online.velozen.spendvault.ui.viewmodel.CategoriesViewModel
+import online.velozen.spendvault.ui.viewmodel.DashboardViewModel
+import online.velozen.spendvault.ui.viewmodel.GoalsViewModel
+import online.velozen.spendvault.ui.viewmodel.ManualEntryViewModel
+import online.velozen.spendvault.ui.viewmodel.MerchantsViewModel
+import online.velozen.spendvault.ui.viewmodel.ReviewViewModel
+import online.velozen.spendvault.ui.viewmodel.SenderClassificationsViewModel
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel
+import online.velozen.spendvault.ui.viewmodel.SpendLensViewModelFactory
+import online.velozen.spendvault.ui.viewmodel.SubscriptionsViewModel
+import online.velozen.spendvault.ui.viewmodel.TransactionDetailViewModel
+import online.velozen.spendvault.ui.viewmodel.TransactionsViewModel
+import online.velozen.spendvault.work.SmsSyncWorker
 
 // Bottom nav destinations (5 primary sections matching the design mock:
 // Home · History · Accounts · Insights · Budgets)
@@ -242,7 +242,7 @@ fun SpendLensRoot(
                 } else null
 
                 if (clipText != null && clipText != lastProcessedClip &&
-                    clipText != com.spendlens.app.ai.AiBridgeHelper.lastCopiedPrompt) {
+                    clipText != online.velozen.spendvault.ai.AiBridgeHelper.lastCopiedPrompt) {
                     val extracted = extractJson(clipText)
                     if (extracted != null) {
                         try {
@@ -548,7 +548,7 @@ private fun PermissionGate(content: @Composable () -> Unit) {
     LaunchedEffect(smsGranted) {
         if (smsGranted) {
             SmsSyncWorker.enqueueImport(context)
-            com.spendlens.app.work.BackupReminderWorker.schedule(context)
+            online.velozen.spendvault.work.BackupReminderWorker.schedule(context)
         }
     }
     LaunchedEffect(smsGranted, notifGranted) {

@@ -1,12 +1,12 @@
-package com.spendlens.app.sync
+package online.velozen.spendvault.sync
 
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
-import com.spendlens.app.data.db.PatternDao
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.parser.model.Channel
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.data.db.PatternDao
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.parser.model.Channel
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.tasks.await
 
 class PatternSyncService(

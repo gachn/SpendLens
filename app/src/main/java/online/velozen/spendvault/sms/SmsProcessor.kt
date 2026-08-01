@@ -1,45 +1,45 @@
-package com.spendlens.app.sms
+package online.velozen.spendvault.sms
 
-import com.spendlens.app.ai.AiSmsResult
-import com.spendlens.app.ai.PatternGenerator
-import com.spendlens.app.ai.Pii
-import com.spendlens.app.ai.PromotionalChecker
-import com.spendlens.app.data.Hashing
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.CardBillDao
-import com.spendlens.app.data.db.CardBillEntity
-import com.spendlens.app.data.db.RawSmsDao
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.db.SenderClassificationDao
-import com.spendlens.app.data.db.SenderClassificationEntity
-import com.spendlens.app.data.db.SenderSource
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.data.fx.FxRepository
+import online.velozen.spendvault.ai.AiSmsResult
+import online.velozen.spendvault.ai.PatternGenerator
+import online.velozen.spendvault.ai.Pii
+import online.velozen.spendvault.ai.PromotionalChecker
+import online.velozen.spendvault.data.Hashing
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.CardBillDao
+import online.velozen.spendvault.data.db.CardBillEntity
+import online.velozen.spendvault.data.db.RawSmsDao
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.db.SenderClassificationDao
+import online.velozen.spendvault.data.db.SenderClassificationEntity
+import online.velozen.spendvault.data.db.SenderSource
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.data.fx.FxRepository
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import com.spendlens.app.parser.BalanceUpdateParser
-import com.spendlens.app.parser.CardBillParser
-import com.spendlens.app.data.repository.CategoryRepository
-import com.spendlens.app.data.db.BalanceSnapshotDao
-import com.spendlens.app.data.db.BalanceSnapshotEntity
-import com.spendlens.app.data.repository.MerchantRepository
-import com.spendlens.app.data.repository.PatternRepository
-import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.parser.AccountExtractor
-import com.spendlens.app.parser.BalanceExtractor
-import com.spendlens.app.parser.DuplicateDetector
-import com.spendlens.app.parser.FinancialSenderFilter
-import com.spendlens.app.parser.FinancialSmsFilter
-import com.spendlens.app.parser.MerchantEchoDetector
-import com.spendlens.app.parser.MerchantExtractor
-import com.spendlens.app.parser.PatternEngine
-import com.spendlens.app.parser.SelfTransferDetector
-import com.spendlens.app.parser.model.CompiledPattern
-import com.spendlens.app.parser.model.MatchResult
-import com.spendlens.app.parser.model.SmsMessage
-import com.spendlens.app.parser.model.TxnDirection
+import online.velozen.spendvault.parser.BalanceUpdateParser
+import online.velozen.spendvault.parser.CardBillParser
+import online.velozen.spendvault.data.repository.CategoryRepository
+import online.velozen.spendvault.data.db.BalanceSnapshotDao
+import online.velozen.spendvault.data.db.BalanceSnapshotEntity
+import online.velozen.spendvault.data.repository.MerchantRepository
+import online.velozen.spendvault.data.repository.PatternRepository
+import online.velozen.spendvault.data.repository.TransactionRepository
+import online.velozen.spendvault.parser.AccountExtractor
+import online.velozen.spendvault.parser.BalanceExtractor
+import online.velozen.spendvault.parser.DuplicateDetector
+import online.velozen.spendvault.parser.FinancialSenderFilter
+import online.velozen.spendvault.parser.FinancialSmsFilter
+import online.velozen.spendvault.parser.MerchantEchoDetector
+import online.velozen.spendvault.parser.MerchantExtractor
+import online.velozen.spendvault.parser.PatternEngine
+import online.velozen.spendvault.parser.SelfTransferDetector
+import online.velozen.spendvault.parser.model.CompiledPattern
+import online.velozen.spendvault.parser.model.MatchResult
+import online.velozen.spendvault.parser.model.SmsMessage
+import online.velozen.spendvault.parser.model.TxnDirection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,7 +55,7 @@ data class SmsProcessingProgress(
  * start — these are runtime/session metrics, not historical stats (those are queried from the DB).
  */
 data class SmsProcessingStats(
-    /** Number of Premium AI batch runs ([com.spendlens.app.work.AiSmsBatchWorker] completions) this session. */
+    /** Number of Premium AI batch runs ([online.velozen.spendvault.work.AiSmsBatchWorker] completions) this session. */
     val aiBatchCount: Int = 0,
     /** Cumulative wall-clock time spent in AI batch runs this session (ms). */
     val aiBatchTotalMs: Long = 0L,
@@ -97,14 +97,14 @@ class SmsProcessor(
     /**
      * When true, SMS from senders not yet in the classification DB and not matching the
      * built-in static list are IGNORED immediately. They will be re-evaluated once
-     * [com.spendlens.app.work.SenderClassifyWorker] runs and may be recovered if the AI
+     * [online.velozen.spendvault.work.SenderClassifyWorker] runs and may be recovered if the AI
      * confirms the sender is financial. Defaults to true.
      */
     private val financialSendersOnly: () -> Boolean = { true },
     private val promotionalChecker: PromotionalChecker? = null,
     /**
      * True when the Premium AI pipeline should handle every SMS (see
-     * [com.spendlens.app.data.prefs.AiConfigStore.isUsable]). When true, [process] skips the
+     * [online.velozen.spendvault.data.prefs.AiConfigStore.isUsable]). When true, [process] skips the
      * sender/body/regex pipeline entirely and defers each SMS to [enqueueAiBatch]'s debounced
      * batch call; [applyAiBatchResult] resolves it afterwards.
      */
@@ -121,7 +121,7 @@ class SmsProcessor(
     private val _stats = MutableStateFlow(SmsProcessingStats())
     val stats: StateFlow<SmsProcessingStats> = _stats.asStateFlow()
 
-    /** Drives [progress] for external batch drivers (currently [com.spendlens.app.work.AiSmsBatchWorker]). */
+    /** Drives [progress] for external batch drivers (currently [online.velozen.spendvault.work.AiSmsBatchWorker]). */
     fun beginExternalProgress(total: Int) {
         _progress.value = SmsProcessingProgress(current = 0, total = total, isProcessing = true)
     }
@@ -134,7 +134,7 @@ class SmsProcessor(
         _progress.value = SmsProcessingProgress(isProcessing = false)
     }
 
-    /** Records a completed Premium AI batch run — called by [com.spendlens.app.work.AiSmsBatchWorker]. */
+    /** Records a completed Premium AI batch run — called by [online.velozen.spendvault.work.AiSmsBatchWorker]. */
     fun recordAiBatchRun(durationMs: Long, smsCount: Int) {
         _stats.value = _stats.value.let { s ->
             s.copy(
@@ -361,7 +361,7 @@ class SmsProcessor(
      * the AI batch ([enqueueAiBatch]) — years of SMS already sitting UNPARSED from before Premium
      * was turned on (or from before this SMS's format had a learned pattern) never get a second
      * look, because a plain inbox re-scan is incremental and skips anything already ingested (see
-     * [com.spendlens.app.sms.SmsImporter]'s `since` cursor) and bulk reprocessing
+     * [online.velozen.spendvault.sms.SmsImporter]'s `since` cursor) and bulk reprocessing
      * ([reprocessUnparsed]/[reprocessAllSms]) deliberately never calls the AI. This is what lets
      * "Re-scan SMS inbox" actually reach that backlog: it requeues every UNPARSED row as
      * PENDING_AI in one statement and kicks the batch once. No-op on Free (or if AI isn't

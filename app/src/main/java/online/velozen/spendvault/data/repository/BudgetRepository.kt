@@ -1,7 +1,7 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.data.db.BudgetDao
-import com.spendlens.app.data.db.BudgetEntity
+import online.velozen.spendvault.data.db.BudgetDao
+import online.velozen.spendvault.data.db.BudgetEntity
 import kotlinx.coroutines.flow.Flow
 
 class BudgetRepository(private val dao: BudgetDao) {

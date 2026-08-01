@@ -6,7 +6,7 @@
 -keep class androidx.room.** { *; }
 
 # Keep entity classes (reflection by Room)
--keep class com.spendlens.app.data.db.** { *; }
+-keep class online.velozen.spendvault.data.db.** { *; }
 
 # Kotlin metadata
 -keepattributes *Annotation*, Signature, InnerClasses

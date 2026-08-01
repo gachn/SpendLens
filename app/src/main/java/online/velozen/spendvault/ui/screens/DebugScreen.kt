@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,10 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.viewmodel.SettingsViewModel
-import com.spendlens.app.config.RemoteConfigManager
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel
+import online.velozen.spendvault.config.RemoteConfigManager
 
 /**
  * App-level debug/diagnostic controls — split out of [SettingsScreen] so ordinary user

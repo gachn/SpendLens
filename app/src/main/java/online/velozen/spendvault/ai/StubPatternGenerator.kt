@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.parser.model.GeneratedPattern
+import online.velozen.spendvault.parser.model.GeneratedPattern
 
 /** Pure pattern-only mode: never proposes a new pattern. */
 class StubPatternGenerator : PatternGenerator {

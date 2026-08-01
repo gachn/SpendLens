@@ -1,10 +1,10 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.data.db.PatternDao
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.parser.BuiltinPatterns
-import com.spendlens.app.parser.model.CompiledPattern
+import online.velozen.spendvault.data.db.PatternDao
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.parser.BuiltinPatterns
+import online.velozen.spendvault.parser.model.CompiledPattern
 import kotlinx.coroutines.flow.Flow
 
 /**

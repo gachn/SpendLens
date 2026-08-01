@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -6,11 +6,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.data.db.SenderClassificationEntity
-import com.spendlens.app.data.db.SenderSource
-import com.spendlens.app.parser.FinancialSenderFilter
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.data.db.SenderClassificationEntity
+import online.velozen.spendvault.data.db.SenderSource
+import online.velozen.spendvault.parser.FinancialSenderFilter
+import online.velozen.spendvault.util.AppLog
 
 /**
  * Background job that classifies SMS senders as financial or non-financial, building a persistent

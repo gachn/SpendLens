@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Pulls an available/account balance figure out of a *transaction* SMS body

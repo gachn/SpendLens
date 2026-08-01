@@ -1,6 +1,6 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.SmsMessage
+import online.velozen.spendvault.parser.model.SmsMessage
 
 /**
  * Sender-side pre-filter used when the user enables "Financial senders only" in Settings.

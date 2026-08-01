@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -38,19 +38,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.components.DonutChart
-import com.spendlens.app.ui.components.GlassCard
-import com.spendlens.app.ui.components.GroupedBarChart
-import com.spendlens.app.ui.components.LocalPrimaryCurrency
-import com.spendlens.app.ui.components.MonthDropdown
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.AnalyticsTab
-import com.spendlens.app.ui.viewmodel.AnalyticsViewModel
-import com.spendlens.app.ui.viewmodel.CategoryComparisonRow
-import com.spendlens.app.ui.viewmodel.CategorySlice
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.components.DonutChart
+import online.velozen.spendvault.ui.components.GlassCard
+import online.velozen.spendvault.ui.components.GroupedBarChart
+import online.velozen.spendvault.ui.components.LocalPrimaryCurrency
+import online.velozen.spendvault.ui.components.MonthDropdown
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.AnalyticsTab
+import online.velozen.spendvault.ui.viewmodel.AnalyticsViewModel
+import online.velozen.spendvault.ui.viewmodel.CategoryComparisonRow
+import online.velozen.spendvault.ui.viewmodel.CategorySlice
 import kotlin.math.absoluteValue
 
 @Composable

@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.util
+package online.velozen.spendvault.ui.util
 
 import java.time.Instant
 import java.time.YearMonth

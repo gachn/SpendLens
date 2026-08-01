@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 import java.time.Instant
 import java.time.LocalDate

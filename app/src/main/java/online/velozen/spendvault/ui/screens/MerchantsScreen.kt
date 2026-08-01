@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,9 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.viewmodel.MerchantRow
-import com.spendlens.app.ui.viewmodel.MerchantsViewModel
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.viewmodel.MerchantRow
+import online.velozen.spendvault.ui.viewmodel.MerchantsViewModel
 
 /**
  * Settings → Merchants: search and edit every known merchant. Editing renames the merchant across
@@ -159,7 +159,7 @@ fun MerchantsScreen(vm: MerchantsViewModel, onBack: () -> Unit) {
 @Composable
 private fun MerchantCard(
     row: MerchantRow,
-    categories: List<com.spendlens.app.data.db.CategoryEntity>,
+    categories: List<online.velozen.spendvault.data.db.CategoryEntity>,
     onSave: (name: String, categoryId: Long?, excluded: Boolean, emoji: String?, tags: String?) -> Unit,
     onDeleteToken: (String) -> Unit,
 ) {

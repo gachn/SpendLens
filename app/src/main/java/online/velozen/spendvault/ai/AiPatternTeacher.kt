@@ -1,12 +1,12 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.di.AppContainer
-import com.spendlens.app.util.AppLog
-import com.spendlens.app.work.PatternApplyWorker
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.di.AppContainer
+import online.velozen.spendvault.util.AppLog
+import online.velozen.spendvault.work.PatternApplyWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

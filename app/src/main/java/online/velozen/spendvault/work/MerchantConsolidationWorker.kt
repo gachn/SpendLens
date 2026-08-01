@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -6,17 +6,17 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.ai.MerchantConsolidation
-import com.spendlens.app.ai.OpenRouterClient
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.ai.MerchantConsolidation
+import online.velozen.spendvault.ai.OpenRouterClient
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
  * Premium's periodic merchant-name cleanup: unlike the manual "Consolidate with AI" button on the
  * Merchants screen (which always re-sends every merchant), this runs daily and only calls the AI
- * when at least one merchant has never been checked (see [com.spendlens.app.data.db.MerchantAliasEntity.consolidationCheckedAt]),
+ * when at least one merchant has never been checked (see [online.velozen.spendvault.data.db.MerchantAliasEntity.consolidationCheckedAt]),
  * keeping token usage proportional to how many new merchants actually showed up since last time.
  * The full merchant list is still sent as context on each call so the model can group a new alias
  * ("AMZN*456") under an existing canonical brand ("Amazon"), not just among the new ones.

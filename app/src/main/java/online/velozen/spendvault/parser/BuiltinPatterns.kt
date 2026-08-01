@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Seed pattern set (generic / multi-region). These are deliberately broad; learned

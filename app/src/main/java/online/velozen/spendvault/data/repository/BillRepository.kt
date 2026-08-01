@@ -1,8 +1,8 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.data.db.BillDao
-import com.spendlens.app.data.db.BillEntity
-import com.spendlens.app.parser.DetectedBill
+import online.velozen.spendvault.data.db.BillDao
+import online.velozen.spendvault.data.db.BillEntity
+import online.velozen.spendvault.parser.DetectedBill
 import kotlinx.coroutines.flow.Flow
 
 class BillRepository(private val dao: BillDao) {

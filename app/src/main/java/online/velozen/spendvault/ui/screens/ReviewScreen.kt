@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,12 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.components.TransactionRow
-import com.spendlens.app.ui.viewmodel.ReviewViewModel
-import com.spendlens.app.ai.AiBridgeHelper
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.components.TransactionRow
+import online.velozen.spendvault.ui.viewmodel.ReviewViewModel
+import online.velozen.spendvault.ai.AiBridgeHelper
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,17 +45,17 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
 
     // Run the AI "Teach" action: use the direct OpenRouter path when the flag + key allow it,
     // otherwise fall back to the existing copy-prompt-to-clipboard flow.
-    fun teach(toTeach: List<com.spendlens.app.data.db.RawSmsEntity>) {
+    fun teach(toTeach: List<online.velozen.spendvault.data.db.RawSmsEntity>) {
         if (toTeach.isEmpty()) return
         coroutineScope.launch {
             teaching = true
             try {
                 when (val res = vm.teachWithAi(toTeach)) {
-                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Fallback -> {
+                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Fallback -> {
                         val prompt = vm.generatePrompt(toTeach)
                         AiBridgeHelper.copyAndLaunch(context, prompt)
                     }
-                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Applied -> {
+                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Applied -> {
                         val msg = if (res.patternCount > 0) {
                             "\uD83E\uDD16 ${res.patternCount} pattern(s) saved! Applying to all SMS in background\u2026"
                         } else {
@@ -63,7 +63,7 @@ fun ReviewScreen(vm: ReviewViewModel, onTransactionClick: (TransactionEntity) ->
                         }
                         android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                     }
-                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Error -> {
+                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Error -> {
                         android.widget.Toast.makeText(
                             context,
                             "\u26A0\uFE0F AI failed: ${res.message}",

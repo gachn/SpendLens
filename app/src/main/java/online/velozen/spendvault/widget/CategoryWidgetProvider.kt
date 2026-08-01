@@ -1,9 +1,9 @@
-package com.spendlens.app.widget
+package online.velozen.spendvault.widget
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import com.spendlens.app.work.WidgetRefreshWorker
+import online.velozen.spendvault.work.WidgetRefreshWorker
 
 /** 4×2 home-screen widget: top 3 category spends for the current month. */
 class CategoryWidgetProvider : AppWidgetProvider() {

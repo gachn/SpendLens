@@ -1,12 +1,12 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.spendlens.app.di.AppContainer
-import com.spendlens.app.sync.PatternSyncService
-import com.spendlens.app.sync.SyncResult
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.di.AppContainer
+import online.velozen.spendvault.sync.PatternSyncService
+import online.velozen.spendvault.sync.SyncResult
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

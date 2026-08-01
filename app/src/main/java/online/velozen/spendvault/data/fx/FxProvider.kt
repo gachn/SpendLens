@@ -1,6 +1,6 @@
-package com.spendlens.app.data.fx
+package online.velozen.spendvault.data.fx
 
-import com.spendlens.app.parser.Normalize
+import online.velozen.spendvault.parser.Normalize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

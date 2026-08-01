@@ -1,4 +1,4 @@
-package com.spendlens.app.data.db
+package online.velozen.spendvault.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -40,8 +40,8 @@ interface RawSmsDao {
 
     /**
      * Live count of rows in [status] — used to show a "pending" indicator (e.g. PENDING_AI SMS
-     * queued for the debounced Premium batch call) before/between [com.spendlens.app.work.AiSmsBatchWorker]
-     * runs, when [com.spendlens.app.sms.SmsProcessor.progress] isn't actively processing.
+     * queued for the debounced Premium batch call) before/between [online.velozen.spendvault.work.AiSmsBatchWorker]
+     * runs, when [online.velozen.spendvault.sms.SmsProcessor.progress] isn't actively processing.
      */
     @Query("SELECT COUNT(*) FROM raw_sms WHERE status = :status")
     fun observeCountByStatus(status: String): Flow<Int>
@@ -67,7 +67,7 @@ interface RawSmsDao {
 
     /**
      * Latest [receivedAt] timestamp across all stored SMS, or null when the table is empty.
-     * Used by [com.spendlens.app.sms.SmsImporter] to skip inbox messages already ingested
+     * Used by [online.velozen.spendvault.sms.SmsImporter] to skip inbox messages already ingested
      * (incremental import — only pull SMS newer than this timestamp on subsequent syncs).
      */
     @Query("SELECT MAX(receivedAt) FROM raw_sms")
@@ -86,7 +86,7 @@ interface RawSmsDao {
 
     /**
      * PARSED rows that were classified/parsed via an AI call — i.e. the Premium AI batch worker
-     * ([com.spendlens.app.work.AiSmsBatchWorker]) or the AI pattern generator wrote the
+     * ([online.velozen.spendvault.work.AiSmsBatchWorker]) or the AI pattern generator wrote the
      * [RawSmsEntity.aiPrompt] for them. Heuristic-only fallback leaves aiPrompt null.
      */
     @Query("SELECT COUNT(*) FROM raw_sms WHERE aiPrompt IS NOT NULL AND status = 'PARSED'")
@@ -117,7 +117,7 @@ interface RawSmsDao {
     suspend fun listIgnoredForSender(sender: String): List<RawSmsEntity>
 
     /**
-     * PARSED SMS not yet evaluated by [com.spendlens.app.work.PromotionalCheckWorker], filtered
+     * PARSED SMS not yet evaluated by [online.velozen.spendvault.work.PromotionalCheckWorker], filtered
      * to rows containing at least one known promotional keyword (fast SQL pre-screen before the
      * full regex runs in Kotlin). Newest first.
      */
@@ -525,7 +525,7 @@ interface MerchantDao {
     @Query("DELETE FROM merchant_aliases")
     suspend fun clear()
 
-    /** Count of merchants never yet sent to [com.spendlens.app.work.MerchantConsolidationWorker]. */
+    /** Count of merchants never yet sent to [online.velozen.spendvault.work.MerchantConsolidationWorker]. */
     @Query("SELECT COUNT(*) FROM merchant_aliases WHERE consolidationCheckedAt IS NULL")
     suspend fun countUnconsolidated(): Int
 

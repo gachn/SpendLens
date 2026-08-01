@@ -1,6 +1,6 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.BalanceSnapshot
+import online.velozen.spendvault.parser.model.BalanceSnapshot
 
 /**
  * Detects standalone balance-notification SMS that carry no transaction amount — purely

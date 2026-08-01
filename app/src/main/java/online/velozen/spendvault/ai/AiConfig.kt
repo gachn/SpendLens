@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 /**
  * Pure (Android-free) resolution rules for the AI configuration so they can be unit-tested.
@@ -29,7 +29,7 @@ object AiConfig {
     const val DEFAULT_MAX_TOKENS_PER_REQUEST = 4000
 
     /**
-     * Default number of [com.spendlens.app.work.AiSmsBatchWorker] batch calls allowed in flight at
+     * Default number of [online.velozen.spendvault.work.AiSmsBatchWorker] batch calls allowed in flight at
      * once. Each batch call can take tens of seconds, so a large backlog processed one call at a
      * time (the old behaviour) is slow; raising this trades that for a higher chance of tripping a
      * free-tier model's per-key rate limit. Kept low by default; changeable from the debug menu.

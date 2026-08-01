@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ProPrimaryButton
+import online.velozen.spendvault.ui.components.ProPrimaryButton
 
 @Composable
 fun OnboardingScreen(permanentlyDenied: Boolean, onGrant: () -> Unit) {

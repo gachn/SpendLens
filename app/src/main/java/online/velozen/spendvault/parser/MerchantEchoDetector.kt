@@ -1,7 +1,7 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.parser.model.ParsedTransaction
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.parser.model.ParsedTransaction
 
 /**
  * A "merchant echo" is a CREDIT the user never actually received: after you pay a merchant

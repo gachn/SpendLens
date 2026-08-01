@@ -1,4 +1,4 @@
-package com.spendlens.app.data
+package online.velozen.spendvault.data
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -13,7 +13,7 @@ import java.io.File
 
 /**
  * Stores receipt images attached to transactions, **encrypted at rest** with an
- * Android Keystore-backed master key (same scheme as [com.spendlens.app.data.crypto.DatabaseKeyManager]).
+ * Android Keystore-backed master key (same scheme as [online.velozen.spendvault.data.crypto.DatabaseKeyManager]).
  * Files live in app-private storage and are excluded from backup — they never leave the device.
  */
 class ReceiptStore(private val context: Context) {

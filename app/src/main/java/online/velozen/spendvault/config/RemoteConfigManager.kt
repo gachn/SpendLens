@@ -1,4 +1,4 @@
-package com.spendlens.app.config
+package online.velozen.spendvault.config
 
 import android.util.Log
 import com.google.firebase.FirebaseApp

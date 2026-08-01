@@ -1,7 +1,7 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.prefs.AiConfigStore
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.data.prefs.AiConfigStore
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

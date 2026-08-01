@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -55,11 +55,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.ui.theme.NumericDataTextStyle
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.BudgetRow
-import com.spendlens.app.ui.viewmodel.BudgetsViewModel
+import online.velozen.spendvault.ui.theme.NumericDataTextStyle
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.BudgetRow
+import online.velozen.spendvault.ui.viewmodel.BudgetsViewModel
 
 @Composable
 fun BudgetsScreen(vm: BudgetsViewModel) {
@@ -385,7 +385,7 @@ fun BudgetsScreen(vm: BudgetsViewModel) {
 
 /** Premium: burn-rate-aware month-end projection for every category on track to hit its limit. */
 @Composable
-private fun BudgetForecastCard(alerts: List<com.spendlens.app.ai.BudgetAlert>, currency: String) {
+private fun BudgetForecastCard(alerts: List<online.velozen.spendvault.ai.BudgetAlert>, currency: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -649,7 +649,7 @@ private fun ThickProgressBar(
 // but it's a private composable receiving only the row. We use a CompositionLocal
 // or pass the label. Since we must not change the private function to add params
 // beyond what's reasonable, we use a file-level CompositionLocal.
-private val state: com.spendlens.app.ui.viewmodel.BudgetsUiState
+private val state: online.velozen.spendvault.ui.viewmodel.BudgetsUiState
     @Composable get() {
         // This is a trick: we leverage the fact that BudgetCategoryCard is only ever
         // called from within the LazyColumn where `state` is available via closure.
@@ -657,7 +657,7 @@ private val state: com.spendlens.app.ui.viewmodel.BudgetsUiState
         // private functions easily, we provide a default.
         // To avoid compilation issues, let's use a simpler approach and just show
         // a generic label.
-        return com.spendlens.app.ui.viewmodel.BudgetsUiState()
+        return online.velozen.spendvault.ui.viewmodel.BudgetsUiState()
     }
 
 @Composable

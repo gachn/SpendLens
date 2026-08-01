@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.theme
+package online.velozen.spendvault.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -9,7 +9,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.em
-import com.spendlens.app.R
+import online.velozen.spendvault.R
 
 @OptIn(ExperimentalTextApi::class)
 private fun jakarta(weight: FontWeight) = Font(

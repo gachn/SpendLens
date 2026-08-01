@@ -1,4 +1,4 @@
-package com.spendlens.app.data.db
+package online.velozen.spendvault.data.db
 
 import android.content.Context
 import androidx.room.Database
@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.spendlens.app.data.crypto.DatabaseKeyManager
+import online.velozen.spendvault.data.crypto.DatabaseKeyManager
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 /**
@@ -307,7 +307,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         /**
          * v19 → v20: add consolidationCheckedAt to merchant_aliases. Left NULL for existing rows so
-         * the first run of [com.spendlens.app.work.MerchantConsolidationWorker] treats every
+         * the first run of [online.velozen.spendvault.work.MerchantConsolidationWorker] treats every
          * pre-existing merchant as "new" once, then stamps them so later runs only see genuinely
          * new merchants.
          */

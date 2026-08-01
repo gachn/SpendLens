@@ -1,15 +1,15 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.data.db.AccountBalance
-import com.spendlens.app.data.db.AccountSender
-import com.spendlens.app.data.db.CategoryTotal
-import com.spendlens.app.data.db.MerchantTotal
-import com.spendlens.app.data.db.TransactionChannel
-import com.spendlens.app.data.db.TransactionDao
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.data.db.TransactionSplitDao
-import com.spendlens.app.data.db.TransactionSplitEntity
-import com.spendlens.app.parser.CurrencyConverter
+import online.velozen.spendvault.data.db.AccountBalance
+import online.velozen.spendvault.data.db.AccountSender
+import online.velozen.spendvault.data.db.CategoryTotal
+import online.velozen.spendvault.data.db.MerchantTotal
+import online.velozen.spendvault.data.db.TransactionChannel
+import online.velozen.spendvault.data.db.TransactionDao
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.data.db.TransactionSplitDao
+import online.velozen.spendvault.data.db.TransactionSplitEntity
+import online.velozen.spendvault.parser.CurrencyConverter
 import kotlinx.coroutines.flow.Flow
 
 class TransactionRepository(
@@ -115,7 +115,7 @@ baseCurrency: String,
         txn.copy(
             cardPaymentKey = cardKey,
             excludedFromExpense = true,
-            categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+            categoryId = online.velozen.spendvault.data.DefaultCategories.CARD_PAYMENT_ID,
         ),
     )
 

@@ -1,10 +1,10 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.prefs.AiConfigStore
-import com.spendlens.app.parser.model.GeneratedPattern
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.prefs.AiConfigStore
+import online.velozen.spendvault.parser.model.GeneratedPattern
+import online.velozen.spendvault.util.AppLog
 
 /**
  * Premium pattern learner: asks the configured OpenRouter model (a stronger model than the

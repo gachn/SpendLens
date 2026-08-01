@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 import org.json.JSONException
 import org.json.JSONObject

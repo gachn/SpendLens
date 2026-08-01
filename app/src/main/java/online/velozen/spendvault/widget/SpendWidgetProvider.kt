@@ -1,9 +1,9 @@
-package com.spendlens.app.widget
+package online.velozen.spendvault.widget
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import com.spendlens.app.work.WidgetRefreshWorker
+import online.velozen.spendvault.work.WidgetRefreshWorker
 
 /** 2×1 home-screen widget: current month spend vs total budget with a progress bar. */
 class SpendWidgetProvider : AppWidgetProvider() {

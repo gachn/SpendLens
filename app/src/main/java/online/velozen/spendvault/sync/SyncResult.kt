@@ -1,4 +1,4 @@
-package com.spendlens.app.sync
+package online.velozen.spendvault.sync
 
 data class SyncResult(
     val sendersScanned: Int = 0,

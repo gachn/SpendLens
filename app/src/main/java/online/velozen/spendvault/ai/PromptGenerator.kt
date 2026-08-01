@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawSmsEntity
 
 object PromptGenerator {
 

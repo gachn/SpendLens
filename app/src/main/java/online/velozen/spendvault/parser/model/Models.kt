@@ -1,4 +1,4 @@
-package com.spendlens.app.parser.model
+package online.velozen.spendvault.parser.model
 
 /**
  * Pure-Kotlin domain models for parsing. No Android imports here so this whole
@@ -59,7 +59,7 @@ data class BalanceSnapshot(
     val observedAt: Long,
 )
 
-/** A pattern compiled and ready for matching by [com.spendlens.app.parser.PatternEngine]. */
+/** A pattern compiled and ready for matching by [online.velozen.spendvault.parser.PatternEngine]. */
 data class CompiledPattern(
     val id: Long,
     val priority: Int,
@@ -69,7 +69,7 @@ data class CompiledPattern(
 
 data class MatchResult(val patternId: Long, val transaction: ParsedTransaction)
 
-/** A pattern produced by a [com.spendlens.app.ai.PatternGenerator], before validation/persistence. */
+/** A pattern produced by a [online.velozen.spendvault.ai.PatternGenerator], before validation/persistence. */
 data class GeneratedPattern(
     val name: String,
     val bodyRegex: String,

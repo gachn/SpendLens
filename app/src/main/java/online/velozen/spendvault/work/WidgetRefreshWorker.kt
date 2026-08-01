@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -8,8 +8,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.widget.WidgetUpdater
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.widget.WidgetUpdater
 import java.util.concurrent.TimeUnit
 
 /**

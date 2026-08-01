@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Turns a raw merchant span into (a) a canonical lookup [key] used for caching/dictionary

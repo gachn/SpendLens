@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,9 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.data.db.SenderSource
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.viewmodel.SenderClassificationsViewModel
+import online.velozen.spendvault.data.db.SenderSource
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.viewmodel.SenderClassificationsViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

@@ -1,4 +1,4 @@
-package com.spendlens.app.data.backup
+package online.velozen.spendvault.data.backup
 
 import java.security.SecureRandom
 import java.security.spec.KeySpec

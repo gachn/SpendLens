@@ -1,10 +1,10 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.util.AppLog
 
 object AiBridgeHelper {
     /**

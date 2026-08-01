@@ -1,6 +1,6 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.SmsMessage
+import online.velozen.spendvault.parser.model.SmsMessage
 
 /**
  * Cheap pre-filter that rejects obviously non-financial SMS before any pattern

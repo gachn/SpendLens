@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.parser.model.GeneratedPattern
+import online.velozen.spendvault.parser.model.GeneratedPattern
 import java.util.regex.Pattern
 
 /**

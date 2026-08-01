@@ -1,4 +1,4 @@
-package com.spendlens.app
+package online.velozen.spendvault
 
 import android.content.Intent
 import android.os.Build
@@ -37,12 +37,12 @@ import androidx.lifecycle.lifecycleScope
 import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.spendlens.app.data.prefs.ThemeMode
-import com.spendlens.app.ui.nav.SpendLensRoot
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.util.AppLog
-import com.spendlens.app.util.FirebaseHelper
-import com.spendlens.app.work.AiCategorizeWorker
+import online.velozen.spendvault.data.prefs.ThemeMode
+import online.velozen.spendvault.ui.nav.SpendLensRoot
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.util.AppLog
+import online.velozen.spendvault.util.FirebaseHelper
+import online.velozen.spendvault.work.AiCategorizeWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -69,7 +69,7 @@ class MainActivity : FragmentActivity() {
         // Check for Firebase sync on app startup
         lifecycleScope.launch {
             try {
-                com.spendlens.app.sync.FirebaseStartupSync.checkAndSyncIfNeeded(
+                online.velozen.spendvault.sync.FirebaseStartupSync.checkAndSyncIfNeeded(
                     context = applicationContext,
                     patternDao = container.database.patternDao()
                 )

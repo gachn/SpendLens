@@ -1,4 +1,4 @@
-package com.spendlens.app.sync
+package online.velozen.spendvault.sync
 
 data class CloudPattern(
     val id: String = "",

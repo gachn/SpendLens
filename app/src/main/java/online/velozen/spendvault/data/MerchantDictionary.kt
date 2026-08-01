@@ -1,4 +1,4 @@
-package com.spendlens.app.data
+package online.velozen.spendvault.data
 
 /**
  * Bundled, offline map of common merchant keys → canonical brand names. Checked before

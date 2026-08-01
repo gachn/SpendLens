@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Pulls the raw merchant/counterparty span out of an SMS, trying the common structures

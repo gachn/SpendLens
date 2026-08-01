@@ -1,17 +1,17 @@
-package com.spendlens.app.analytics
+package online.velozen.spendvault.analytics
 
 import android.content.Context
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
-import com.spendlens.app.config.RemoteConfigManager
-import com.spendlens.app.data.prefs.DebugAnalyticsStore
-import com.spendlens.app.data.prefs.DebugCounts
-import com.spendlens.app.data.prefs.PatternSource
-import com.spendlens.app.data.prefs.RawStatus
-import com.spendlens.app.data.repository.PatternRepository
-import com.spendlens.app.sms.SmsProcessingStats
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.config.RemoteConfigManager
+import online.velozen.spendvault.data.prefs.DebugAnalyticsStore
+import online.velozen.spendvault.data.prefs.DebugCounts
+import online.velozen.spendvault.data.prefs.PatternSource
+import online.velozen.spendvault.data.prefs.RawStatus
+import online.velozen.spendvault.data.repository.PatternRepository
+import online.velozen.spendvault.sms.SmsProcessingStats
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable

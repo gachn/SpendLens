@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
@@ -55,12 +55,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.components.TransactionRow
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.viewmodel.DateRangeFilter
-import com.spendlens.app.ui.viewmodel.TransactionsViewModel
-import com.spendlens.app.ui.viewmodel.TxnFilter
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.components.TransactionRow
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.viewmodel.DateRangeFilter
+import online.velozen.spendvault.ui.viewmodel.TransactionsViewModel
+import online.velozen.spendvault.ui.viewmodel.TxnFilter
 
 @Composable
 fun TransactionsScreen(
@@ -413,7 +413,7 @@ fun TransactionsScreen(
                     // Individual transaction cards
                     txns.forEachIndexed { i, txn ->
                         item {
-                            val isManual = txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL
+                            val isManual = txn.channel == online.velozen.spendvault.data.db.TransactionChannel.MANUAL
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),

@@ -1,10 +1,10 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.ai.MerchantResolver
-import com.spendlens.app.data.MerchantDictionary
-import com.spendlens.app.data.db.MerchantAliasEntity
-import com.spendlens.app.data.db.MerchantDao
-import com.spendlens.app.parser.MerchantNormalizer
+import online.velozen.spendvault.ai.MerchantResolver
+import online.velozen.spendvault.data.MerchantDictionary
+import online.velozen.spendvault.data.db.MerchantAliasEntity
+import online.velozen.spendvault.data.db.MerchantDao
+import online.velozen.spendvault.parser.MerchantNormalizer
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.map
 
@@ -172,7 +172,7 @@ class MerchantRepository(
         cache.remove(rawKey)
     }
 
-    /** Count of merchants [com.spendlens.app.work.MerchantConsolidationWorker] hasn't checked yet. */
+    /** Count of merchants [online.velozen.spendvault.work.MerchantConsolidationWorker] hasn't checked yet. */
     suspend fun countUnconsolidated(): Int = dao.countUnconsolidated()
 
     /** Stamp every not-yet-checked merchant as considered by the periodic consolidation pass. */

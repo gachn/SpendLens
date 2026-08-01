@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,13 +43,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.data.db.SavingsGoalEntity
-import com.spendlens.app.ui.components.GlassCard
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.GoalItem
-import com.spendlens.app.ui.viewmodel.GoalsViewModel
+import online.velozen.spendvault.data.db.SavingsGoalEntity
+import online.velozen.spendvault.ui.components.GlassCard
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.GoalItem
+import online.velozen.spendvault.ui.viewmodel.GoalsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

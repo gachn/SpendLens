@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -6,9 +6,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.parser.model.SmsMessage
-import com.spendlens.app.sms.TransactionNotifier
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.parser.model.SmsMessage
+import online.velozen.spendvault.sms.TransactionNotifier
 
 /**
  * Background parser. Two modes: parse a single freshly-received SMS, or import the
@@ -39,7 +39,7 @@ class SmsSyncWorker(
                     container.smsProcessor.backfillBalances()
                     container.smsProcessor.backfillBalanceSnapshots()
                     // Refresh recurring-bill detection over the freshly-imported history.
-                    val detected = com.spendlens.app.parser.BillDetector.detect(
+                    val detected = online.velozen.spendvault.parser.BillDetector.detect(
                         container.transactionRepository.allDebits(),
                     )
                     container.billRepository.syncDetected(detected)

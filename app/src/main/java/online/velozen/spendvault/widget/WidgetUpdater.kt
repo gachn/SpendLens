@@ -1,4 +1,4 @@
-package com.spendlens.app.widget
+package online.velozen.spendvault.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -7,15 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.view.View
 import android.widget.RemoteViews
-import com.spendlens.app.MainActivity
-import com.spendlens.app.R
-import com.spendlens.app.data.db.CategoryEntity
-import com.spendlens.app.data.repository.BudgetRepository
-import com.spendlens.app.data.repository.CategoryRepository
-import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.data.db.CategoryTotal
-import com.spendlens.app.ui.util.Money
+import online.velozen.spendvault.MainActivity
+import online.velozen.spendvault.R
+import online.velozen.spendvault.data.db.CategoryEntity
+import online.velozen.spendvault.data.repository.BudgetRepository
+import online.velozen.spendvault.data.repository.CategoryRepository
+import online.velozen.spendvault.data.repository.TransactionRepository
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.data.db.CategoryTotal
+import online.velozen.spendvault.ui.util.Money
 
 /**
  * Builds and pushes RemoteViews for both home-screen widgets. Called by [WidgetRefreshWorker]

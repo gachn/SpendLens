@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.db.TransactionEntity
+import online.velozen.spendvault.data.db.TransactionEntity
 import kotlin.math.roundToInt
 
 data class BudgetAlert(

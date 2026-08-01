@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.parser.Normalize
+import online.velozen.spendvault.parser.Normalize
 import org.json.JSONArray
 import org.json.JSONObject
 

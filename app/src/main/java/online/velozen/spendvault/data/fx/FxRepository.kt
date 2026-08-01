@@ -1,7 +1,7 @@
-package com.spendlens.app.data.fx
+package online.velozen.spendvault.data.fx
 
 import android.content.Context
-import com.spendlens.app.parser.CurrencyConverter
+import online.velozen.spendvault.parser.CurrencyConverter
 
 /**
  * Holds currency → rate-to-INR. Starts from bundled fallbacks, persists the latest fetched

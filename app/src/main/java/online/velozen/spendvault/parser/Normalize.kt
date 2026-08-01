@@ -1,7 +1,7 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.Channel
-import com.spendlens.app.parser.model.TxnDirection
+import online.velozen.spendvault.parser.model.Channel
+import online.velozen.spendvault.parser.model.TxnDirection
 
 /** Normalisation helpers shared by the engine and generators. Pure Kotlin. */
 object Normalize {

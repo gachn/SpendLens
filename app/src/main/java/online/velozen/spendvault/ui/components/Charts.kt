@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.components
+package online.velozen.spendvault.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures

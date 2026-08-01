@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.util
+package online.velozen.spendvault.ui.util
 
 import java.math.BigDecimal
 import java.math.RoundingMode

@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.components
+package online.velozen.spendvault.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -36,16 +36,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.spendlens.app.data.db.CategoryEntity
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.Money
+import online.velozen.spendvault.data.db.CategoryEntity
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.Money
 import java.time.YearMonth
 
 /**
  * The user's resolved primary currency (override or device-locale auto-detect), provided once at
- * the [com.spendlens.app.ui.nav.SpendLensRoot] and read by [TransactionRow] to decide whether to
+ * the [online.velozen.spendvault.ui.nav.SpendLensRoot] and read by [TransactionRow] to decide whether to
  * show the original-currency amount alongside the converted one. Falls back to "INR" only if
  * nothing provides it (e.g. a `@Preview`).
  */
@@ -157,7 +157,7 @@ fun TransactionRow(
                         )
                     }
                 }
-                if (txn.channel == com.spendlens.app.data.db.TransactionChannel.MANUAL) {
+                if (txn.channel == online.velozen.spendvault.data.db.TransactionChannel.MANUAL) {
                     Surface(
                         shape = RoundedCornerShape(24.dp),
                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),

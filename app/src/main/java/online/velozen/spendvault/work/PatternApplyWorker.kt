@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.app.PendingIntent
 import android.content.Context
@@ -9,11 +9,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.MainActivity
-import com.spendlens.app.R
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.util.AppLog
-import com.spendlens.app.util.NotificationHelper
+import online.velozen.spendvault.MainActivity
+import online.velozen.spendvault.R
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.util.AppLog
+import online.velozen.spendvault.util.NotificationHelper
 
 /**
  * WorkManager job for the slow half of the "Teach with AI" / pattern-update flow.

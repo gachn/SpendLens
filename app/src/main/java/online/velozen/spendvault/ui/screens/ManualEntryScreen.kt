@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,15 +49,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ai.CategorySuggestion
-import com.spendlens.app.ai.MerchantWarning
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.components.CategoryCreateDialog
-import com.spendlens.app.ui.components.MerchantSuggestField
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.ManualAmount
-import com.spendlens.app.ui.viewmodel.ManualEntryViewModel
+import online.velozen.spendvault.ai.CategorySuggestion
+import online.velozen.spendvault.ai.MerchantWarning
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.components.CategoryCreateDialog
+import online.velozen.spendvault.ui.components.MerchantSuggestField
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.ManualAmount
+import online.velozen.spendvault.ui.viewmodel.ManualEntryViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -442,7 +442,7 @@ Spacer(Modifier.height(12.dp))
                 val minor = amountMinor ?: return@Button
                 val payToCard = if (cardPayment) cardKey ?: return@Button else null
                 val cat = if (cardPayment) {
-                    com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID
+                    online.velozen.spendvault.data.DefaultCategories.CARD_PAYMENT_ID
                 } else {
                     categoryId ?: return@Button
                 }

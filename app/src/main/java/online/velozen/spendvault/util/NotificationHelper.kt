@@ -1,4 +1,4 @@
-package com.spendlens.app.util
+package online.velozen.spendvault.util
 
 import android.Manifest
 import android.app.Notification

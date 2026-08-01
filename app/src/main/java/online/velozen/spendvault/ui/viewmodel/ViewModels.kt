@@ -1,33 +1,33 @@
-package com.spendlens.app.ui.viewmodel
+package online.velozen.spendvault.ui.viewmodel
 
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.spendlens.app.data.db.CategoryEntity
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.db.SmsPatternEntity
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.parser.Categorizer
-import com.spendlens.app.sms.SmsProcessingStats
-import com.spendlens.app.data.repository.MerchantRepository
-import com.spendlens.app.data.repository.CategoryRepository
-import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.data.repository.PatternRepository
-import com.spendlens.app.data.repository.BudgetRepository
-import com.spendlens.app.data.repository.BillRepository
-import com.spendlens.app.data.prefs.AppearancePrefs
-import com.spendlens.app.data.prefs.Plan
-import com.spendlens.app.data.prefs.ThemeMode
-import com.spendlens.app.ui.theme.BankBranding
-import com.spendlens.app.di.AppContainer
+import online.velozen.spendvault.data.db.CategoryEntity
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.db.SmsPatternEntity
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.parser.Categorizer
+import online.velozen.spendvault.sms.SmsProcessingStats
+import online.velozen.spendvault.data.repository.MerchantRepository
+import online.velozen.spendvault.data.repository.CategoryRepository
+import online.velozen.spendvault.data.repository.TransactionRepository
+import online.velozen.spendvault.data.repository.PatternRepository
+import online.velozen.spendvault.data.repository.BudgetRepository
+import online.velozen.spendvault.data.repository.BillRepository
+import online.velozen.spendvault.data.prefs.AppearancePrefs
+import online.velozen.spendvault.data.prefs.Plan
+import online.velozen.spendvault.data.prefs.ThemeMode
+import online.velozen.spendvault.ui.theme.BankBranding
+import online.velozen.spendvault.di.AppContainer
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import com.spendlens.app.ui.util.Dates
+import online.velozen.spendvault.ui.util.Dates
 import androidx.work.WorkManager
-import com.spendlens.app.work.SmsSyncWorker
+import online.velozen.spendvault.work.SmsSyncWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -205,7 +205,7 @@ data class BudgetsUiState(
 )
 
 data class BillItem(
-    val bill: com.spendlens.app.data.db.BillEntity,
+    val bill: online.velozen.spendvault.data.db.BillEntity,
     val category: CategoryEntity?,
     val dueLabel: String,
     val daysUntil: Long,
@@ -226,7 +226,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     fun setMonth(ym: YearMonth) { selectedMonth.value = ym }
 
     /** Latest known balance per account, for the Accounts card. */
-    val accounts: StateFlow<List<com.spendlens.app.data.db.AccountBalance>> =
+    val accounts: StateFlow<List<online.velozen.spendvault.data.db.AccountBalance>> =
         repo.observeAccountBalances()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -244,9 +244,9 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
             val spend = array[0] as Long
             val income = array[1] as Long
             val monthTxns = array[2] as List<TransactionEntity>
-            val cats = array[3] as List<com.spendlens.app.data.db.CategoryTotal>
+            val cats = array[3] as List<online.velozen.spendvault.data.db.CategoryTotal>
             val categories = array[4] as List<CategoryEntity>
-            val merchants = array[5] as List<com.spendlens.app.data.db.MerchantAliasEntity>
+            val merchants = array[5] as List<online.velozen.spendvault.data.db.MerchantAliasEntity>
 
             val map = categories.associateBy { it.id }
             val slices = cats.mapNotNull { ct ->
@@ -307,7 +307,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         val store = container.aiConfigStore
         val key = store.effectiveKey()
         if (!store.isUsable() || key == null) {
-            com.spendlens.app.util.AppLog.aiSkipped("monthly_recap", "ai_disabled_or_no_key")
+            online.velozen.spendvault.util.AppLog.aiSkipped("monthly_recap", "ai_disabled_or_no_key")
             _recap.value = RecapState.Unavailable
             return@launch
         }
@@ -315,13 +315,13 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         _recap.value = RecapState.Loading
         val allTxns = repo.observeAll().first()
         val cats = container.categoryRepository.all()
-        val metrics = com.spendlens.app.ai.SpendingSummaryGenerator.calculateMetrics(allTxns, cats, daysBack = 30)
+        val metrics = online.velozen.spendvault.ai.SpendingSummaryGenerator.calculateMetrics(allTxns, cats, daysBack = 30)
         if (metrics.transactionCount == 0) {
             _recap.value = RecapState.NoData
             return@launch
         }
 
-        val prompt = com.spendlens.app.ai.SpendingSummaryGenerator.buildPrompt(metrics, cats, "this month")
+        val prompt = online.velozen.spendvault.ai.SpendingSummaryGenerator.buildPrompt(metrics, cats, "this month")
         when (
             val response = container.openRouterClient.complete(
                 key,
@@ -330,15 +330,15 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                 operation = "monthly_recap",
             )
         ) {
-            is com.spendlens.app.ai.OpenRouterClient.Result.Failure -> _recap.value = RecapState.Error(response.message)
-            is com.spendlens.app.ai.OpenRouterClient.Result.Success -> {
-                val summary = com.spendlens.app.ai.SpendingSummaryGenerator.parseSummary(response.content)
+            is online.velozen.spendvault.ai.OpenRouterClient.Result.Failure -> _recap.value = RecapState.Error(response.message)
+            is online.velozen.spendvault.ai.OpenRouterClient.Result.Success -> {
+                val summary = online.velozen.spendvault.ai.SpendingSummaryGenerator.parseSummary(response.content)
                 if (summary == null) {
                     _recap.value = RecapState.Error("Empty AI response")
                 } else {
                     val now = System.currentTimeMillis()
                     container.insightsStore.saveRecap(currentMonthKey(), summary, now)
-                    com.spendlens.app.util.AppLog.aiApplied("monthly_recap", "chars=${summary.length}")
+                    online.velozen.spendvault.util.AppLog.aiApplied("monthly_recap", "chars=${summary.length}")
                     _recap.value = RecapState.Ready(summary, now)
                 }
             }
@@ -362,27 +362,27 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
     private val filters = MutableStateFlow(TxnFilters())
 
     fun generatePrompt(smsList: List<RawSmsEntity>): String =
-        com.spendlens.app.ai.PromptGenerator.generate(smsList)
+        online.velozen.spendvault.ai.PromptGenerator.generate(smsList)
 
     /**
      * Score a transaction for anomalies compared to user's baseline.
      * Returns score info or null if not anomalous.
      */
-    suspend fun scoreTransactionAnomaly(transactionId: Long): com.spendlens.app.ai.AnomalyScore? {
+    suspend fun scoreTransactionAnomaly(transactionId: Long): online.velozen.spendvault.ai.AnomalyScore? {
         val txn = repo.getById(transactionId) ?: return null
         val allTxns = repo.observeAll().first()
         val cats = container.categoryRepository.all()
-        return com.spendlens.app.ai.AnomalyDetector.scoreAnomaly(txn, allTxns, cats)
+        return online.velozen.spendvault.ai.AnomalyDetector.scoreAnomaly(txn, allTxns, cats)
     }
 
     /**
      * Detect all anomalous transactions in user's data.
      * Returns sorted by anomaly score (highest first).
      */
-    suspend fun detectAnomalies(): List<com.spendlens.app.ai.AnomalyScore> {
+    suspend fun detectAnomalies(): List<online.velozen.spendvault.ai.AnomalyScore> {
         val allTxns = repo.observeAll().first()
         val cats = container.categoryRepository.all()
-        return com.spendlens.app.ai.AnomalyDetector.detectAnomalies(allTxns, cats)
+        return online.velozen.spendvault.ai.AnomalyDetector.detectAnomalies(allTxns, cats)
     }
 
     companion object {
@@ -461,13 +461,13 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun exportCsv(context: android.content.Context) =
         export(context, "text/csv", "Export transactions (CSV)") { snapshot ->
-            com.spendlens.app.data.export.StatementExporter
+            online.velozen.spendvault.data.export.StatementExporter
                 .writeCsv(context, snapshot.items, snapshot.categories)
         }
 
     fun exportPdf(context: android.content.Context) =
         export(context, "application/pdf", "Export statement (PDF)") { snapshot ->
-            com.spendlens.app.data.export.StatementExporter
+            online.velozen.spendvault.data.export.StatementExporter
                 .writePdf(context, snapshot.items, snapshot.categories)
         }
 
@@ -485,7 +485,7 @@ class TransactionsViewModel(private val container: AppContainer) : ViewModel() {
         runCatching {
             val file = withContext(Dispatchers.IO) { build(snapshot) }
             // Launch the share-sheet on the main thread.
-            com.spendlens.app.data.export.StatementExporter.share(context, file, mime, label)
+            online.velozen.spendvault.data.export.StatementExporter.share(context, file, mime, label)
         }.onFailure { _exportMessage.value = "Export failed: ${it.message}" }
     }
 }
@@ -608,7 +608,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
      */
     fun setManualBalance(accountKey: String, balanceMinor: Long, isCard: Boolean) = viewModelScope.launch {
         container.balanceSnapshotDao.upsert(
-            com.spendlens.app.data.db.BalanceSnapshotEntity(
+            online.velozen.spendvault.data.db.BalanceSnapshotEntity(
                 accountKey = accountKey,
                 balanceMinor = balanceMinor,
                 isCard = isCard,
@@ -621,7 +621,7 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     /**
      * Record a manual payment toward credit card [cardKey]. Persists an excluded "Card Payment"
      * transaction (so the spend it settles is not double-counted) tagged to the card, then flips the
-     * statement to PAID — stopping [com.spendlens.app.work.CardPaymentReminderWorker] — once the
+     * statement to PAID — stopping [online.velozen.spendvault.work.CardPaymentReminderWorker] — once the
      * tagged payments cover the total due. Outstanding is recomputed reactively from these rows.
      */
 fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = viewModelScope.launch {
@@ -634,7 +634,7 @@ fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = vi
             accountKey = cardKey,
             counterparty = "Card payment",
             occurredAt = occurredAt,
-            categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+            categoryId = online.velozen.spendvault.data.DefaultCategories.CARD_PAYMENT_ID,
             note = null,
             tags = null,
             receiptUri = null,
@@ -667,11 +667,11 @@ fun recordCardPayment(cardKey: String, amountMinor: Long, occurredAt: Long) = vi
         ) { array ->
             @Suppress("UNCHECKED_CAST")
             object {
-                val bills = array[0] as List<com.spendlens.app.data.db.CardBillEntity>
+                val bills = array[0] as List<online.velozen.spendvault.data.db.CardBillEntity>
                 val month = array[1] as YearMonth
                 val senders = array[2] as Map<String, String>
                 val names = array[3] as Map<String, String?>
-                val snapshots = array[4] as List<com.spendlens.app.data.db.BalanceSnapshotEntity>
+                val snapshots = array[4] as List<online.velozen.spendvault.data.db.BalanceSnapshotEntity>
                 val cycleDays = array[5] as Map<String, Int>
             }
         },
@@ -915,8 +915,8 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState(monthOptions = monthOptions))
 
-    /** One transaction [com.spendlens.app.ai.AnomalyDetector] flagged, paired with its score/reason. */
-    data class AnomalyRow(val txn: TransactionEntity, val score: com.spendlens.app.ai.AnomalyScore)
+    /** One transaction [online.velozen.spendvault.ai.AnomalyDetector] flagged, paired with its score/reason. */
+    data class AnomalyRow(val txn: TransactionEntity, val score: online.velozen.spendvault.ai.AnomalyScore)
 
     /**
      * Premium insight: transactions that stand out against the user's own history (new merchant,
@@ -932,7 +932,7 @@ class AnalyticsViewModel(container: AppContainer) : ViewModel() {
             emptyList()
         } else {
             val byId = txns.associateBy { it.id }
-            com.spendlens.app.ai.AnomalyDetector.detectAnomalies(txns, categories)
+            online.velozen.spendvault.ai.AnomalyDetector.detectAnomalies(txns, categories)
                 .take(5)
                 .mapNotNull { score -> byId[score.transactionId]?.let { AnomalyRow(it, score) } }
         }
@@ -970,7 +970,7 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /** Shared AI orchestration (flag check, OpenRouter call, pattern apply). */
-    private val teacher = com.spendlens.app.ai.AiPatternTeacher(container)
+    private val teacher = online.velozen.spendvault.ai.AiPatternTeacher(container)
 
     suspend fun generatePrompt(smsList: List<RawSmsEntity>): String = teacher.generatePrompt(smsList)
 
@@ -982,7 +982,7 @@ class ReviewViewModel(private val container: AppContainer) : ViewModel() {
      * key it calls OpenRouter and applies the reply; otherwise it returns
      * [AiPatternTeacher.TeachResult.Fallback] so the UI keeps the copy-to-clipboard flow.
      */
-    suspend fun teachWithAi(smsList: List<RawSmsEntity>): com.spendlens.app.ai.AiPatternTeacher.TeachResult =
+    suspend fun teachWithAi(smsList: List<RawSmsEntity>): online.velozen.spendvault.ai.AiPatternTeacher.TeachResult =
         teacher.teach(smsList)
 
     /** Apply AI-produced pattern JSON (used by the clipboard-reply watcher in SpendLensRoot). */
@@ -1012,7 +1012,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setDebugInfoEnabled(enabled: Boolean) = container.settingsStore.setDebugInfoEnabled(enabled)
 
-    val security: StateFlow<com.spendlens.app.data.prefs.SecurityPrefs> = container.settingsStore.security
+    val security: StateFlow<online.velozen.spendvault.data.prefs.SecurityPrefs> = container.settingsStore.security
 
     fun setAppLockEnabled(enabled: Boolean) = container.settingsStore.setAppLockEnabled(enabled)
 
@@ -1020,7 +1020,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     // ----- SMS Filtering -----
 
-    val smsFilter: StateFlow<com.spendlens.app.data.prefs.SmsFilterPrefs> = container.settingsStore.smsFilter
+    val smsFilter: StateFlow<online.velozen.spendvault.data.prefs.SmsFilterPrefs> = container.settingsStore.smsFilter
 
     fun setFinancialSendersOnly(enabled: Boolean) = container.settingsStore.setFinancialSendersOnly(enabled)
 
@@ -1028,7 +1028,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     // ----- Currency -----
 
-    val currencyPrefs: StateFlow<com.spendlens.app.data.prefs.CurrencyPrefs> = container.settingsStore.currency
+    val currencyPrefs: StateFlow<online.velozen.spendvault.data.prefs.CurrencyPrefs> = container.settingsStore.currency
 
     /** The currency actually in effect right now: the user's override, or the detected locale. */
     val resolvedPrimaryCurrency: StateFlow<String> = currencyPrefs
@@ -1062,7 +1062,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     // ----- AI (OpenRouter) -----
 
-    val aiPrefs: StateFlow<com.spendlens.app.data.prefs.AiPrefs> = container.aiConfigStore.prefsFlow
+    val aiPrefs: StateFlow<online.velozen.spendvault.data.prefs.AiPrefs> = container.aiConfigStore.prefsFlow
 
     fun setAiEnabled(enabled: Boolean) = container.aiConfigStore.setEnabled(enabled)
 
@@ -1110,7 +1110,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                     senderRegex = senderRegex?.trim()?.takeIf { it.isNotEmpty() },
                     bodyRegex = bodyRegex.trim(),
                     priority = 1000, // above built-ins (their priorities are well under this)
-                    source = com.spendlens.app.data.db.PatternSource.USER,
+                    source = online.velozen.spendvault.data.db.PatternSource.USER,
                     sampleSms = sampleSms?.trim()?.takeIf { it.isNotEmpty() },
                 ),
             )
@@ -1136,7 +1136,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
      */
     fun recategorizeWithAi(context: android.content.Context) = viewModelScope.launch {
         container.aiCategorizer.resetAttempts()
-        com.spendlens.app.work.AiCategorizeWorker.enqueueReplace(context)
+        online.velozen.spendvault.work.AiCategorizeWorker.enqueueReplace(context)
     }
 
     /** Clears parsed transactions, raw SMS and derived bills, leaving learned patterns/categories. */
@@ -1208,7 +1208,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 container.backupManager.import(blob, password)
                 BackupState.Done("Backup restored")
             }.getOrElse { e ->
-                val msg = if (e is com.spendlens.app.data.backup.BackupManager.BadPasswordException)
+                val msg = if (e is online.velozen.spendvault.data.backup.BackupManager.BadPasswordException)
                     "Wrong password or corrupt file" else (e.message ?: "Restore failed")
                 BackupState.Failed(msg)
             }.also { password.fill(' ') }
@@ -1280,7 +1280,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     // ----- Pipeline metrics (Developer options) -----
 
     /**
-     * Live session telemetry straight from [com.spendlens.app.sms.SmsProcessor] — in-memory, so it
+     * Live session telemetry straight from [online.velozen.spendvault.sms.SmsProcessor] — in-memory, so it
      * resets every process start. Updates as AI batches and regex reprocess runs complete.
      */
     val processingStats: StateFlow<SmsProcessingStats> = container.smsProcessor.stats
@@ -1482,7 +1482,7 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
         var updated = 0
         byCategory.forEach { (categoryId, monthly) ->
             val series = orderedMonths.map { ym -> monthly[ym] ?: 0L }
-            val predicted = com.spendlens.app.ui.util.BudgetPredictor.predict(series)
+            val predicted = online.velozen.spendvault.ui.util.BudgetPredictor.predict(series)
             if (predicted > 0L) {
                 container.budgetRepository.setBudget(categoryId, predicted)
                 updated++
@@ -1495,9 +1495,9 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
      * Premium insight: a burn-rate-aware month-end projection per budgeted category (unlike the
      * plain "% used so far" badge on each [BudgetRow], this accounts for days remaining in the
      * month), surfacing only categories on track to hit WARNING (≥80%) or EXCEEDED. Pure on-device
-     * statistics via [com.spendlens.app.ai.BudgetPredictor] — gated to Premium as a value-add.
+     * statistics via [online.velozen.spendvault.ai.BudgetPredictor] — gated to Premium as a value-add.
      */
-    val budgetForecast: StateFlow<List<com.spendlens.app.ai.BudgetAlert>> = combine(
+    val budgetForecast: StateFlow<List<online.velozen.spendvault.ai.BudgetAlert>> = combine(
         state,
         container.transactionRepository.observeAll(),
         container.planStore.plan,
@@ -1508,7 +1508,7 @@ class BudgetsViewModel(private val container: AppContainer) : ViewModel() {
             val budgets = budgetState.rows
                 .filter { it.limitMinor > 0 }
                 .associate { it.category.id to (it.category.name to it.limitMinor) }
-            com.spendlens.app.ai.BudgetPredictor.generateAllAlerts(budgets, txns)
+            online.velozen.spendvault.ai.BudgetPredictor.generateAllAlerts(budgets, txns)
                 .filter { it.status == "WARNING" || it.status == "EXCEEDED" }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -1525,12 +1525,12 @@ class BillsViewModel(private val container: AppContainer) : ViewModel() {
         val map = categories.associateBy { it.id }
         val now = System.currentTimeMillis()
         val items = bills.map { b ->
-            val due = com.spendlens.app.parser.BillReminders.nextDueDate(b.dayOfMonth, now, zone)
+            val due = online.velozen.spendvault.parser.BillReminders.nextDueDate(b.dayOfMonth, now, zone)
             BillItem(
                 bill = b,
                 category = b.categoryId?.let { map[it] },
                 dueLabel = due.format(dueFmt),
-                daysUntil = com.spendlens.app.parser.BillReminders.daysUntilDue(b.dayOfMonth, now, zone),
+                daysUntil = online.velozen.spendvault.parser.BillReminders.daysUntilDue(b.dayOfMonth, now, zone),
             )
         }.sortedBy { it.daysUntil }
         BillsUiState(items, "INR")
@@ -1545,7 +1545,7 @@ class BillsViewModel(private val container: AppContainer) : ViewModel() {
     /** Re-run recurring-bill detection over the full debit history. */
     fun rescan() = viewModelScope.launch {
         val debits = container.transactionRepository.allDebits()
-        val detected = com.spendlens.app.parser.BillDetector.detect(debits)
+        val detected = online.velozen.spendvault.parser.BillDetector.detect(debits)
         container.billRepository.syncDetected(detected)
     }
 }
@@ -1553,7 +1553,7 @@ class BillsViewModel(private val container: AppContainer) : ViewModel() {
 // ---------- Premium: subscriptions insight ----------
 
 data class SubscriptionsUiState(
-    val patterns: List<com.spendlens.app.ai.RecurringPattern> = emptyList(),
+    val patterns: List<online.velozen.spendvault.ai.RecurringPattern> = emptyList(),
     val totalMonthlyMinor: Long = 0,
     val currency: String = "INR",
     val isPremium: Boolean = false,
@@ -1562,7 +1562,7 @@ data class SubscriptionsUiState(
 /**
  * Backs the Premium "Subscriptions" insight: unlike [BillsViewModel] (due-date reminders,
  * available to everyone), this surfaces the cost side — every recurring merchant found by
- * [com.spendlens.app.ai.RecurringDetector] with its frequency and estimated monthly cost, so the
+ * [online.velozen.spendvault.ai.RecurringDetector] with its frequency and estimated monthly cost, so the
  * user sees at a glance how much recurring spend they're carrying. Pure on-device statistics, no
  * AI call — gated to Premium as a value-add insight, not because it needs the network.
  */
@@ -1574,13 +1574,13 @@ class SubscriptionsViewModel(private val container: AppContainer) : ViewModel() 
     ) { txns, plan ->
         val isPremium = plan == Plan.PREMIUM
         val patterns = if (isPremium) {
-            com.spendlens.app.ai.RecurringDetector.detectRecurring(txns, minOccurrences = 3)
+            online.velozen.spendvault.ai.RecurringDetector.detectRecurring(txns, minOccurrences = 3)
         } else {
             emptyList()
         }
         SubscriptionsUiState(
             patterns = patterns,
-            totalMonthlyMinor = com.spendlens.app.ai.RecurringDetector.calculateTotalSubscriptionCost(patterns),
+            totalMonthlyMinor = online.velozen.spendvault.ai.RecurringDetector.calculateTotalSubscriptionCost(patterns),
             currency = container.settingsStore.primaryCurrency(),
             isPremium = isPremium,
         )
@@ -1631,7 +1631,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     // ── Credit-card payment tagging ──────────────────────────────────────────────
 
     /** Cards with a parsed statement, for the "tag as card payment" picker. */
-    val cards: StateFlow<List<com.spendlens.app.data.db.CardBillEntity>> =
+    val cards: StateFlow<List<online.velozen.spendvault.data.db.CardBillEntity>> =
         container.cardBillDao.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -1639,7 +1639,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
      * An unpaid card statement whose total due exactly equals this debit's amount — the basis for the
      * "this looks like a card payment" suggestion. Null for credits, already-tagged rows, or no match.
      */
-    suspend fun matchingUnpaidCardBill(txn: TransactionEntity): com.spendlens.app.data.db.CardBillEntity? {
+    suspend fun matchingUnpaidCardBill(txn: TransactionEntity): online.velozen.spendvault.data.db.CardBillEntity? {
         if (txn.direction != "DEBIT" || txn.cardPaymentKey != null) return null
         return container.cardBillDao.all()
             .firstOrNull { it.paidAt == null && it.totalDueMinor == txn.amountMinor }
@@ -1655,7 +1655,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
             val updated = txn.copy(
                 cardPaymentKey = cardKey,
                 excludedFromExpense = true,
-                categoryId = com.spendlens.app.data.DefaultCategories.CARD_PAYMENT_ID,
+                categoryId = online.velozen.spendvault.data.DefaultCategories.CARD_PAYMENT_ID,
             )
             val bill = container.cardBillDao.get(cardKey)
             if (bill != null && bill.paidAt == null) {
@@ -1792,7 +1792,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
     }
 
     /** Observe the split children of [parentId] (issue #11). Empty when the txn isn't split. */
-    fun splitsFlow(parentId: Long): kotlinx.coroutines.flow.Flow<List<com.spendlens.app.data.db.TransactionSplitEntity>> =
+    fun splitsFlow(parentId: Long): kotlinx.coroutines.flow.Flow<List<online.velozen.spendvault.data.db.TransactionSplitEntity>> =
         container.transactionRepository.observeSplits(parentId)
 
     /**
@@ -1820,7 +1820,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
         rawSmsId?.let { container.rawSmsDao.getById(it) }
 
     /** Shared AI orchestration (flag check, OpenRouter call, pattern apply). */
-    private val teacher = com.spendlens.app.ai.AiPatternTeacher(container)
+    private val teacher = online.velozen.spendvault.ai.AiPatternTeacher(container)
 
     /** Build the "Teach with AI" prompt for a raw SMS, seeded with known categories/merchants. */
     suspend fun generatePrompt(smsList: List<RawSmsEntity>): String = teacher.generatePrompt(smsList)
@@ -1829,7 +1829,7 @@ class TransactionDetailViewModel(private val container: AppContainer) : ViewMode
      * Flag-gated AI teach for a single SMS. Returns [AiPatternTeacher.TeachResult.Fallback] when AI
      * is off or unconfigured so the caller keeps the copy-to-clipboard flow.
      */
-    suspend fun teachWithAi(smsList: List<RawSmsEntity>): com.spendlens.app.ai.AiPatternTeacher.TeachResult =
+    suspend fun teachWithAi(smsList: List<RawSmsEntity>): online.velozen.spendvault.ai.AiPatternTeacher.TeachResult =
         teacher.teach(smsList)
 
     /** Copy a picked image into encrypted storage and link it to the transaction. */
@@ -1894,7 +1894,7 @@ class ManualEntryViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Currencies the app can convert to the base currency. Base ("INR") first. */
     val currencies: List<String> =
-        listOf(baseCurrency) + (com.spendlens.app.parser.Normalize.CURRENCY_CODES - baseCurrency).sorted()
+        listOf(baseCurrency) + (online.velozen.spendvault.parser.Normalize.CURRENCY_CODES - baseCurrency).sorted()
 
     val baseCurrency: String get() = container.settingsStore.primaryCurrency()
 
@@ -1974,10 +1974,10 @@ container.transactionRepository.updateManual(
      * Get category suggestions for a merchant name.
      * Returns top 3 suggestions sorted by confidence, using local pattern matching.
      */
-    suspend fun suggestCategoriesForMerchant(merchantName: String): List<com.spendlens.app.ai.CategorySuggestion> {
+    suspend fun suggestCategoriesForMerchant(merchantName: String): List<online.velozen.spendvault.ai.CategorySuggestion> {
         val recentTxns = container.transactionRepository.allTransactions().takeLast(100)
         val cats = container.categoryRepository.all()
-        return com.spendlens.app.ai.ManualEntryCategorySuggester.suggestLocally(merchantName, recentTxns, cats)
+        return online.velozen.spendvault.ai.ManualEntryCategorySuggester.suggestLocally(merchantName, recentTxns, cats)
     }
 
     /** Gates the category-suggestion and duplicate-merchant-warning hints below the merchant field. */
@@ -1990,12 +1990,12 @@ container.transactionRepository.updateManual(
      * so the user doesn't accidentally fork a new merchant entry. Null when it's blank, already an
      * exact known name, or no close match exists.
      */
-    suspend fun checkDuplicateMerchant(merchantName: String): com.spendlens.app.ai.MerchantWarning? {
+    suspend fun checkDuplicateMerchant(merchantName: String): online.velozen.spendvault.ai.MerchantWarning? {
         val trimmed = merchantName.trim()
         if (trimmed.isBlank() || container.merchantRepository.isKnownMerchant(trimmed)) return null
         val recentTxns = container.transactionRepository.allTransactions().takeLast(200)
         val counts = recentTxns.groupingBy { it.counterparty }.eachCount()
-        return com.spendlens.app.ai.MerchantDeduplicator.checkDuplicates(trimmed, counts)
+        return online.velozen.spendvault.ai.MerchantDeduplicator.checkDuplicates(trimmed, counts)
     }
 
     companion object {
@@ -2052,18 +2052,18 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
         val store = container.aiConfigStore
         val key = store.effectiveKey()
         if (!store.isEnabled() || key == null) {
-            com.spendlens.app.util.AppLog.aiSkipped("merchant_consolidation", "ai_disabled_or_no_key")
+            online.velozen.spendvault.util.AppLog.aiSkipped("merchant_consolidation", "ai_disabled_or_no_key")
             _consolidation.value = ConsolidationState.Disabled
             return@launch
         }
         _consolidation.value = ConsolidationState.Running
         val names = container.merchantRepository.observeDisplayNames().first()
         if (names.size < 2) {
-            com.spendlens.app.util.AppLog.aiSkipped("merchant_consolidation", "fewer_than_two_merchants")
+            online.velozen.spendvault.util.AppLog.aiSkipped("merchant_consolidation", "fewer_than_two_merchants")
             _consolidation.value = ConsolidationState.Done(merged = 0, groups = 0)
             return@launch
         }
-        val prompt = com.spendlens.app.ai.MerchantConsolidation.buildPrompt(names)
+        val prompt = online.velozen.spendvault.ai.MerchantConsolidation.buildPrompt(names)
         when (
             val r = container.openRouterClient.complete(
                 key,
@@ -2072,10 +2072,10 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
                 operation = "merchant_consolidation",
             )
         ) {
-            is com.spendlens.app.ai.OpenRouterClient.Result.Failure ->
+            is online.velozen.spendvault.ai.OpenRouterClient.Result.Failure ->
                 _consolidation.value = ConsolidationState.Error(r.message)
-            is com.spendlens.app.ai.OpenRouterClient.Result.Success -> {
-                val groups = com.spendlens.app.ai.MerchantConsolidation.parse(r.content)
+            is online.velozen.spendvault.ai.OpenRouterClient.Result.Success -> {
+                val groups = online.velozen.spendvault.ai.MerchantConsolidation.parse(r.content)
                 val known = names.toMutableSet()
                 var merged = 0
                 var appliedGroups = 0
@@ -2091,7 +2091,7 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
                     }
                     if (groupMerged) appliedGroups++
                 }
-                com.spendlens.app.util.AppLog.aiApplied(
+                online.velozen.spendvault.util.AppLog.aiApplied(
                     "merchant_consolidation",
                     "merged=$merged groups=$appliedGroups parsed_groups=${groups.size}",
                 )
@@ -2163,7 +2163,7 @@ class MerchantsViewModel(private val container: AppContainer) : ViewModel() {
 // ---------- Savings goals (issue #12) ----------
 
 data class GoalItem(
-    val goal: com.spendlens.app.data.db.SavingsGoalEntity,
+    val goal: online.velozen.spendvault.data.db.SavingsGoalEntity,
     val savedMinor: Long,
     val progress: Float,              // 0f..1f
     val reached: Boolean,
@@ -2204,7 +2204,7 @@ class GoalsViewModel(private val container: AppContainer) : ViewModel() {
         GoalsUiState(goals = items, currency = container.settingsStore.primaryCurrency(), accounts = accounts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GoalsUiState())
 
-    private fun projectCompletion(goal: com.spendlens.app.data.db.SavingsGoalEntity, saved: Long): Long? {
+    private fun projectCompletion(goal: online.velozen.spendvault.data.db.SavingsGoalEntity, saved: Long): Long? {
         if (saved >= goal.targetAmountMinor || saved <= 0L) return null
         val now = System.currentTimeMillis()
         val elapsedMs = (now - goal.createdAt).coerceAtLeast(DAY_MS)

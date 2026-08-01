@@ -1,10 +1,10 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
 import android.content.Context
-import com.spendlens.app.data.db.SavingsGoalDao
-import com.spendlens.app.data.db.SavingsGoalEntity
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.sms.GoalNotifier
+import online.velozen.spendvault.data.db.SavingsGoalDao
+import online.velozen.spendvault.data.db.SavingsGoalEntity
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.sms.GoalNotifier
 import kotlinx.coroutines.flow.Flow
 
 /**

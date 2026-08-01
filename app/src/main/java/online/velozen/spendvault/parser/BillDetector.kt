@@ -1,6 +1,6 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.data.db.TransactionEntity
+import online.velozen.spendvault.data.db.TransactionEntity
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId

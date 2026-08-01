@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 /**
  * Rough token estimate for sizing AI batch requests — no real tokenizer dependency. The

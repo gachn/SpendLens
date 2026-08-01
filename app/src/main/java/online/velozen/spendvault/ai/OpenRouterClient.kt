@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -15,7 +15,7 @@ import java.net.URL
  * parsing live in [OpenRouter] and are unit-tested separately.
  *
  * This is the only path that sends (PII-masked) SMS templates and merchant names off-device; it is
- * gated behind the AI flag + a configured API key (see [com.spendlens.app.data.prefs.AiConfigStore]).
+ * gated behind the AI flag + a configured API key (see [online.velozen.spendvault.data.prefs.AiConfigStore]).
  */
 class OpenRouterClient {
 

@@ -1,7 +1,7 @@
-package com.spendlens.app.sync
+package online.velozen.spendvault.sync
 
 import com.google.firebase.firestore.FirebaseFirestore
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,11 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ai.RecurringPattern
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.SubscriptionsViewModel
+import online.velozen.spendvault.ai.RecurringPattern
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.SubscriptionsViewModel
 
 @Composable
 fun SubscriptionsScreen(vm: SubscriptionsViewModel) {

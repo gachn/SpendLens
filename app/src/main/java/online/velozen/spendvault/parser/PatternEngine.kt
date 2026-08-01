@@ -1,9 +1,9 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.CompiledPattern
-import com.spendlens.app.parser.model.MatchResult
-import com.spendlens.app.parser.model.ParsedTransaction
-import com.spendlens.app.parser.model.SmsMessage
+import online.velozen.spendvault.parser.model.CompiledPattern
+import online.velozen.spendvault.parser.model.MatchResult
+import online.velozen.spendvault.parser.model.ParsedTransaction
+import online.velozen.spendvault.parser.model.SmsMessage
 
 /**
  * Matches an SMS against the supplied patterns (already ordered by priority desc)

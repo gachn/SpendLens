@@ -1,4 +1,4 @@
-package com.spendlens.app.sms
+package online.velozen.spendvault.sms
 
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -6,11 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import androidx.core.app.NotificationCompat
-import com.spendlens.app.MainActivity
-import com.spendlens.app.R
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.ui.util.Money
+import online.velozen.spendvault.MainActivity
+import online.velozen.spendvault.R
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.ui.util.Money
 
 object TransactionNotifier {
     private val COLOR_CREDIT = Color.parseColor("#4CAF50")

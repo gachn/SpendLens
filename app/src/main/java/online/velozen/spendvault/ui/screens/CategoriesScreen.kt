@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,13 +29,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.CategoryCreateDialog
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.MonthDropdown
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.CategoriesViewModel
-import com.spendlens.app.ui.viewmodel.CategorySpend
+import online.velozen.spendvault.ui.components.CategoryCreateDialog
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.MonthDropdown
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.CategoriesViewModel
+import online.velozen.spendvault.ui.viewmodel.CategorySpend
 
 @Composable
 fun CategoriesScreen(vm: CategoriesViewModel, onOpenBudgets: () -> Unit = {}) {

@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -7,11 +7,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.util.AppLog
 
 /**
- * Background job for the AI fallback categoriser ([com.spendlens.app.ai.AiCategorizer]).
+ * Background job for the AI fallback categoriser ([online.velozen.spendvault.ai.AiCategorizer]).
  *
  * Enqueued automatically once the inbox import finishes ([SmsSyncWorker]) and after each
  * newly-parsed SMS, and manually when the user asks for a re-run. Registered as unique work with

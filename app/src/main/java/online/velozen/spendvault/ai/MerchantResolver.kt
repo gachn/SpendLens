@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 /**
  * Pluggable merchant-name resolver. Given a cleaned query, return the canonical brand

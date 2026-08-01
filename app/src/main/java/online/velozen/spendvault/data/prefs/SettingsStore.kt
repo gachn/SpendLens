@@ -1,4 +1,4 @@
-package com.spendlens.app.data.prefs
+package online.velozen.spendvault.data.prefs
 
 import android.content.Context
 import java.util.Currency
@@ -6,7 +6,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.spendlens.app.config.RemoteConfigManager
+import online.velozen.spendvault.config.RemoteConfigManager
 
 /** How the app decides between light and dark colours. */
 enum class ThemeMode(val label: String) {
@@ -145,7 +145,7 @@ class SettingsStore(context: Context) {
     /**
      * The auto-detected currency: the most recent value [setDetectedCurrency] cached (normally
      * the majority currency across the user's own transactions, refreshed by
-     * [com.spendlens.app.di.AppContainer.refreshPrimaryCurrency]), or the device locale before
+     * [online.velozen.spendvault.di.AppContainer.refreshPrimaryCurrency]), or the device locale before
      * any transaction has ever been parsed.
      */
     fun detectedCurrency(): String = detectedCurrencyOrNull() ?: detectFromLocale()
@@ -165,7 +165,7 @@ class SettingsStore(context: Context) {
 
     /**
      * The currency [amountBaseMinor] values across the DB were last computed against. Compared
-     * to [primaryCurrency] by [com.spendlens.app.di.AppContainer.refreshPrimaryCurrency] to decide
+     * to [primaryCurrency] by [online.velozen.spendvault.di.AppContainer.refreshPrimaryCurrency] to decide
      * whether a recompute is needed — catches drift from auto-detect changing (e.g. once enough
      * transactions exist to outvote an initial locale guess), not just an explicit user override.
      */

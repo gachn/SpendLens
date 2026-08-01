@@ -1,7 +1,7 @@
-package com.spendlens.app.util
+package online.velozen.spendvault.util
 
 import android.util.Log
-import com.spendlens.app.ai.AiLogSanitizer
+import online.velozen.spendvault.ai.AiLogSanitizer
 
 /**
  * Central logging facade. All calls go through [android.util.Log] so the New Relic Gradle plugin

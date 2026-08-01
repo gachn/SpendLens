@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Converts a minor-unit amount between two currencies, given a map of currency → rate-to-pivot

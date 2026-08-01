@@ -1,10 +1,10 @@
-package com.spendlens.app.sync
+package online.velozen.spendvault.sync
 
 import android.content.Context
-import com.spendlens.app.config.RemoteConfigManager
-import com.spendlens.app.data.db.PatternDao
-import com.spendlens.app.data.db.PatternSource
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.config.RemoteConfigManager
+import online.velozen.spendvault.data.db.PatternDao
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

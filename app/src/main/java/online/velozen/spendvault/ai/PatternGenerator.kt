@@ -1,6 +1,6 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.parser.model.GeneratedPattern
+import online.velozen.spendvault.parser.model.GeneratedPattern
 
 /**
  * The pluggable AI slot. Given an SMS whose PII has already been masked

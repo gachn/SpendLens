@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

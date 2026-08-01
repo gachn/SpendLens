@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.components
+package online.velozen.spendvault.ui.components
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,8 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.rememberCoroutineScope
-import com.spendlens.app.ai.AiBridgeHelper
-import com.spendlens.app.ai.PromptGenerator
+import online.velozen.spendvault.ai.AiBridgeHelper
+import online.velozen.spendvault.ai.PromptGenerator
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,16 +65,16 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.data.db.CardBillEntity
-import com.spendlens.app.data.db.CategoryEntity
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.data.db.TransactionSplitEntity
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.ui.theme.BankBranding
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.Money
-import com.spendlens.app.ui.viewmodel.TransactionDetailViewModel
+import online.velozen.spendvault.data.db.CardBillEntity
+import online.velozen.spendvault.data.db.CategoryEntity
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.data.db.TransactionSplitEntity
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.ui.theme.BankBranding
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.Money
+import online.velozen.spendvault.ui.viewmodel.TransactionDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -279,11 +279,11 @@ fun TransactionDetailSheet(
                             teaching = true
                             try {
                                 when (val res = vm.teachWithAi(listOf(raw))) {
-                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Fallback -> {
+                                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Fallback -> {
                                         val prompt = vm.generatePrompt(listOf(raw))
                                         AiBridgeHelper.copyAndLaunch(context, prompt)
                                     }
-                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Applied -> {
+                                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Applied -> {
                                         val msg = if (res.patternCount > 0) {
                                             "\uD83E\uDD16 Pattern saved! Applying to all SMS in background\u2026"
                                         } else {
@@ -291,7 +291,7 @@ fun TransactionDetailSheet(
                                         }
                                         android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                                     }
-                                    is com.spendlens.app.ai.AiPatternTeacher.TeachResult.Error ->
+                                    is online.velozen.spendvault.ai.AiPatternTeacher.TeachResult.Error ->
                                         android.widget.Toast.makeText(
                                             context,
                                             "\u26A0\uFE0F AI failed: ${res.message}",

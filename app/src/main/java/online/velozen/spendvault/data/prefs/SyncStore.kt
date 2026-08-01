@@ -1,7 +1,7 @@
-package com.spendlens.app.data.prefs
+package online.velozen.spendvault.data.prefs
 
 import android.content.Context
-import com.spendlens.app.sync.SyncResult
+import online.velozen.spendvault.sync.SyncResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

@@ -1,4 +1,4 @@
-package com.spendlens.app.data.db
+package online.velozen.spendvault.data.db
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -87,7 +87,7 @@ data class TransactionEntity(
     val isSplit: Boolean = false,
     /**
      * True once this transaction has been run through the AI auto-categoriser (see
-     * [com.spendlens.app.ai.AiCategorizer]). Set whether or not the AI managed to assign a
+     * [online.velozen.spendvault.ai.AiCategorizer]). Set whether or not the AI managed to assign a
      * category, so an SMS the AI couldn't classify is not sent off-device again on every sync.
      * Cleared in bulk only when the user explicitly asks for a re-run.
      */
@@ -209,7 +209,7 @@ data class MerchantAliasEntity(
     /** User excluded this merchant from spend/income totals; applied to future parsed transactions. */
     val excludedFromExpense: Boolean = false,
     /**
-     * Epoch millis when this merchant was last considered by [com.spendlens.app.work.MerchantConsolidationWorker],
+     * Epoch millis when this merchant was last considered by [online.velozen.spendvault.work.MerchantConsolidationWorker],
      * or null if it has never been checked. Null rows are the "new merchants" the periodic Premium
      * consolidation pass sends to the AI; every row is stamped once a pass completes, so unchanged
      * merchants are never re-sent.

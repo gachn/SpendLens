@@ -1,7 +1,7 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
-import com.spendlens.app.parser.model.CardBill
-import com.spendlens.app.parser.model.CardPayment
+import online.velozen.spendvault.parser.model.CardBill
+import online.velozen.spendvault.parser.model.CardPayment
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

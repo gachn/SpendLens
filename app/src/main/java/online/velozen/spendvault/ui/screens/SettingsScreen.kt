@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import android.content.Intent
 import android.os.Build
@@ -57,12 +57,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.spendlens.app.data.prefs.Plan
-import com.spendlens.app.data.prefs.ThemeMode
-import com.spendlens.app.ui.components.ElevatedSurfaceCard
-import com.spendlens.app.ui.components.SectionHeader
-import com.spendlens.app.ui.viewmodel.SettingsViewModel
-import com.spendlens.app.config.RemoteConfigManager
+import online.velozen.spendvault.data.prefs.Plan
+import online.velozen.spendvault.data.prefs.ThemeMode
+import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
+import online.velozen.spendvault.ui.components.SectionHeader
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel
+import online.velozen.spendvault.config.RemoteConfigManager
 
 /** Grace-period choices (seconds → label) for the app-lock re-lock delay. */
 private val GRACE_OPTIONS = listOf(
@@ -505,7 +505,7 @@ fun SettingsScreen(
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Primary currency", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "$resolvedCurrency — ${com.spendlens.app.ui.util.Money.currencyName(resolvedCurrency)}" +
+                            "$resolvedCurrency — ${online.velozen.spendvault.ui.util.Money.currencyName(resolvedCurrency)}" +
                                 if (currencyPrefs.primaryCurrencyOverride == null) " (auto-detected)" else "",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -809,16 +809,16 @@ private fun CurrencyPickerDialog(
                 item {
                     CurrencyOptionRow(
                         label = "Auto-detect",
-                        sublabel = "Currently $detected — ${com.spendlens.app.ui.util.Money.currencyName(detected)}",
+                        sublabel = "Currently $detected — ${online.velozen.spendvault.ui.util.Money.currencyName(detected)}",
                         selected = current == null,
                         onClick = { onSelect(null) },
                     )
                     HorizontalDivider()
                 }
-                items(com.spendlens.app.parser.Normalize.CURRENCY_CODES.sorted()) { code ->
+                items(online.velozen.spendvault.parser.Normalize.CURRENCY_CODES.sorted()) { code ->
                     CurrencyOptionRow(
                         label = code,
-                        sublabel = com.spendlens.app.ui.util.Money.currencyName(code),
+                        sublabel = online.velozen.spendvault.ui.util.Money.currencyName(code),
                         selected = current == code,
                         onClick = { onSelect(code) },
                     )

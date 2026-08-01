@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 /**
  * Pure helpers that prepare AI prompt/response text for [AppLog] before it reaches New Relic.

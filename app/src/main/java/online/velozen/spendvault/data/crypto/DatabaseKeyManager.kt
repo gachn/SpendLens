@@ -1,4 +1,4 @@
-package com.spendlens.app.data.crypto
+package online.velozen.spendvault.data.crypto
 
 import android.content.Context
 import android.util.Base64

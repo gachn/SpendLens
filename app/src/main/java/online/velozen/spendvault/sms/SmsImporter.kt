@@ -1,8 +1,8 @@
-package com.spendlens.app.sms
+package online.velozen.spendvault.sms
 
 import android.content.Context
 import android.provider.Telephony
-import com.spendlens.app.parser.model.SmsMessage
+import online.velozen.spendvault.parser.model.SmsMessage
 
 /**
  * Reads the SMS inbox via ContentResolver and feeds each message through [SmsProcessor].

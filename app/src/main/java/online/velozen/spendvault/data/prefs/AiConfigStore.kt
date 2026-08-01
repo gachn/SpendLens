@@ -1,11 +1,11 @@
-package com.spendlens.app.data.prefs
+package online.velozen.spendvault.data.prefs
 
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.spendlens.app.BuildConfig
-import com.spendlens.app.ai.AiConfig
-import com.spendlens.app.config.RemoteConfigManager
+import online.velozen.spendvault.BuildConfig
+import online.velozen.spendvault.ai.AiConfig
+import online.velozen.spendvault.config.RemoteConfigManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +31,7 @@ data class AiPrefs(
 /**
  * Persists the AI configuration. The enabled flag and model slug are non-sensitive and live in
  * plain [android.content.SharedPreferences]; the optional API-key override is sensitive and is
- * stored in [EncryptedSharedPreferences] (Keystore-backed), mirroring [com.spendlens.app.data.crypto.DatabaseKeyManager].
+ * stored in [EncryptedSharedPreferences] (Keystore-backed), mirroring [online.velozen.spendvault.data.crypto.DatabaseKeyManager].
  *
  * Resolution rules (BuildConfig default, Settings override) live in the pure, unit-tested [AiConfig].
  */
@@ -80,7 +80,7 @@ class AiConfigStore(context: Context, private val planStore: PlanStore) {
     fun maxTokensPerRequest(): Int = remoteConfig.getAiMaxTokensPerRequest()
 
     /**
-     * How many [com.spendlens.app.work.AiSmsBatchWorker] batch calls may be in flight at once.
+     * How many [online.velozen.spendvault.work.AiSmsBatchWorker] batch calls may be in flight at once.
      * Retrieved from Firebase Remote Config.
      */
     fun concurrentRequests(): Int = remoteConfig.getAiConcurrentRequests()

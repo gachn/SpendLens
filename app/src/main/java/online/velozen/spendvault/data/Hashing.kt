@@ -1,4 +1,4 @@
-package com.spendlens.app.data
+package online.velozen.spendvault.data
 
 import java.security.MessageDigest
 

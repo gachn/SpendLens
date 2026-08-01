@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -32,15 +32,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spendlens.app.data.db.TransactionEntity
-import com.spendlens.app.di.AppContainer
-import com.spendlens.app.ui.components.GlassCard
-import com.spendlens.app.ui.components.GroupedBarChart
-import com.spendlens.app.ui.components.SummaryStat
-import com.spendlens.app.ui.components.TransactionRow
-import com.spendlens.app.ui.theme.SpendLensTheme
-import com.spendlens.app.ui.util.Dates
-import com.spendlens.app.ui.util.Money
+import online.velozen.spendvault.data.db.TransactionEntity
+import online.velozen.spendvault.di.AppContainer
+import online.velozen.spendvault.ui.components.GlassCard
+import online.velozen.spendvault.ui.components.GroupedBarChart
+import online.velozen.spendvault.ui.components.SummaryStat
+import online.velozen.spendvault.ui.components.TransactionRow
+import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.util.Dates
+import online.velozen.spendvault.ui.util.Money
 import kotlinx.coroutines.launch
 
 private const val MONTHS_BACK = 6
@@ -69,7 +69,7 @@ fun MerchantDetailScreen(
         container.merchantRepository.observeExcluded(counterparty)
     }.collectAsState(initial = false)
 
-    val primaryCurrency = com.spendlens.app.ui.components.LocalPrimaryCurrency.current
+    val primaryCurrency = online.velozen.spendvault.ui.components.LocalPrimaryCurrency.current
 
     // Spend totals use base-currency (the user's primary currency) minor units and ignore
     // non-expense rows (transfers etc.).

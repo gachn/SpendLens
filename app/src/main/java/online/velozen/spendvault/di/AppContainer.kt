@@ -1,38 +1,38 @@
-package com.spendlens.app.di
+package online.velozen.spendvault.di
 
 import android.content.Context
-import com.spendlens.app.analytics.DebugAnalyticsManager
-import com.spendlens.app.ai.AiPatternGenerator
-import com.spendlens.app.ai.HeuristicPatternGenerator
-import com.spendlens.app.ai.GatedMerchantResolver
-import com.spendlens.app.ai.LayeredPatternGenerator
-import com.spendlens.app.ai.MerchantResolver
-import com.spendlens.app.ai.OpenRouterClient
-import com.spendlens.app.ai.PatternGenerator
-import com.spendlens.app.ai.PromotionalChecker
-import com.spendlens.app.ai.SenderClassifier
-import com.spendlens.app.ai.WebMerchantResolver
-import com.spendlens.app.config.RemoteConfigManager
-import com.spendlens.app.data.prefs.AiConfigStore
-import com.spendlens.app.data.prefs.DebugAnalyticsStore
-import com.spendlens.app.data.ReceiptStore
-import com.spendlens.app.data.crypto.DatabaseKeyManager
-import com.spendlens.app.data.db.AppDatabase
-import com.spendlens.app.data.fx.FxProvider
-import com.spendlens.app.data.fx.FxRepository
-import com.spendlens.app.data.fx.WebFxProvider
-import com.spendlens.app.data.prefs.PlanStore
-import com.spendlens.app.data.prefs.SettingsStore
-import com.spendlens.app.data.prefs.VelocityAlertStore
-import com.spendlens.app.data.repository.BillRepository
-import com.spendlens.app.data.repository.BudgetRepository
-import com.spendlens.app.data.repository.CategoryRepository
-import com.spendlens.app.data.repository.MerchantRepository
-import com.spendlens.app.data.repository.PatternRepository
-import com.spendlens.app.data.repository.SavingsGoalRepository
-import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.sms.SmsImporter
-import com.spendlens.app.sms.SmsProcessor
+import online.velozen.spendvault.analytics.DebugAnalyticsManager
+import online.velozen.spendvault.ai.AiPatternGenerator
+import online.velozen.spendvault.ai.HeuristicPatternGenerator
+import online.velozen.spendvault.ai.GatedMerchantResolver
+import online.velozen.spendvault.ai.LayeredPatternGenerator
+import online.velozen.spendvault.ai.MerchantResolver
+import online.velozen.spendvault.ai.OpenRouterClient
+import online.velozen.spendvault.ai.PatternGenerator
+import online.velozen.spendvault.ai.PromotionalChecker
+import online.velozen.spendvault.ai.SenderClassifier
+import online.velozen.spendvault.ai.WebMerchantResolver
+import online.velozen.spendvault.config.RemoteConfigManager
+import online.velozen.spendvault.data.prefs.AiConfigStore
+import online.velozen.spendvault.data.prefs.DebugAnalyticsStore
+import online.velozen.spendvault.data.ReceiptStore
+import online.velozen.spendvault.data.crypto.DatabaseKeyManager
+import online.velozen.spendvault.data.db.AppDatabase
+import online.velozen.spendvault.data.fx.FxProvider
+import online.velozen.spendvault.data.fx.FxRepository
+import online.velozen.spendvault.data.fx.WebFxProvider
+import online.velozen.spendvault.data.prefs.PlanStore
+import online.velozen.spendvault.data.prefs.SettingsStore
+import online.velozen.spendvault.data.prefs.VelocityAlertStore
+import online.velozen.spendvault.data.repository.BillRepository
+import online.velozen.spendvault.data.repository.BudgetRepository
+import online.velozen.spendvault.data.repository.CategoryRepository
+import online.velozen.spendvault.data.repository.MerchantRepository
+import online.velozen.spendvault.data.repository.PatternRepository
+import online.velozen.spendvault.data.repository.SavingsGoalRepository
+import online.velozen.spendvault.data.repository.TransactionRepository
+import online.velozen.spendvault.sms.SmsImporter
+import online.velozen.spendvault.sms.SmsProcessor
 
 /**
  * Manual dependency container held by the Application. Keeps the object graph
@@ -54,7 +54,7 @@ class AppContainer(context: Context) {
     val aiConfigStore by lazy { AiConfigStore(appContext, planStore) }
 
     /** Cache for the Premium AI monthly spending recap shown on the Dashboard. */
-    val insightsStore by lazy { com.spendlens.app.data.prefs.InsightsStore(appContext) }
+    val insightsStore by lazy { online.velozen.spendvault.data.prefs.InsightsStore(appContext) }
 
     /** OpenRouter client — single OpenAI-compatible endpoint reaching any configured model. */
     val openRouterClient by lazy { OpenRouterClient() }
@@ -63,7 +63,7 @@ class AppContainer(context: Context) {
     val velocityAlertStore by lazy { VelocityAlertStore(appContext) }
 
     /** Firebase pattern sync preferences and state. */
-    val syncStore by lazy { com.spendlens.app.data.prefs.SyncStore(appContext) }
+    val syncStore by lazy { online.velozen.spendvault.data.prefs.SyncStore(appContext) }
 
     /** Remote configuration manager. */
     val remoteConfig by lazy { RemoteConfigManager.getInstance() }
@@ -89,7 +89,7 @@ class AppContainer(context: Context) {
     val savingsGoalRepository by lazy { SavingsGoalRepository(database.savingsGoalDao(), transactionRepository) }
 
     /** Encrypted, offline backup/restore of the user's data (issue #13). */
-    val backupManager by lazy { com.spendlens.app.data.backup.BackupManager(database) }
+    val backupManager by lazy { online.velozen.spendvault.data.backup.BackupManager(database) }
     val rawSmsDao get() = database.rawSmsDao()
     val cardBillDao get() = database.cardBillDao()
     val balanceSnapshotDao get() = database.balanceSnapshotDao()
@@ -129,7 +129,7 @@ class AppContainer(context: Context) {
      * Merchant-name resolver. The web-backed (Clearbit) resolver is gated behind the
      * "Predict merchant names" Settings toggle (off by default) because its company autocomplete
      * guessed brands with no reference in the SMS (e.g. "gaurav" → "Gaurav Photography"). When the
-     * toggle is off the resolver is a no-op: the bundled [com.spendlens.app.data.MerchantDictionary]
+     * toggle is off the resolver is a no-op: the bundled [online.velozen.spendvault.data.MerchantDictionary]
      * still resolves popular brands and unknown merchants keep their normalized display name.
      */
     val merchantResolver: MerchantResolver =
@@ -155,7 +155,7 @@ class AppContainer(context: Context) {
             financialSendersOnly = settingsStore::financialSendersOnly,
             promotionalChecker = promotionalChecker,
             aiAlwaysUsable = aiConfigStore::isUsable,
-            enqueueAiBatch = { com.spendlens.app.work.AiSmsBatchWorker.enqueue(appContext) },
+            enqueueAiBatch = { online.velozen.spendvault.work.AiSmsBatchWorker.enqueue(appContext) },
             primaryCurrency = settingsStore::primaryCurrency,
         )
     }
@@ -163,7 +163,7 @@ class AppContainer(context: Context) {
     val smsImporter: SmsImporter by lazy { SmsImporter(appContext, smsProcessor) }
 
     /** AI fallback that categorises transactions no keyword rule could classify. */
-    val aiCategorizer: com.spendlens.app.ai.AiCategorizer by lazy { com.spendlens.app.ai.AiCategorizer(this) }
+    val aiCategorizer: online.velozen.spendvault.ai.AiCategorizer by lazy { online.velozen.spendvault.ai.AiCategorizer(this) }
 
     /** Seeds built-in patterns and categories, and loads persisted promotional exclusions. Safe to call repeatedly. */
     suspend fun seed() {
@@ -176,7 +176,7 @@ class AppContainer(context: Context) {
 
     /**
      * Keeps the resolved primary currency in sync with actual usage, and every transaction's
-     * [com.spendlens.app.data.db.TransactionEntity.amountBaseMinor] consistent with it. Two things
+     * [online.velozen.spendvault.data.db.TransactionEntity.amountBaseMinor] consistent with it. Two things
      * can make the resolved currency drift with no explicit user action: the device locale is
      * often wrong/generic (many phones report "English (US)" regardless of country), and the
      * majority currency across the user's own transactions can only be known once some exist —

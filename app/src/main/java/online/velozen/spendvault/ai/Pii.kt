@@ -1,4 +1,4 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
 /**
  * Masks sensitive values before an SMS template is handed to any [PatternGenerator].

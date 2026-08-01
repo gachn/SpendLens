@@ -1,4 +1,4 @@
-package com.spendlens.app.work
+package online.velozen.spendvault.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -6,17 +6,17 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.spendlens.app.SpendLensApp
-import com.spendlens.app.ai.AiBatchResult
-import com.spendlens.app.ai.AiSmsResult
-import com.spendlens.app.ai.OpenRouterClient
-import com.spendlens.app.ai.PromptGenerator
-import com.spendlens.app.ai.TokenEstimator
-import com.spendlens.app.data.db.RawSmsDao
-import com.spendlens.app.data.db.RawSmsEntity
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.sms.SmsProcessor
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.ai.AiBatchResult
+import online.velozen.spendvault.ai.AiSmsResult
+import online.velozen.spendvault.ai.OpenRouterClient
+import online.velozen.spendvault.ai.PromptGenerator
+import online.velozen.spendvault.ai.TokenEstimator
+import online.velozen.spendvault.data.db.RawSmsDao
+import online.velozen.spendvault.data.db.RawSmsEntity
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.sms.SmsProcessor
+import online.velozen.spendvault.util.AppLog
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.channels.Channel
@@ -29,8 +29,8 @@ import kotlinx.coroutines.sync.withPermit
 
 /**
  * Premium's debounced batch AI call: packs every PENDING_AI raw SMS into one or more prompts
- * (sized by [com.spendlens.app.data.prefs.AiConfigStore.maxTokensPerRequest], via [TokenEstimator])
- * and resolves each row through [com.spendlens.app.sms.SmsProcessor.applyAiBatchResult].
+ * (sized by [online.velozen.spendvault.data.prefs.AiConfigStore.maxTokensPerRequest], via [TokenEstimator])
+ * and resolves each row through [online.velozen.spendvault.sms.SmsProcessor.applyAiBatchResult].
  *
  * Enqueued with [ExistingWorkPolicy.REPLACE] plus a fixed initial delay — unlike
  * [SenderClassifyWorker]'s `KEEP` (coalesce into one run at a fixed time), `REPLACE` means each new

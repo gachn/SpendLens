@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Maps a counterparty to a category id using keyword rules (most specific match by

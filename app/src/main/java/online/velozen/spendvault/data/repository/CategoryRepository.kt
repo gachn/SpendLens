@@ -1,10 +1,10 @@
-package com.spendlens.app.data.repository
+package online.velozen.spendvault.data.repository
 
-import com.spendlens.app.data.DefaultCategories
-import com.spendlens.app.data.db.CategoryDao
-import com.spendlens.app.data.db.CategoryEntity
-import com.spendlens.app.data.db.CategoryRuleEntity
-import com.spendlens.app.parser.Categorizer
+import online.velozen.spendvault.data.DefaultCategories
+import online.velozen.spendvault.data.db.CategoryDao
+import online.velozen.spendvault.data.db.CategoryEntity
+import online.velozen.spendvault.data.db.CategoryRuleEntity
+import online.velozen.spendvault.parser.Categorizer
 import kotlinx.coroutines.flow.Flow
 
 class CategoryRepository(private val dao: CategoryDao) {

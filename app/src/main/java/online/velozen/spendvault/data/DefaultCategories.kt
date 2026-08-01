@@ -1,6 +1,6 @@
-package com.spendlens.app.data
+package online.velozen.spendvault.data
 
-import com.spendlens.app.data.db.CategoryEntity
+import online.velozen.spendvault.data.db.CategoryEntity
 
 /**
  * Seed categories + keyword rules. Ids are assigned explicitly so rules can reference

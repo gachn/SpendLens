@@ -1,4 +1,4 @@
-package com.spendlens.app.parser
+package online.velozen.spendvault.parser
 
 /**
  * Extracts the card/account tail from an SMS, tolerant of the many ways banks write

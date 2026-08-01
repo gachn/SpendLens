@@ -1,24 +1,24 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.data.db.PromotionalExclusionDao
-import com.spendlens.app.data.db.PromotionalExclusionEntity
-import com.spendlens.app.data.db.RawSmsDao
-import com.spendlens.app.data.db.RawStatus
-import com.spendlens.app.data.prefs.AiConfigStore
-import com.spendlens.app.data.repository.TransactionRepository
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.data.db.PromotionalExclusionDao
+import online.velozen.spendvault.data.db.PromotionalExclusionEntity
+import online.velozen.spendvault.data.db.RawSmsDao
+import online.velozen.spendvault.data.db.RawStatus
+import online.velozen.spendvault.data.prefs.AiConfigStore
+import online.velozen.spendvault.data.repository.TransactionRepository
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 /**
  * Guards the SMS pipeline against promotional messages (loan offers, credit-limit raises, etc.)
- * that pass [com.spendlens.app.parser.FinancialSmsFilter] because they mention an amount + verb.
+ * that pass [online.velozen.spendvault.parser.FinancialSmsFilter] because they mention an amount + verb.
  *
- * **Inline path** (zero latency, called from [com.spendlens.app.sms.SmsProcessor]):
+ * **Inline path** (zero latency, called from [online.velozen.spendvault.sms.SmsProcessor]):
  *   [isKnownPromotional] — checks the in-memory cache of DB-saved exclusion regexes. No network.
  *
- * **Batch path** (background, called from [com.spendlens.app.work.PromotionalCheckWorker]):
+ * **Batch path** (background, called from [online.velozen.spendvault.work.PromotionalCheckWorker]):
  *   [runBatch] — SQL pre-filters PARSED raw SMS by promotional keywords, applies the full
  *   [PROMO_CUE] regex, then sends batches to the AI. Each batch is sized to stay within 60 % of
  *   the model's context window. For each promotional verdict, the transaction is deleted, the raw

@@ -1,7 +1,7 @@
-package com.spendlens.app.ai
+package online.velozen.spendvault.ai
 
-import com.spendlens.app.di.AppContainer
-import com.spendlens.app.util.AppLog
+import online.velozen.spendvault.di.AppContainer
+import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,13 +12,13 @@ import kotlinx.coroutines.withContext
  * Orchestrates the AI fallback that categorises transactions no keyword rule could classify.
  *
  * Triggered automatically after the inbox finishes importing and after each newly-parsed SMS (see
- * [com.spendlens.app.work.AiCategorizeWorker]). Every transaction it sends to the model is stamped
- * [com.spendlens.app.data.db.TransactionEntity.aiCategorizeAttempted] = true — whether or not the
+ * [online.velozen.spendvault.work.AiCategorizeWorker]). Every transaction it sends to the model is stamped
+ * [online.velozen.spendvault.data.db.TransactionEntity.aiCategorizeAttempted] = true — whether or not the
  * AI managed to classify it — so an SMS the AI couldn't place is never re-sent off-device on the
  * next sync. The flag is cleared in bulk only when the user explicitly requests a re-run.
  *
  * Each merchant the AI does classify is also remembered as a category rule
- * ([com.spendlens.app.data.repository.CategoryRepository.addAiRule]) so future transactions from
+ * ([online.velozen.spendvault.data.repository.CategoryRepository.addAiRule]) so future transactions from
  * the same merchant categorise offline, with no repeat API call.
  *
  * Only merchant names leave the device — never the SMS body or amounts.

@@ -1,4 +1,4 @@
-package com.spendlens.app.ui.screens
+package online.velozen.spendvault.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -64,8 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.spendlens.app.ui.components.ProPrimaryButton
-import com.spendlens.app.ui.components.ProSecondaryButton
+import online.velozen.spendvault.ui.components.ProPrimaryButton
+import online.velozen.spendvault.ui.components.ProSecondaryButton
 import java.util.Currency
 import java.util.Locale
 
