@@ -39,7 +39,7 @@ val releaseKeystorePath: String? = releaseSigningProp("RELEASE_KEYSTORE_PATH")
 val releaseVersionCode: Int = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 3
 
 android {
-    namespace = "com.spendlens.app"
+    namespace = "online.velozen.spendvault"
     compileSdk = 35
 
     lint {
@@ -63,7 +63,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.gachn.spendlens"
+        applicationId = "online.velozen.spendvault"
         minSdk = 26
         targetSdk = 35
         versionCode = releaseVersionCode

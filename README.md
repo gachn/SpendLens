@@ -1,8 +1,12 @@
-# SpendLens
+# SpendVault
+
+SpendVault: AI Privacy Expense Tracker — Your Financial Data, Your Device
 
 A privacy-first Android app that reads your bank/UPI/card **transaction SMS**, parses them with a
-**self-learning pattern engine**, detects **duplicate transactions**, and presents a beautiful
+**self-learning AI pattern engine**, detects **duplicate transactions**, and presents a beautiful
 **Material 3 expense-analysis UI**.
+
+**Website:** [velozen.online](https://velozen.online)
 
 > **Everything runs on-device.** Raw SMS, account numbers, and amounts never leave the phone.
 > The database is encrypted (SQLCipher + Android Keystore) and the on-device build ships with

@@ -3,7 +3,7 @@
     <!-- Dark-only base theme; Compose drives the real colors via SpendLensTheme.
          Parent is the dark Material theme so the cold-start window background and
          system bars match the dark scheme instead of flashing white. -->
-    <style name="Theme.SpendLens" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.SpendVault" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/ll_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
