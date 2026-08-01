@@ -210,7 +210,7 @@ fun SettingsScreen(
                             Column(Modifier.weight(1f).padding(end = 12.dp)) {
                                 Text("Dynamic colour", style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    "Match your wallpaper (Material You) instead of the SpendLens palette.",
+                                    "Match your wallpaper (Material You) instead of the SpendVault palette.",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

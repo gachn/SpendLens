@@ -7,7 +7,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import online.velozen.spendvault.MainActivity
 import online.velozen.spendvault.R
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.data.db.SavingsGoalEntity
 import online.velozen.spendvault.ui.util.Money
 
@@ -26,7 +26,7 @@ object GoalNotifier {
             tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, SpendLensApp.CHANNEL_TRANSACTIONS)
+        val notification = NotificationCompat.Builder(context, SpendVaultApp.CHANNEL_TRANSACTIONS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(text)

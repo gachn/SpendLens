@@ -71,7 +71,7 @@ import online.velozen.spendvault.data.db.TransactionEntity
 import online.velozen.spendvault.data.db.TransactionSplitEntity
 import online.velozen.spendvault.data.db.RawSmsEntity
 import online.velozen.spendvault.ui.theme.BankBranding
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.TransactionDetailViewModel
@@ -149,7 +149,7 @@ fun TransactionDetailSheet(
             Text(
                 (if (isDebit) "-" else "+") + Money.format(current.amountMinor, current.currency),
                 style = MaterialTheme.typography.headlineMedium,
-                color = if (isDebit) SpendLensTheme.colors.debit else SpendLensTheme.colors.credit,
+                color = if (isDebit) SpendVaultTheme.colors.debit else SpendVaultTheme.colors.credit,
                 fontWeight = FontWeight.Bold,
             )
             Text(
@@ -854,7 +854,7 @@ private fun SplitDialog(
                     else if (remaining > 0L) "Remaining ${Money.format(remaining, txn.currency)}"
                     else "Over by ${Money.format(-remaining, txn.currency)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (remaining == 0L) MaterialTheme.colorScheme.primary else SpendLensTheme.colors.debit,
+                    color = if (remaining == 0L) MaterialTheme.colorScheme.primary else SpendVaultTheme.colors.debit,
                 )
                 Spacer(Modifier.height(8.dp))
                 rows.forEachIndexed { i, row ->

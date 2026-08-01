@@ -2269,7 +2269,7 @@ class SenderClassificationsViewModel(private val container: AppContainer) : View
 
 // ---------- Factory ----------
 
-class SpendLensViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
+class SpendVaultViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val vm: ViewModel = when {

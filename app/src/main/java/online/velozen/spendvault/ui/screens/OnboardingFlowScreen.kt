@@ -197,7 +197,7 @@ private fun WelcomePage(onNext: () -> Unit) {
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            "Welcome to SpendLens",
+            "Welcome to SpendVault",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center

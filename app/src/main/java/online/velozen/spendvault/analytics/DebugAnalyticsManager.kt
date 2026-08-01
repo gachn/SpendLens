@@ -1,14 +1,15 @@
 package online.velozen.spendvault.analytics
 
 import android.content.Context
+import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
 import online.velozen.spendvault.config.RemoteConfigManager
 import online.velozen.spendvault.data.prefs.DebugAnalyticsStore
-import online.velozen.spendvault.data.prefs.DebugCounts
-import online.velozen.spendvault.data.prefs.PatternSource
-import online.velozen.spendvault.data.prefs.RawStatus
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel.DebugCounts
+import online.velozen.spendvault.data.db.PatternSource
+import online.velozen.spendvault.data.db.RawStatus
 import online.velozen.spendvault.data.repository.PatternRepository
 import online.velozen.spendvault.sms.SmsProcessingStats
 import online.velozen.spendvault.util.AppLog
@@ -126,10 +127,11 @@ class DebugAnalyticsManager(
             
             firebaseAnalytics.setUserProperty(DEBUG_ANALYTICS_USER_PROPERTY, compressedData)
             
-            firebaseAnalytics.logEvent("debug_analytics_sync") {
-                param("success", true)
-                param("data_size", dataJson.length)
+            val params = Bundle().apply {
+                putBoolean("success", true)
+                putInt("data_size", dataJson.length)
             }
+            firebaseAnalytics.logEvent("debug_analytics_sync", params)
             
         } catch (e: Exception) {
             AppLog.e(TAG, "Failed to upload to Firebase: ${e.message}", e)

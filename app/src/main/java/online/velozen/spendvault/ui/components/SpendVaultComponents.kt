@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // ---------------------------------------------------------------------------
-// SpendLens Pro Core Components
+// SpendVault Core Components
 // ---------------------------------------------------------------------------
 
 @Composable

@@ -6,7 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.data.db.SenderClassificationEntity
 import online.velozen.spendvault.data.db.SenderSource
 import online.velozen.spendvault.parser.FinancialSenderFilter
@@ -35,7 +35,7 @@ class SenderClassifyWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
 
         val unclassified = container.senderClassificationDao.unclassifiedSenders()
         if (unclassified.isEmpty()) return Result.success()

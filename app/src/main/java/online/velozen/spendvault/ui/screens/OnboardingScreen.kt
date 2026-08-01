@@ -32,7 +32,7 @@ fun OnboardingScreen(permanentlyDenied: Boolean, onGrant: () -> Unit) {
         ) {
             Text("🔎💸", style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(16.dp))
-            Text("Welcome to SpendLens", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Welcome to SpendVault", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
             Text(
                 "SpendLens reads your bank, UPI and card transaction SMS to build a clear picture " +

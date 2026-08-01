@@ -10,7 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import online.velozen.spendvault.MainActivity
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.parser.SpendingVelocity
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
@@ -29,7 +29,7 @@ class VelocityAlertWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         if (!NotificationHelper.canPost(applicationContext)) return Result.success()
 
         val now = System.currentTimeMillis()
@@ -70,7 +70,7 @@ class VelocityAlertWorker(
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val notification = NotificationCompat.Builder(applicationContext, SpendLensApp.CHANNEL_BUDGETS)
+        val notification = NotificationCompat.Builder(applicationContext, SpendVaultApp.CHANNEL_BUDGETS)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
             .setContentTitle("$icon $name budget at risk")
             .setContentText(

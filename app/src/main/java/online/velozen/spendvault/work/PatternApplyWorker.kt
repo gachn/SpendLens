@@ -11,7 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import online.velozen.spendvault.MainActivity
 import online.velozen.spendvault.R
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.util.AppLog
 import online.velozen.spendvault.util.NotificationHelper
 
@@ -38,7 +38,7 @@ class PatternApplyWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         val patternIds = patternIdsFromData(inputData.getString(KEY_PATTERN_IDS))
 
         val smsChanged = if (patternIds.isNotEmpty()) {
@@ -77,7 +77,7 @@ class PatternApplyWorker(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val notification = NotificationCompat.Builder(context, SpendLensApp.CHANNEL_AI_PATTERNS)
+        val notification = NotificationCompat.Builder(context, SpendVaultApp.CHANNEL_AI_PATTERNS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("AI Patterns Applied")
             .setContentText(contentText)

@@ -56,7 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import online.velozen.spendvault.ui.theme.NumericDataTextStyle
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.BudgetRow
 import online.velozen.spendvault.ui.viewmodel.BudgetsViewModel
@@ -390,13 +390,13 @@ private fun BudgetForecastCard(alerts: List<online.velozen.spendvault.ai.BudgetA
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, SpendLensTheme.colors.debit.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, SpendVaultTheme.colors.debit.copy(alpha = 0.2f)),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null, tint = SpendLensTheme.colors.debit, modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null, tint = SpendVaultTheme.colors.debit, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("BUDGET FORECAST", style = MaterialTheme.typography.labelSmall, color = SpendLensTheme.colors.debit, letterSpacing = 0.8.sp)
+                Text("BUDGET FORECAST", style = MaterialTheme.typography.labelSmall, color = SpendVaultTheme.colors.debit, letterSpacing = 0.8.sp)
             }
             alerts.forEachIndexed { i, alert ->
                 Spacer(Modifier.height(if (i == 0) 10.dp else 4.dp))
@@ -411,12 +411,12 @@ private fun BudgetForecastCard(alerts: List<online.velozen.spendvault.ai.BudgetA
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = SpendLensTheme.colors.debit.copy(alpha = 0.12f),
+                        color = SpendVaultTheme.colors.debit.copy(alpha = 0.12f),
                     ) {
                         Text(
                             alert.status,
                             style = MaterialTheme.typography.labelSmall,
-                            color = SpendLensTheme.colors.debit,
+                            color = SpendVaultTheme.colors.debit,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
@@ -440,8 +440,8 @@ private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> 
     val showRollover = hasBudget && row.rolloverEnabled && row.rolloverMinor > 0
 
     val accentColor = when {
-        overBudget -> SpendLensTheme.colors.debit
-        fraction > 0.8f -> SpendLensTheme.colors.debit.copy(alpha = 0.7f)
+        overBudget -> SpendVaultTheme.colors.debit
+        fraction > 0.8f -> SpendVaultTheme.colors.debit.copy(alpha = 0.7f)
         else -> catColor
     }
 
@@ -559,7 +559,7 @@ private fun BudgetCategoryCard(row: BudgetRow, currency: String, onClick: () -> 
             // Thick progress bar: 16dp tall, rounded-full, colored fill, 0.5px border
             ThickProgressBar(
                 progress = fraction,
-                color = if (overBudget) SpendLensTheme.colors.debit else catColor,
+                color = if (overBudget) SpendVaultTheme.colors.debit else catColor,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 height = 16.dp,
                 showBorder = true,

@@ -84,13 +84,13 @@ private val LuminousExtendedColors = ExtendedColors(debit = Expense, credit = In
 
 val LocalExtendedColors = staticCompositionLocalOf { LuminousExtendedColors }
 
-object SpendLensTheme {
+object SpendVaultTheme {
     val colors: ExtendedColors
         @Composable get() = LocalExtendedColors.current
 }
 
 @Composable
-fun SpendLensTheme(
+fun SpendVaultTheme(
     darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,

@@ -44,7 +44,7 @@ import online.velozen.spendvault.ui.components.GlassCard
 import online.velozen.spendvault.ui.components.GroupedBarChart
 import online.velozen.spendvault.ui.components.LocalPrimaryCurrency
 import online.velozen.spendvault.ui.components.MonthDropdown
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.AnalyticsTab
@@ -433,7 +433,7 @@ fun AnalyticsScreen(
                                 Text(
                                     Money.format(totalIncome, state.currency),
                                     style = MaterialTheme.typography.headlineMedium,
-                                    color = SpendLensTheme.colors.credit,
+                                    color = SpendVaultTheme.colors.credit,
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
@@ -443,7 +443,7 @@ fun AnalyticsScreen(
                             labels = state.months.map { it.label },
                             series1 = state.months.map { it.creditMinor.toFloat() },
                             series2 = state.months.map { 0f },
-                            color1 = SpendLensTheme.colors.credit,
+                            color1 = SpendVaultTheme.colors.credit,
                             color2 = Color.Transparent,
                             modifier = Modifier.fillMaxWidth(),
                             height = 160.dp,
@@ -465,7 +465,7 @@ fun AnalyticsScreen(
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            LegendDot(color = SpendLensTheme.colors.credit, label = "Income")
+                            LegendDot(color = SpendVaultTheme.colors.credit, label = "Income")
                         }
                     }
                 }
@@ -671,9 +671,9 @@ private fun SavingsRateRow(
     val hasIncome = incomeMinor > 0L
     val rateColor = when {
         !hasIncome -> MaterialTheme.colorScheme.onSurfaceVariant
-        savingsRate >= 20f -> SpendLensTheme.colors.credit
+        savingsRate >= 20f -> SpendVaultTheme.colors.credit
         savingsRate >= 0f -> MaterialTheme.colorScheme.onSurface
-        else -> SpendLensTheme.colors.debit
+        else -> SpendVaultTheme.colors.debit
     }
     Row(
         modifier = Modifier
@@ -802,8 +802,8 @@ private fun ComparisonRow(
 ) {
     // Spending going down is good → green; going up → red. Zero delta is neutral.
     val deltaColor = when {
-        row.deltaMinor < 0 -> SpendLensTheme.colors.credit
-        row.deltaMinor > 0 -> SpendLensTheme.colors.debit
+        row.deltaMinor < 0 -> SpendVaultTheme.colors.credit
+        row.deltaMinor > 0 -> SpendVaultTheme.colors.debit
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val deltaPrefix = if (row.deltaMinor > 0) "+" else ""
@@ -864,13 +864,13 @@ private fun UnusualActivityCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, SpendLensTheme.colors.debit.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, SpendVaultTheme.colors.debit.copy(alpha = 0.2f)),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Warning, contentDescription = null, tint = SpendLensTheme.colors.debit, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Warning, contentDescription = null, tint = SpendVaultTheme.colors.debit, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("UNUSUAL ACTIVITY", style = MaterialTheme.typography.labelSmall, color = SpendLensTheme.colors.debit, letterSpacing = 0.8.sp)
+                Text("UNUSUAL ACTIVITY", style = MaterialTheme.typography.labelSmall, color = SpendVaultTheme.colors.debit, letterSpacing = 0.8.sp)
             }
             Spacer(Modifier.height(4.dp))
             rows.forEachIndexed { i, row ->
@@ -889,7 +889,7 @@ private fun UnusualActivityCard(
                         Money.format(row.txn.amountBaseMinor, currency),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = SpendLensTheme.colors.debit,
+                        color = SpendVaultTheme.colors.debit,
                     )
                 }
                 if (i < rows.size - 1) {

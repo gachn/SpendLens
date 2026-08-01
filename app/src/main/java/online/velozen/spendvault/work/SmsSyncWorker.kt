@@ -6,7 +6,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.parser.model.SmsMessage
 import online.velozen.spendvault.sms.TransactionNotifier
 
@@ -20,7 +20,7 @@ class SmsSyncWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         container.seed() // no-op once seeded; guarantees patterns/categories exist
         runCatching { container.fxRepository.refresh() } // best-effort; keeps cached rates on failure
 

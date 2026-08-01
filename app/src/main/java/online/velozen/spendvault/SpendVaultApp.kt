@@ -11,7 +11,7 @@ import com.google.firebase.ktx.Firebase
 import online.velozen.spendvault.config.RemoteConfigManager
 import online.velozen.spendvault.di.AppContainer
 import online.velozen.spendvault.sms.SmsProcessingStats
-import online.velozen.spendvault.ui.viewmodel.DebugCounts
+import online.velozen.spendvault.ui.viewmodel.SettingsViewModel.DebugCounts
 import online.velozen.spendvault.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,21 +35,21 @@ class SpendVaultApp : Application() {
         AppLog.i("SpendVaultApp starting version=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         container = AppContainer(this)
         createNotificationChannels()
-        com.spendvault.app.work.BillReminderWorker.schedule(this)
-        com.spendvault.app.work.CardPaymentReminderWorker.schedule(this)
-        com.spendvault.app.work.VelocityAlertWorker.schedule(this)
-        com.spendvault.app.work.WidgetRefreshWorker.schedule(this)
-        com.spendvault.app.work.MerchantConsolidationWorker.schedule(this)
+        online.velozen.spendvault.work.BillReminderWorker.schedule(this)
+        online.velozen.spendvault.work.CardPaymentReminderWorker.schedule(this)
+        online.velozen.spendvault.work.VelocityAlertWorker.schedule(this)
+        online.velozen.spendvault.work.WidgetRefreshWorker.schedule(this)
+        online.velozen.spendvault.work.MerchantConsolidationWorker.schedule(this)
         
         setupDebugAnalyticsSync()
         
         appScope.launch {
             container.seed()
             runCatching { container.fxRepository.refresh() }
-            val stranded = container.rawSmsDao.listByStatus(com.spendvault.app.data.db.RawStatus.PENDING_AI)
+            val stranded = container.rawSmsDao.listByStatus(online.velozen.spendvault.data.db.RawStatus.PENDING_AI)
             if (stranded.isNotEmpty()) {
                 AppLog.i("SpendVaultApp: resuming ${stranded.size} AI-batch rows stranded from a prior run")
-                com.spendvault.app.work.AiSmsBatchWorker.enqueue(this@SpendVaultApp)
+                online.velozen.spendvault.work.AiSmsBatchWorker.enqueue(this@SpendVaultApp)
             }
         }
     }
@@ -66,18 +66,18 @@ class SpendVaultApp : Application() {
                 
                 val counts = DebugCounts(
                     totalRawSms = raw.count(),
-                    parsedCount = raw.countByStatus(com.spendvault.app.data.db.RawStatus.PARSED),
-                    unparsedCount = raw.countByStatus(com.spendvault.app.data.db.RawStatus.UNPARSED),
-                    ignoredCount = raw.countByStatus(com.spendvault.app.data.db.RawStatus.IGNORED),
-                    pendingAiCount = raw.countByStatus(com.spendvault.app.data.db.RawStatus.PENDING_AI),
+                    parsedCount = raw.countByStatus(online.velozen.spendvault.data.db.RawStatus.PARSED),
+                    unparsedCount = raw.countByStatus(online.velozen.spendvault.data.db.RawStatus.UNPARSED),
+                    ignoredCount = raw.countByStatus(online.velozen.spendvault.data.db.RawStatus.IGNORED),
+                    pendingAiCount = raw.countByStatus(online.velozen.spendvault.data.db.RawStatus.PENDING_AI),
                     aiParsedCount = raw.countAiParsed(),
                     aiPatternParsedCount = raw.countAiPatternParsed(),
                     totalTransactions = txn.count(),
                     duplicateTransactions = txn.countDuplicates(),
-                    patternBuiltin = pat.countBySource(com.spendvault.app.data.db.PatternSource.BUILTIN),
-                    patternAi = pat.countBySource(com.spendvault.app.data.db.PatternSource.AI),
-                    patternHeuristic = pat.countBySource(com.spendvault.app.data.db.PatternSource.HEURISTIC),
-                    patternUser = pat.countBySource(com.spendvault.app.data.db.PatternSource.USER),
+                    patternBuiltin = pat.countBySource(online.velozen.spendvault.data.db.PatternSource.BUILTIN),
+                    patternAi = pat.countBySource(online.velozen.spendvault.data.db.PatternSource.AI),
+                    patternHeuristic = pat.countBySource(online.velozen.spendvault.data.db.PatternSource.HEURISTIC),
+                    patternUser = pat.countBySource(online.velozen.spendvault.data.db.PatternSource.USER),
                     patternFirebase = 0,
                     firebaseSyncLastRun = "",
                     firebaseSyncPatternsDownloaded = 0,
@@ -90,8 +90,6 @@ class SpendVaultApp : Application() {
             } catch (e: Exception) {
                 AppLog.e("SpendVaultApp", "Failed to sync debug analytics: ${e.message}", e)
             }
-        }
-    }
         }
     }
 

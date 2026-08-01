@@ -5,7 +5,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /**
- * Shapes for the SpendLens Pro minimalist design system.
+ * Shapes for the SpendVault minimalist design system.
  */
 val SpendLensShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp), // sm

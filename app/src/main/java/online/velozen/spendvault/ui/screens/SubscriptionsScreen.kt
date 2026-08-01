@@ -36,7 +36,7 @@ fun SubscriptionsScreen(vm: SubscriptionsViewModel) {
             item {
                 EmptyHint(
                     "Subscriptions is a Premium insight. Switch to Premium in Settings → Plan to see " +
-                        "every recurring merchant SpendLens has detected and how much you're spending " +
+                        "every recurring merchant SpendVault has detected and how much you're spending " +
                         "on them each month.",
                 )
             }

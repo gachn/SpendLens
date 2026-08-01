@@ -8,7 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.widget.WidgetUpdater
 import java.util.concurrent.TimeUnit
 
@@ -22,7 +22,7 @@ class WidgetRefreshWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         runCatching {
             WidgetUpdater.update(
                 context = applicationContext,

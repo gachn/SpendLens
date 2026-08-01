@@ -1,5 +1,6 @@
 package online.velozen.spendvault.analytics
 
+import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.analytics.logEvent
@@ -10,10 +11,11 @@ object FirebaseAnalyticsHelper {
     private val analytics: FirebaseAnalytics = Firebase.analytics
     
     fun logSmsReceived(success: Boolean, categoryCount: Int = 0) {
-        analytics.logEvent("sms_received") {
-            param("success", success)
-            param("category_count", categoryCount.toLong())
+        val params = Bundle().apply {
+            putBoolean("success", success)
+            putLong("category_count", categoryCount.toLong())
         }
+        analytics.logEvent("sms_received", params)
     }
     
     fun logPatternMatched(source: String, patternId: Long) {
@@ -32,17 +34,19 @@ object FirebaseAnalyticsHelper {
     }
     
     fun logAiCategorizationAttempt(success: Boolean, model: String) {
-        analytics.logEvent("ai_categorization_attempt") {
-            param("success", success)
-            param("model", model)
+        val params = Bundle().apply {
+            putBoolean("success", success)
+            putString("model", model)
         }
+        analytics.logEvent("ai_categorization_attempt", params)
     }
     
     fun logSyncResult(patternsDownloaded: Int, patternsUploaded: Int, durationMs: Long) {
-        analytics.logEvent("firebase_sync_result") {
-            param("patterns_downloaded", patternsDownloaded.toLong())
-            param("patterns_uploaded", patternsUploaded.toLong())
-            param("duration_ms", durationMs)
+        val params = Bundle().apply {
+            putLong("patterns_downloaded", patternsDownloaded.toLong())
+            putLong("patterns_uploaded", patternsUploaded.toLong())
+            putLong("duration_ms", durationMs)
         }
+        analytics.logEvent("firebase_sync_result", params)
     }
 }

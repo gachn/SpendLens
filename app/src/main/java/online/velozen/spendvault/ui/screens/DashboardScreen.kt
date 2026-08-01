@@ -46,7 +46,7 @@ import online.velozen.spendvault.ui.components.GlassCard
 import online.velozen.spendvault.ui.components.ProChip
 import online.velozen.spendvault.ui.components.ProProgressBar
 import online.velozen.spendvault.ui.components.TransactionRow
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.BudgetsViewModel
 import online.velozen.spendvault.ui.viewmodel.DashboardViewModel
@@ -204,7 +204,7 @@ fun DashboardScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     // 4dp progress bar with rounded full shape
-                    val barColor = if (budgetPct > 0.9f) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.primary
+                    val barColor = if (budgetPct > 0.9f) SpendVaultTheme.colors.debit else MaterialTheme.colorScheme.primary
                     ProProgressBar(
                         progress = budgetPct,
                         color = barColor,
@@ -401,7 +401,7 @@ private fun SmartInsightCard(
                         Text(
                             "Couldn't generate AI insight (${recap.message}).",
                             style = MaterialTheme.typography.bodySmall,
-                            color = SpendLensTheme.colors.debit,
+                            color = SpendVaultTheme.colors.debit,
                         )
                         Spacer(Modifier.height(4.dp))
                         TextButton(onClick = onGenerateRecap, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {

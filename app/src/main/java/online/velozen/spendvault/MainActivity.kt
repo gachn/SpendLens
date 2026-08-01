@@ -38,8 +38,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.analytics.FirebaseAnalytics
 import online.velozen.spendvault.data.prefs.ThemeMode
-import online.velozen.spendvault.ui.nav.SpendLensRoot
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.nav.SpendVaultRoot
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.util.AppLog
 import online.velozen.spendvault.util.FirebaseHelper
 import online.velozen.spendvault.work.AiCategorizeWorker
@@ -54,7 +54,7 @@ class MainActivity : FragmentActivity() {
     /** Guards against firing a second prompt while one is already on screen. */
     private var authInProgress = false
 
-    private val settingsStore by lazy { (application as SpendLensApp).container.settingsStore }
+    private val settingsStore by lazy { (application as SpendVaultApp).container.settingsStore }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,7 +65,7 @@ class MainActivity : FragmentActivity() {
         FirebaseHelper.initialize(this)
         AppLog.i("Firebase Crashlytics and Analytics initialized")
         
-        val container = (application as SpendLensApp).container
+        val container = (application as SpendVaultApp).container
         // Check for Firebase sync on app startup
         lifecycleScope.launch {
             try {
@@ -94,11 +94,11 @@ class MainActivity : FragmentActivity() {
             }
             val txnId by pendingTxnId.collectAsState()
             val isLocked by locked.collectAsState()
-            SpendLensTheme(darkTheme = darkTheme, dynamicColor = appearance.dynamicColor) {
+            SpendVaultTheme(darkTheme = darkTheme, dynamicColor = appearance.dynamicColor) {
                 if (isLocked) {
                     LockScreen(onUnlock = ::promptUnlock)
                 } else {
-                    SpendLensRoot(
+                    SpendVaultRoot(
                         container = container,
                         initialTxnId = txnId,
                         onTxnIdConsumed = { pendingTxnId.value = null },
@@ -167,7 +167,7 @@ class MainActivity : FragmentActivity() {
         )
         authInProgress = true
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock SpendLens")
+            .setTitle("Unlock SpendVault")
             .setSubtitle("Authenticate to view your finances")
             .setAllowedAuthenticators(authenticators)
             .apply {
@@ -184,7 +184,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
-        private const val TAG = "SpendLensLock"
+        private const val TAG = "SpendVaultLock"
         const val EXTRA_TXN_ID = "txn_id"
 
         /**
@@ -213,7 +213,7 @@ private fun LockScreen(onUnlock: () -> Unit) {
                 modifier = Modifier.size(56.dp),
             )
             Text(
-                "SpendLens is locked",
+                "SpendVault is locked",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,

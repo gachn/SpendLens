@@ -38,7 +38,7 @@ import online.velozen.spendvault.ui.components.GlassCard
 import online.velozen.spendvault.ui.components.GroupedBarChart
 import online.velozen.spendvault.ui.components.SummaryStat
 import online.velozen.spendvault.ui.components.TransactionRow
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import kotlinx.coroutines.launch
@@ -112,7 +112,7 @@ fun MerchantDetailScreen(
                         SummaryStat(
                             label = "Total spent",
                             value = Money.format(totalSpentMinor, primaryCurrency),
-                            accent = SpendLensTheme.colors.debit,
+                            accent = SpendVaultTheme.colors.debit,
                         )
                         SummaryStat(
                             label = "Transactions",

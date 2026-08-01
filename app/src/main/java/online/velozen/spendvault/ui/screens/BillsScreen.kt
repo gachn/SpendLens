@@ -32,7 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import online.velozen.spendvault.ui.components.ElevatedSurfaceCard
 import online.velozen.spendvault.ui.components.SectionHeader
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.BillItem
 import online.velozen.spendvault.ui.viewmodel.BillsViewModel
@@ -103,7 +103,7 @@ private fun BillCard(
                     Text(
                         dueText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (urgent) SpendLensTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (urgent) SpendVaultTheme.colors.debit else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (urgent) FontWeight.Bold else FontWeight.Normal,
                     )
                 }

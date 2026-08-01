@@ -6,7 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.ai.AiBatchResult
 import online.velozen.spendvault.ai.AiSmsResult
 import online.velozen.spendvault.ai.OpenRouterClient
@@ -43,7 +43,7 @@ class AiSmsBatchWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         val aiConfigStore = container.aiConfigStore
         val rawDao = container.rawSmsDao
         val smsProcessor = container.smsProcessor

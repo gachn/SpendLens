@@ -94,7 +94,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 import online.velozen.spendvault.data.db.RawStatus
 import online.velozen.spendvault.data.db.TransactionEntity
 import online.velozen.spendvault.di.AppContainer
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.ui.components.LocalPrimaryCurrency
 import online.velozen.spendvault.ui.components.TransactionDetailSheet
 import online.velozen.spendvault.ui.screens.AccountsScreen
@@ -128,7 +128,7 @@ import online.velozen.spendvault.ui.viewmodel.MerchantsViewModel
 import online.velozen.spendvault.ui.viewmodel.ReviewViewModel
 import online.velozen.spendvault.ui.viewmodel.SenderClassificationsViewModel
 import online.velozen.spendvault.ui.viewmodel.SettingsViewModel
-import online.velozen.spendvault.ui.viewmodel.SpendLensViewModelFactory
+import online.velozen.spendvault.ui.viewmodel.SpendVaultViewModelFactory
 import online.velozen.spendvault.ui.viewmodel.SubscriptionsViewModel
 import online.velozen.spendvault.ui.viewmodel.TransactionDetailViewModel
 import online.velozen.spendvault.ui.viewmodel.TransactionsViewModel
@@ -160,12 +160,12 @@ private const val ROUTE_ENTRY        = "entry"
 private const val ARG_TXN_ID         = "txnId"
 
 @Composable
-fun SpendLensRoot(
+fun SpendVaultRoot(
     container: AppContainer,
     initialTxnId: Long? = null,
     onTxnIdConsumed: () -> Unit = {},
 ) {
-    val factory = remember { SpendLensViewModelFactory(container) }
+    val factory = remember { SpendVaultViewModelFactory(container) }
     var selected by remember { mutableStateOf<TransactionEntity?>(null) }
 
     var lastProcessedClip by remember { mutableStateOf("") }
@@ -525,7 +525,7 @@ fun SpendLensRoot(
 @Composable
 private fun PermissionGate(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val container = (context.applicationContext as SpendLensApp).container
+    val container = (context.applicationContext as SpendVaultApp).container
     val hasCompletedOnboarding by container.settingsStore.onboarding.collectAsState()
     
     val required = buildList {
@@ -611,7 +611,7 @@ private fun PermissionGate(content: @Composable () -> Unit) {
 @Composable
 private fun MainScaffold(
     container: AppContainer,
-    factory: SpendLensViewModelFactory,
+    factory: SpendVaultViewModelFactory,
     selected: TransactionEntity?,
     onSelectedChanged: (TransactionEntity?) -> Unit,
     showAiBanner: Boolean = false,

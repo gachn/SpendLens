@@ -2,7 +2,7 @@ package online.velozen.spendvault.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// SpendLens Pro Palette (Light Mode Tokens from DESIGN.md)
+// SpendVault Palette (Light Mode Tokens from DESIGN.md)
 val md_theme_light_primary = Color(0xFF006B5F)
 val md_theme_light_onPrimary = Color(0xFFFFFFFF)
 val md_theme_light_primaryContainer = Color(0xFF2DD4BF)
@@ -33,7 +33,7 @@ val md_theme_light_surfaceTint = Color(0xFF006B5F)
 val md_theme_light_outlineVariant = Color(0xFFBACAC5)
 val md_theme_light_scrim = Color(0xFF000000)
 
-// SpendLens Pro Palette (Dark Mode derived)
+// SpendVault Palette (Dark Mode derived)
 val md_theme_dark_primary = Color(0xFF3CDDC7)
 val md_theme_dark_onPrimary = Color(0xFF003731)
 val md_theme_dark_primaryContainer = Color(0xFF005047)

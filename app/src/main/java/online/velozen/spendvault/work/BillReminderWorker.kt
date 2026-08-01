@@ -10,7 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import online.velozen.spendvault.MainActivity
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.parser.BillReminders
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.util.NotificationHelper
@@ -26,7 +26,7 @@ class BillReminderWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         if (!NotificationHelper.canPost(applicationContext)) return Result.success()
 
         val now = System.currentTimeMillis()
@@ -46,7 +46,7 @@ class BillReminderWorker(
                 intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            val notification = NotificationCompat.Builder(applicationContext, SpendLensApp.CHANNEL_BILLS)
+            val notification = NotificationCompat.Builder(applicationContext, SpendVaultApp.CHANNEL_BILLS)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle("Upcoming bill: ${bill.counterparty}")
                 .setContentText("~${Money.format(bill.typicalAmountMinor, "INR")} $whenText")

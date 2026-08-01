@@ -68,7 +68,7 @@ import online.velozen.spendvault.ui.components.SectionHeader
 import online.velozen.spendvault.ui.components.SummaryStat
 import online.velozen.spendvault.ui.components.TransactionRow
 import online.velozen.spendvault.ui.theme.BankBranding
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.AccountSummary
@@ -291,7 +291,7 @@ private fun NetLiquidBalanceCard(
                     SummaryStat(
                         label = "Outstanding",
                         value = Money.format(outstandingMinor, primaryCurrency),
-                        accent = SpendLensTheme.colors.debit,
+                        accent = SpendVaultTheme.colors.debit,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -846,7 +846,7 @@ private fun AccountStats(
                         else -> "Total due"
                     },
                     value = Money.format(acct.billTotalDueMinor, primaryCurrency),
-                    accent = if (acct.isStatementPaid) SpendLensTheme.colors.credit else SpendLensTheme.colors.debit,
+                    accent = if (acct.isStatementPaid) SpendVaultTheme.colors.credit else SpendVaultTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
                 SummaryStat(
@@ -867,7 +867,7 @@ private fun AccountStats(
                 SummaryStat(
                     label = "Cycle spend",
                     value = "-" + Money.format(acct.cycleSpendMinor, primaryCurrency),
-                    accent = SpendLensTheme.colors.debit,
+                    accent = SpendVaultTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -876,14 +876,14 @@ private fun AccountStats(
                 SummaryStat(
                     label = "Paid",
                     value = Money.format(acct.paidTotalMinor, "INR"),
-                    accent = SpendLensTheme.colors.credit,
+                    accent = SpendVaultTheme.colors.credit,
                     modifier = Modifier.weight(1f),
                 )
                 SummaryStat(
                     label = "Outstanding",
                     value = Money.format(acct.outstandingMinor ?: acct.billTotalDueMinor, "INR"),
                     accent = if ((acct.outstandingMinor ?: 0L) == 0L)
-                        SpendLensTheme.colors.credit else SpendLensTheme.colors.debit,
+                        SpendVaultTheme.colors.credit else SpendVaultTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -935,7 +935,7 @@ private fun AccountStats(
                 SummaryStat(
                     label = "Total debit",
                     value = "-" + Money.format(acct.totalDebitMinor, primaryCurrency),
-                    accent = SpendLensTheme.colors.debit,
+                    accent = SpendVaultTheme.colors.debit,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onEditBalance) {

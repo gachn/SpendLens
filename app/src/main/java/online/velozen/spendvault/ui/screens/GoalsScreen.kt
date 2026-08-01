@@ -45,7 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import online.velozen.spendvault.data.db.SavingsGoalEntity
 import online.velozen.spendvault.ui.components.GlassCard
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import online.velozen.spendvault.ui.viewmodel.GoalItem
@@ -133,17 +133,17 @@ fun GoalsScreen(vm: GoalsViewModel, onBack: () -> Unit = {}) {
 @Composable
 private fun GoalCard(item: GoalItem, currency: String, onContribute: () -> Unit, onDelete: () -> Unit) {
     val g = item.goal
-    val barColor = if (item.reached) SpendLensTheme.colors.credit else MaterialTheme.colorScheme.primary
+    val barColor = if (item.reached) SpendVaultTheme.colors.credit else MaterialTheme.colorScheme.primary
     GlassCard {
         Column {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(g.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 if (item.reached) {
-                    Surface(shape = RoundedCornerShape(8.dp), color = SpendLensTheme.colors.credit.copy(alpha = 0.15f)) {
+                    Surface(shape = RoundedCornerShape(8.dp), color = SpendVaultTheme.colors.credit.copy(alpha = 0.15f)) {
                         Text(
                             "REACHED",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SpendLensTheme.colors.credit,
+                            color = SpendVaultTheme.colors.credit,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }

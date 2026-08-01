@@ -8,7 +8,7 @@ import android.graphics.Color
 import androidx.core.app.NotificationCompat
 import online.velozen.spendvault.MainActivity
 import online.velozen.spendvault.R
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import online.velozen.spendvault.data.db.TransactionEntity
 import online.velozen.spendvault.ui.util.Money
 
@@ -39,7 +39,7 @@ object TransactionNotifier {
             tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, SpendLensApp.CHANNEL_TRANSACTIONS)
+        val notification = NotificationCompat.Builder(context, SpendVaultApp.CHANNEL_TRANSACTIONS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setColor(if (isDebit) COLOR_DEBIT else COLOR_CREDIT)
             .setColorized(true)

@@ -26,7 +26,7 @@ val JakartaSans = FontFamily(
     jakarta(FontWeight.ExtraBold),
 )
 
-// SpendLens Pro Editorial Typography
+// SpendVault Editorial Typography
 val SpendLensTypography = Typography(
     displayLarge = TextStyle(fontFamily = JakartaSans, fontWeight = FontWeight.Bold, fontSize = 40.sp, lineHeight = 48.sp, letterSpacing = (-0.02).em),
     headlineLarge = TextStyle(fontFamily = JakartaSans, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = (-0.02).em),

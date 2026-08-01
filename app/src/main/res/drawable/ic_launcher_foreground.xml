@@ -5,7 +5,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <!--
-      SpendLens logo: magnifying glass with a bar chart inside.
+      SpendVault logo: magnifying glass with a bar chart inside.
       Built entirely from <path> elements (VectorDrawable does NOT
       support <rect>/<circle>). Centered within the adaptive-icon
       safe zone (~72dp around centre 54,54).

@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import online.velozen.spendvault.data.db.CategoryEntity
 import online.velozen.spendvault.data.db.TransactionEntity
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.Money
 import java.time.YearMonth
@@ -83,7 +83,7 @@ fun TransactionRow(
     val isDebit = txn.direction == "DEBIT"
     val primaryCurrency = LocalPrimaryCurrency.current
     val amountAlpha = if (txn.excludedFromExpense) 0.4f else 1f
-    val amountColor = if (isDebit) SpendLensTheme.colors.debit else SpendLensTheme.colors.credit
+    val amountColor = if (isDebit) SpendVaultTheme.colors.debit else SpendVaultTheme.colors.credit
 
     Row(
         modifier = modifier

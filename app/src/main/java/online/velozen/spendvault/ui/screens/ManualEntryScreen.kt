@@ -54,7 +54,7 @@ import online.velozen.spendvault.ai.MerchantWarning
 import online.velozen.spendvault.data.db.TransactionEntity
 import online.velozen.spendvault.ui.components.CategoryCreateDialog
 import online.velozen.spendvault.ui.components.MerchantSuggestField
-import online.velozen.spendvault.ui.theme.SpendLensTheme
+import online.velozen.spendvault.ui.theme.SpendVaultTheme
 import online.velozen.spendvault.ui.util.Dates
 import online.velozen.spendvault.ui.util.ManualAmount
 import online.velozen.spendvault.ui.viewmodel.ManualEntryViewModel

@@ -12,7 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import online.velozen.spendvault.MainActivity
 import online.velozen.spendvault.R
-import online.velozen.spendvault.SpendLensApp
+import online.velozen.spendvault.SpendVaultApp
 import java.util.concurrent.TimeUnit
 
 /**
@@ -26,7 +26,7 @@ class BackupReminderWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as SpendLensApp).container
+        val container = (applicationContext as SpendVaultApp).container
         val last = container.settingsStore.lastBackupAtMillis()
         val overdue = System.currentTimeMillis() - last >= REMINDER_AFTER_MS
         if (overdue && container.database.transactionDao().count() > 0) {
@@ -49,7 +49,7 @@ class BackupReminderWorker(
             context, NOTIF_ID, tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, SpendLensApp.CHANNEL_TRANSACTIONS)
+        val notification = NotificationCompat.Builder(context, SpendVaultApp.CHANNEL_TRANSACTIONS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(text)
