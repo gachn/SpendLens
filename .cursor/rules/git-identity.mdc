@@ -3,7 +3,7 @@ description: Use personal gachn Git identity for all git operations in this repo
 alwaysApply: true
 ---
 
-# Git Identity — SpendLens (personal)
+# Git Identity — SpendVault (personal)
 
 This is a **personal** repo under the `gachn` GitHub account. Never use the work/Freshworks identity.
 
