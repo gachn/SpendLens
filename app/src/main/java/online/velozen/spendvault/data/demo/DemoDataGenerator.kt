@@ -1,7 +1,6 @@
 package online.velozen.spendvault.data.demo
 
 import online.velozen.spendvault.data.db.*
-import online.velozen.spendvault.parser.model.Money
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -23,286 +22,363 @@ object DemoDataGenerator {
             rawSmsId = 1,
             amountMinor = 2450000L, // ₹2,450.00
             currency = "INR",
-            date = now.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "BigBasket",
-            category = "Food & Dining",
+            amountBaseMinor = 2450000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "BigBasket",
+            balanceMinor = 12450000L,
+            referenceId = null,
+            occurredAt = now.minus(1, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 1,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 2,
             rawSmsId = 2,
             amountMinor = 850000L, // ₹850.00
             currency = "INR",
-            date = now.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Amazon",
-            category = "Shopping",
+            amountBaseMinor = 850000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Amazon",
+            balanceMinor = 12205000L,
+            referenceId = null,
+            occurredAt = now.minus(1, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Card",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 2,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 3,
             rawSmsId = 3,
             amountMinor = 320000L, // ₹320.00
             currency = "INR",
-            date = now.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Swiggy",
-            category = "Food & Dining",
+            amountBaseMinor = 320000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Swiggy",
+            balanceMinor = 11355000L,
+            referenceId = null,
+            occurredAt = now.minus(2, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 1,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 4,
             rawSmsId = 4,
             amountMinor = 2500000L, // ₹2,500.00
             currency = "INR",
-            date = now.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Electricity Board",
-            category = "Bills",
+            amountBaseMinor = 2500000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Electricity Board",
+            balanceMinor = 8855000L,
+            referenceId = null,
+            occurredAt = now.minus(2, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Card",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 3,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 5,
             rawSmsId = 5,
             amountMinor = 6240000L, // ₹6,240.00
             currency = "INR",
-            date = now.minus(3, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Salary Credit",
-            category = "Income",
+            amountBaseMinor = 6240000L,
+            direction = "CREDIT",
             accountKey = "hdfc_savings",
-            direction = "in",
+            counterparty = "Salary Credit",
+            balanceMinor = 15095000L,
+            referenceId = null,
+            occurredAt = now.minus(3, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Bank",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 8,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 6,
             rawSmsId = 6,
             amountMinor = 1200000L, // ₹1,200.00
             currency = "INR",
-            date = now.minus(3, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Zomato",
-            category = "Food & Dining",
+            amountBaseMinor = 1200000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Zomato",
+            balanceMinor = 8855000L,
+            referenceId = null,
+            occurredAt = now.minus(3, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 1,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 7,
             rawSmsId = 7,
             amountMinor = 450000L, // ₹450.00
             currency = "INR",
-            date = now.minus(4, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Netflix",
-            category = "Subscriptions",
+            amountBaseMinor = 450000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Netflix",
+            balanceMinor = 8405000L,
+            referenceId = null,
+            occurredAt = now.minus(4, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Card",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 5,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 8,
             rawSmsId = 8,
             amountMinor = 1800000L, // ₹1,800.00
             currency = "INR",
-            date = now.minus(4, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Flipkart",
-            category = "Shopping",
+            amountBaseMinor = 1800000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Flipkart",
+            balanceMinor = 6605000L,
+            referenceId = null,
+            occurredAt = now.minus(4, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 2,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 9,
             rawSmsId = 9,
             amountMinor = 950000L, // ₹950.00
             currency = "INR",
-            date = now.minus(5, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Uber",
-            category = "Transport",
+            amountBaseMinor = 950000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Uber",
+            balanceMinor = 5655000L,
+            referenceId = null,
+            occurredAt = now.minus(5, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 4,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 10,
             rawSmsId = 10,
             amountMinor = 650000L, // ₹650.00
             currency = "INR",
-            date = now.minus(5, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Spotify",
-            category = "Subscriptions",
+            amountBaseMinor = 650000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Spotify",
+            balanceMinor = 5005000L,
+            referenceId = null,
+            occurredAt = now.minus(5, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Card",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 5,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 11,
             rawSmsId = 11,
             amountMinor = 2100000L, // ₹2,100.00
             currency = "INR",
-            date = now.minus(6, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Myntra",
-            category = "Shopping",
+            amountBaseMinor = 2100000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Myntra",
+            balanceMinor = 2905000L,
+            referenceId = null,
+            occurredAt = now.minus(6, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 2,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 12,
             rawSmsId = 12,
             amountMinor = 580000L, // ₹580.00
             currency = "INR",
-            date = now.minus(6, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Starbucks",
-            category = "Food & Dining",
+            amountBaseMinor = 580000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Starbucks",
+            balanceMinor = 2325000L,
+            referenceId = null,
+            occurredAt = now.minus(6, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 1,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 13,
             rawSmsId = 13,
             amountMinor = 1500000L, // ₹1,500.00
             currency = "INR",
-            date = now.minus(7, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "PhonePe Recharge",
-            category = "Utilities",
+            amountBaseMinor = 1500000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "PhonePe Recharge",
+            balanceMinor = 825000L,
+            referenceId = null,
+            occurredAt = now.minus(7, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 6,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 14,
             rawSmsId = 14,
             amountMinor = 890000L, // ₹890.00
             currency = "INR",
-            date = now.minus(7, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "BookMyShow",
-            category = "Entertainment",
+            amountBaseMinor = 890000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "BookMyShow",
+            balanceMinor = -65000L,
+            referenceId = null,
+            occurredAt = now.minus(7, ChronoUnit.DAYS).toEpochMilli(),
             channel = "UPI",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 7,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         ),
         TransactionEntity(
             id = 15,
             rawSmsId = 15,
             amountMinor = 1200000L, // ₹1,200.00
             currency = "INR",
-            date = now.minus(8, ChronoUnit.DAYS).toEpochMilli(),
-            merchant = "Electricity Bill",
-            category = "Bills",
+            amountBaseMinor = 1200000L,
+            direction = "DEBIT",
             accountKey = "hdfc_savings",
-            direction = "out",
+            counterparty = "Electricity Bill",
+            balanceMinor = -1265000L,
+            referenceId = null,
+            occurredAt = now.minus(8, ChronoUnit.DAYS).toEpochMilli(),
             channel = "Auto-pay",
-            notes = null,
-            reviewed = true,
-            duplicateOf = null
+            categoryId = 3,
+            dupGroupId = null,
+            isDuplicate = false,
+            userVerified = true,
+            excludedFromExpense = false,
+            note = null,
+            tags = null,
+            receiptUri = null
         )
     )
 
     // Demo categories
     fun getDemoCategories(): List<CategoryEntity> = listOf(
-        CategoryEntity(id = 1, name = "Food & Dining", icon = "🍽️", budgetMinor = 1500000L),
-        CategoryEntity(id = 2, name = "Shopping", icon = "🛒", budgetMinor = 2000000L),
-        CategoryEntity(id = 3, name = "Bills", icon = "📄", budgetMinor = 1000000L),
-        CategoryEntity(id = 4, name = "Transport", icon = "🚗", budgetMinor = 800000L),
-        CategoryEntity(id = 5, name = "Subscriptions", icon = "📱", budgetMinor = 600000L),
-        CategoryEntity(id = 6, name = "Utilities", icon = "⚡", budgetMinor = 700000L),
-        CategoryEntity(id = 7, name = "Entertainment", icon = "🎬", budgetMinor = 500000L),
-        CategoryEntity(id = 8, name = "Income", icon = "💰", budgetMinor = 0L),
-        CategoryEntity(id = 9, name = "Health", icon = "🏥", budgetMinor = 400000L),
-        CategoryEntity(id = 10, name = "Education", icon = "📚", budgetMinor = 600000L)
+        CategoryEntity(id = 1, name = "Food & Dining", icon = "🍽️", color = 0xFFFF5722),
+        CategoryEntity(id = 2, name = "Shopping", icon = "🛒", color = 0xFF3F51B5),
+        CategoryEntity(id = 3, name = "Bills", icon = "📄", color = 0xFFF44336),
+        CategoryEntity(id = 4, name = "Transport", icon = "🚗", color = 0xFF009688),
+        CategoryEntity(id = 5, name = "Subscriptions", icon = "📱", color = 0xFF9C27B0),
+        CategoryEntity(id = 6, name = "Utilities", icon = "⚡", color = 0xFFFF9800),
+        CategoryEntity(id = 7, name = "Entertainment", icon = "🎬", color = 0xFFE91E63),
+        CategoryEntity(id = 8, name = "Income", icon = "💰", color = 0xFF4CAF50),
+        CategoryEntity(id = 9, name = "Health", icon = "🏥", color = 0xFF00BCD4),
+        CategoryEntity(id = 10, name = "Education", icon = "📚", color = 0xFF607D8B)
     )
 
     // Demo budgets
     fun getDemoBudgets(): List<BudgetEntity> = listOf(
         BudgetEntity(
-            id = 1,
             categoryId = 1,
-            month = now.atZone(zoneId).toLocalDate().withDayOfMonth(1).toString(),
-            amountMinor = 1500000L,
-            alertThreshold = 0.8f
+            monthlyLimitMinor = 1500000L,
+            rolloverEnabled = false
         ),
         BudgetEntity(
-            id = 2,
             categoryId = 2,
-            month = now.atZone(zoneId).toLocalDate().withDayOfMonth(1).toString(),
-            amountMinor = 2000000L,
-            alertThreshold = 0.8f
+            monthlyLimitMinor = 2000000L,
+            rolloverEnabled = false
         ),
         BudgetEntity(
-            id = 3,
             categoryId = 3,
-            month = now.atZone(zoneId).toLocalDate().withDayOfMonth(1).toString(),
-            amountMinor = 1000000L,
-            alertThreshold = 0.8f
-        )
-    )
-
-    // Demo accounts
-    fun getDemoAccounts(): List<AccountEntity> = listOf(
-        AccountEntity(
-            id = 1,
-            accountKey = "hdfc_savings",
-            name = "HDFC Savings",
-            type = "savings",
-            balanceMinor = 12450000L, // ₹1,24,500.00
-            currency = "INR",
-            bank = "HDFC Bank"
-        ),
-        AccountEntity(
-            id = 2,
-            accountKey = "icici_credit",
-            name = "ICICI Credit Card",
-            type = "credit",
-            balanceMinor = -456000L, // -₹4,560.00
-            currency = "INR",
-            bank = "ICICI Bank"
+            monthlyLimitMinor = 1000000L,
+            rolloverEnabled = false
         )
     )
 
@@ -312,25 +388,28 @@ object DemoDataGenerator {
             id = 1,
             counterparty = "Netflix",
             typicalAmountMinor = 450000L,
-            currency = "INR",
-            dueDayOfMonth = 15,
-            lastPaidAt = now.minus(20, ChronoUnit.DAYS).toEpochMilli()
+            dayOfMonth = 15,
+            categoryId = 5,
+            lastPaidAt = now.minus(20, ChronoUnit.DAYS).toEpochMilli(),
+            reminderEnabled = true
         ),
         BillEntity(
             id = 2,
             counterparty = "Spotify",
             typicalAmountMinor = 650000L,
-            currency = "INR",
-            dueDayOfMonth = 20,
-            lastPaidAt = now.minus(15, ChronoUnit.DAYS).toEpochMilli()
+            dayOfMonth = 20,
+            categoryId = 5,
+            lastPaidAt = now.minus(15, ChronoUnit.DAYS).toEpochMilli(),
+            reminderEnabled = true
         ),
         BillEntity(
             id = 3,
             counterparty = "Electricity Board",
             typicalAmountMinor = 2500000L,
-            currency = "INR",
-            dueDayOfMonth = 25,
-            lastPaidAt = now.minus(5, ChronoUnit.DAYS).toEpochMilli()
+            dayOfMonth = 25,
+            categoryId = 3,
+            lastPaidAt = now.minus(5, ChronoUnit.DAYS).toEpochMilli(),
+            reminderEnabled = true
         )
     )
 
@@ -377,7 +456,6 @@ object DemoDataGenerator {
             transactions = getDemoTransactions(),
             categories = getDemoCategories(),
             budgets = getDemoBudgets(),
-            accounts = getDemoAccounts(),
             bills = getDemoBills(),
             sms = getDemoSms()
         )
@@ -388,7 +466,6 @@ data class DemoDataSet(
     val transactions: List<TransactionEntity>,
     val categories: List<CategoryEntity>,
     val budgets: List<BudgetEntity>,
-    val accounts: List<AccountEntity>,
     val bills: List<BillEntity>,
     val sms: List<RawSmsEntity>
 )

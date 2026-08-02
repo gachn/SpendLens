@@ -16,6 +16,7 @@ import online.velozen.spendvault.data.demo.DemoDataGenerator
  * Demo mode screen for Play Store screenshots
  * Shows fake data that doesn't expose real financial information
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DemoModeScreen(
     onNavigateToDashboard: () -> Unit = {},
@@ -91,20 +92,18 @@ fun DemoModeScreen(
             }
 
             // Screen navigation
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("dashboard", "analytics", "transactions", "accounts").forEach { screen ->
-                    FilterChip(
-                        selected = selectedScreen == screen,
-                        onClick = { selectedScreen = screen },
-                        label = { Text(screen.capitalize()) }
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("dashboard", "analytics", "transactions").forEach { screen ->
+                        FilterChip(
+                            selected = selectedScreen == screen,
+                            onClick = { selectedScreen = screen },
+                            label = { Text(screen.capitalize()) }
+                        )
+                    }
                 }
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,7 +112,6 @@ fun DemoModeScreen(
                 "dashboard" -> DemoDashboardScreen()
                 "analytics" -> DemoAnalyticsScreen()
                 "transactions" -> DemoTransactionsScreen()
-                "accounts" -> DemoAccountsScreen()
             }
         }
     }
@@ -229,7 +227,7 @@ private fun DemoDashboardScreen() {
                         )
                     }
                     Text(
-                        DemoDataGenerator.formatMoney(category.budgetMinor),
+                        DemoDataGenerator.formatMoney(demoData.budgets.find { it.categoryId == category.id }?.monthlyLimitMinor ?: 0L),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -276,7 +274,7 @@ private fun DemoAnalyticsScreen() {
                         Text(category.name, style = MaterialTheme.typography.bodyLarge)
                     }
                     Text(
-                        DemoDataGenerator.formatMoney(category.budgetMinor),
+                        DemoDataGenerator.formatMoney(demoData.budgets.find { it.categoryId == category.id }?.monthlyLimitMinor ?: 0L),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -318,18 +316,18 @@ private fun DemoTransactionsScreen() {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            txn.merchant.first().toString(),
+                            txn.counterparty.first().toString(),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                txn.merchant,
+                                txn.counterparty,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                txn.category,
+                                demoData.categories.find { it.id == txn.categoryId }?.name ?: "Uncategorized",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -343,109 +341,6 @@ private fun DemoTransactionsScreen() {
                             MaterialTheme.colorScheme.primary 
                         else 
                             MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DemoAccountsScreen() {
-    val demoData = DemoDataGenerator.getAllDemoData()
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            "Accounts",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        demoData.accounts.forEach { account ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            account.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            account.type.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        DemoDataGenerator.formatMoney(account.balanceMinor),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (account.balanceMinor >= 0) 
-                            MaterialTheme.colorScheme.primary 
-                        else 
-                            MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        account.bank,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            "Bills & Subscriptions",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        demoData.bills.forEach { bill ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        bill.counterparty,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        DemoDataGenerator.formatMoney(bill.typicalAmountMinor),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
